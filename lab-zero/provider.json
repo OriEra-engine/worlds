@@ -1,0 +1,6 @@
+{
+  "kind": "rule",
+  "model": "rule-v1",
+  "base": "",
+  "note": "默认 rule 离线行（PROVIDER_PRESETS.rule：label=离线规则引擎）——假设卡/实验卡/评审卡走 track.json 离线卡池 + mulberry32 种子确定性发卡，0 token、台账回放逐位一致。切在线：OriEra Studio 模型中心保存并植入，或游戏页 F12 执行 localStorage.setItem('aicafe.llm.v1', JSON.stringify({kind:'deepseek',key:'你的Key',model:'deepseek-chat',base:'https://api.deepseek.com/v1'})) 后刷新（推荐 deepseek/zhipu：完整支持 json response_format 与 temperature 透传，kernel.js:76-82；Anthropic 分支不透传 temp 且无 json 通道，不推荐本赛道）。八厂商预设见 engine/kernel.js PROVIDER_PRESETS。本文件只是 Studio 侧配置快照，运行时不读；API Key 一律不写入任何项目文件。"
+}

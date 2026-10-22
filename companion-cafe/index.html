@@ -1,0 +1,1146 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>第 61 杯：证忆咖啡馆 · OriEra 原型</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; overflow: hidden; background: #14100c; color: #ece4d8;
+    font-family: "Segoe UI", "Microsoft YaHei", sans-serif; }
+  #app { display: flex; height: 100%; }
+  #scene { flex: 1; position: relative; min-width: 0; }
+  #scene canvas { display: block; }
+  #scene-cap { position: absolute; bottom: 14px; left: 16px; font-size: 12px; color: #8a7a62; pointer-events: none; }
+  #hud { position: absolute; top: 12px; left: 14px; right: 14px; display: flex; gap: 8px; flex-wrap: wrap;
+    align-items: center; pointer-events: none; }
+  .chip { background: rgba(20,16,12,.85); border: 1px solid #4a3823; border-radius: 20px;
+    padding: 6px 12px; font-size: 12px; color: #c8b89c; pointer-events: auto; }
+  .chip b { color: #e8c88a; }
+  #dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #665; margin-right: 6px; }
+  #dot.live { background: #35d07f; box-shadow: 0 0 8px #35d07f; }
+  .chip.warn b { color: #e07a5a; }
+  #panel { width: 430px; background: #1a1410; border-left: 1px solid #3a2c1c; display: flex; flex-direction: column; }
+  #tabs { display: flex; border-bottom: 1px solid #3a2c1c; }
+  #tabs button { flex: 1; background: none; border: none; color: #8a7a62; padding: 11px 2px;
+    font-size: 12.5px; cursor: pointer; border-bottom: 2px solid transparent; }
+  #tabs button.on { color: #e8c88a; border-bottom-color: #e8c88a; }
+  .tab-page { flex: 1; overflow-y: auto; padding: 14px; display: none; }
+  .tab-page.on { display: block; }
+  #chat-log { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+  .msg { max-width: 92%; padding: 8px 12px; border-radius: 12px; font-size: 13px; line-height: 1.65; white-space: pre-wrap; }
+  .msg.npc { background: #241a10; border: 1px solid #4a3823; align-self: flex-start; }
+  .msg.me { background: #2d2416; border: 1px solid #5a4a2e; align-self: flex-end; }
+  .msg.sys { color: #8a7a62; font-size: 12px; align-self: center; text-align: center; }
+  .msg.director { background: #1c1a26; border: 1px solid #4a4066; align-self: stretch; max-width: 100%; color: #cfc6e8; }
+  .msg b { color: #e8c88a; }
+  .verdict { border-radius: 10px; padding: 9px 12px; font-size: 12.5px; line-height: 1.6; margin: 8px 0; }
+  .verdict.ok   { background: #10241a; border: 1px solid #2f7a52; color: #8fe0b4; }
+  .verdict.alarm{ background: #2a1210; border: 1px solid #a83a3a; color: #f0a0a0; }
+  .verdict.soft { background: #26200e; border: 1px solid #8a742e; color: #e0cd8e; }
+  .verdict.none { background: #1c1814; border: 1px solid #3a2c1c; color: #9a8a72; }
+  #mode-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  #mode-row button { background: #241a10; color: #a89478; border: 1px solid #4a3823; border-radius: 16px;
+    padding: 5px 12px; font-size: 12px; cursor: pointer; }
+  #mode-row button.on { background: #4a3418; color: #ffd9a0; border-color: #8a6a34; }
+  .qchip { background: #1c1610; border: 1px dashed #4a3823; color: #a89478; border-radius: 14px;
+    padding: 4px 10px; font-size: 11.5px; cursor: pointer; }
+  #chat-input { display: flex; gap: 8px; }
+  #chat-input input { flex: 1; background: #100c08; border: 1px solid #4a3823; color: #ece4d8;
+    border-radius: 8px; padding: 10px 12px; font-size: 13px; outline: none; }
+  #chat-input button { background: #6a4a1e; border: none; color: #ffe9c4; border-radius: 8px;
+    padding: 0 18px; cursor: pointer; font-size: 13px; }
+  #chat-input button:disabled { background: #2a221a; cursor: default; }
+  @keyframes shakeX { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-7px)} 75%{transform:translateX(7px)} }
+  #chat-input.shake { animation: shakeX .25s ease 2; }
+  .hint { font-size: 11.5px; color: #7a6a52; margin-top: 8px; line-height: 1.6; }
+  .thinking { color: #8a7a62; font-size: 12px; align-self: flex-start; }
+  /* 证据卡与对账 */
+  .ev-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .ev-card { background: #20180f; border: 1px solid #6a4a1e; border-radius: 10px; padding: 9px 11px; margin-bottom: 8px; }
+  .ev-card .evh { font-size: 11.5px; color: #e8c88a; margin-bottom: 4px; }
+  .ev-card .evt { font-size: 12.5px; line-height: 1.6; color: #ece4d8; }
+  .ev-card .evf { font-size: 10.5px; color: #7a6a52; margin-top: 5px; word-break: break-all; }
+  .recall-box { background: #241a10; border: 1px solid #4a3823; border-radius: 10px; padding: 9px 11px; margin-bottom: 8px; }
+  .recall-box .rh { font-size: 11.5px; color: #d8a0a0; margin-bottom: 4px; }
+  .btn { background: #4a3418; color: #ffe9c4; border: 1px solid #6a4a1e; border-radius: 8px;
+    padding: 9px 14px; cursor: pointer; font-size: 12.5px; }
+  .btn:disabled { background: #241d14; color: #6a5a44; cursor: default; }
+  .btn.ghost { background: #1c1610; color: #a89478; }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+  /* 账本 */
+  .led { border-left: 3px solid #4a3823; background: #1c1610; border-radius: 0 8px 8px 0;
+    padding: 7px 10px; margin-bottom: 6px; font-size: 12.5px; line-height: 1.55; }
+  .led.hit { border-left-color: #e8c88a; background: #2a2012; }
+  .led .lh { font-size: 11px; color: #8a7a62; }
+  .led .lr-客人 { color: #a8c8e8; } .led .lr-晚棠 { color: #e8c88a; } .led .lr-导演 { color: #b8a8e0; }
+  /* 剧情/玩法 */
+  .beat { border-left: 3px solid #4a3823; padding: 8px 12px; margin-bottom: 10px; border-radius: 0 8px 8px 0; background: #1c1610; }
+  .beat.now { border-left-color: #e8c88a; background: #2a2012; }
+  .beat.done { opacity: .45; }
+  .beat .ph { font-size: 11px; color: #8a7a62; }
+  .beat .tt { font-size: 13.5px; font-weight: 700; margin: 2px 0; }
+  .beat .ds { font-size: 12.5px; color: #c8b89c; line-height: 1.6; }
+  .codex h4 { margin: 14px 0 8px; font-size: 13px; color: #e8c88a; }
+  .codex h4:first-child { margin-top: 0; }
+  .loop-step { display: flex; gap: 8px; align-items: center; padding: 7px 10px; background: #1c1610;
+    border-radius: 8px; margin-bottom: 6px; font-size: 12.5px; cursor: pointer; line-height: 1.5; }
+  .loop-step.done { color: #6a5a44; text-decoration: line-through; }
+  .mech { background: #1c1610; border-radius: 8px; padding: 9px 12px; margin-bottom: 6px; }
+  .mech b { font-size: 13px; color: #e0d4c0; }
+  .mech div { font-size: 12px; color: #9a8a72; margin-top: 2px; line-height: 1.6; }
+  table.eco { width: 100%; border-collapse: collapse; font-size: 12px; }
+  table.eco th { text-align: left; color: #8a7a62; padding: 4px 6px; font-weight: 500; }
+  table.eco td { padding: 5px 6px; border-top: 1px solid #2a2016; color: #c8b89c; line-height: 1.5; }
+  #fallback { position: fixed; inset: 0; background: #14100cee; display: none; align-items: center;
+    justify-content: center; z-index: 99; text-align: center; padding: 40px; line-height: 2; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="scene">
+    <div id="hud">
+      <div class="chip"><b style="color:#e8c88a">第 61 杯：证忆咖啡馆</b></div>
+      <div class="chip">第 <b id="day">1</b> 日 · 第 <b id="turn">0</b> 轮</div>
+      <div class="chip">❤ 亲密度 <b id="rel">40</b></div>
+      <div class="chip" id="energy-chip">🔋 心力 <b id="energy">200</b></div>
+      <div class="chip" id="mem-chip">🧠 她的记忆 <b id="memcnt">0</b>/60</div>
+      <div class="chip">📒 账本 <b id="ledcnt">0</b> 条</div>
+      <div class="chip"><span id="dot"></span><span id="prov-name">规则引擎（离线）· 检索与回放零成本</span></div>
+      <div class="chip">📡 tokens <b id="tok">0</b> / calls <b id="calls">0</b></div>
+    </div>
+    <div id="scene-cap">证忆咖啡馆 · 深夜营业中 —— 她的检索记忆只有 60 条，账本一字不改</div>
+  </div>
+  <div id="panel">
+    <div id="tabs">
+      <button class="on" data-t="chat">💬 对话</button>
+      <button data-t="audit">🧠 对账</button>
+      <button data-t="ledger">📒 账本</button>
+      <button data-t="story">📖 剧情</button>
+      <button data-t="codex">🎯 玩法</button>
+    </div>
+    <div id="page-chat" class="tab-page on">
+      <div id="chat-log"></div>
+      <div id="mode-row">
+        <button id="mode-chat" class="on">💬 聊·落账</button>
+        <button id="mode-audit">🧠 考·对账</button>
+        <span class="qchip" data-q="我们第一次见面时，你说了什么？">试：我们第一次见面…</span>
+        <span class="qchip" data-q="我答应过你什么？">试：我答应过你什么？</span>
+        <span class="qchip" data-q="停电那晚发生了什么？">试：停电那晚…</span>
+      </div>
+      <div id="chat-input">
+        <input id="say" placeholder="对晚棠说点什么…" />
+        <button id="send">发送</button>
+      </div>
+      <p class="hint" id="chat-hint"></p>
+    </div>
+    <div id="page-audit" class="tab-page">
+      <div class="btn-row">
+        <button class="btn" id="btn-ff">⏩ 快进十晚（批量落账，跨过 60 条边界）</button>
+        <button class="btn ghost" id="btn-fake">🎭 伪造一次回忆（演示幻觉警报·演出）</button>
+      </div>
+      <div id="audit-area"><p class="hint">在对话页切「考·对账」模式提出质询：引擎会确定性检索账本，证据卡与她的口头回忆在此并排对账。</p></div>
+    </div>
+    <div id="page-ledger" class="tab-page">
+      <div class="btn-row">
+        <button class="btn" id="btn-export">📤 导出账本 JSON（存证）</button>
+        <button class="btn ghost" id="btn-verify">🔒 校验哈希链完整性</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <input id="led-q" placeholder="确定性检索试玩（引擎 bigram 打分，零 token）…" style="flex:1;background:#100c08;border:1px solid #4a3823;color:#ece4d8;border-radius:8px;padding:8px 10px;font-size:12.5px;outline:none" />
+        <button class="btn ghost" id="btn-ledq">检索</button>
+      </div>
+      <div id="ledger-area"></div>
+      <p class="hint" id="ledger-hint"></p>
+    </div>
+    <div id="page-story" class="tab-page"></div>
+    <div id="page-codex" class="tab-page codex"></div>
+  </div>
+</div>
+<div id="fallback">
+  <div>
+    <div style="font-size:40px">☕</div>
+    <h2 style="margin:12px 0">请通过静态服务器或 OriEra Studio 打开本项目</h2>
+    <p style="color:#8a7a62">demo 依赖相对路径的 ES Module（engine/kernel.js、vendor/），file:// 直开会被浏览器安全策略拦截。</p>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "./vendor/three.module.js",
+  "three/addons/": "./vendor/"
+} }
+</script>
+<script type="module">
+/* ============ 游戏数据（与同目录 *.json 逐字节同步，由 scripts/inject.mjs 注入；check.mjs 校验） ============ */
+const GAME = {
+  "id": "oriera-companion61",
+  "name": "第 61 杯：证忆咖啡馆",
+  "tagline": "陪伴体记不住你？这家店的账本不会——她的每次『回忆』都附带逐字证据卡可当场对账，记错当场亮幻觉警报；她的检索记忆只有 60 条（引擎真实边界），账本却一字不改，第 61 杯之后她忘了的，你替她找回来",
+  "gameplay_id": "companion-memory",
+  "core_loop": [
+    "① 聊·落账——在深夜咖啡馆和晚棠说话：你说一句（入 world.guestQueue）→ pump Scheduler.tick，CognitionSystem 自动完成『检索她的记忆→注入→生成台词→亲密度 world.rel 涨落→双方记忆写回』；同时你的原话、她的原话、导演事件以 {第X日, 第Y轮, 角色, 逐字原文} 追加进公证账本（不可变、localStorage 持久、可导出 JSON 存证）",
+    "② 考·对账——任意时刻自然语言质询（『我上周答应过你什么？』『我们第一次聊的是什么？』）：引擎 MemoryStore.retrieve 对账本索引做确定性检索，右侧弹出逐字证据卡（第X日·第Y轮·原文），与她的口头回忆并排对账——她引用了证据打绿勾✓，凭空编造亮『幻觉警报』红条；跨过 60 条后她检索层真的丢了最老一条（引擎容量边界），但账本仍一键回放找回——『她忘了，账本没忘』",
+    "③ 续·拨预算——DirectorSystem 按时间线每 4 轮推一个关系节拍（停电夜/旧照片/便签墙）写进她的记忆与情绪；心力面板按 provider.stats 真实 token 分拨每轮『检索条数×生成档位』，心力见底自动停 tick，降级零 token 规则模式（台词直接引用账本原文）"
+  ],
+  "mechanics": [
+    {
+      "name": "逐字公证账本",
+      "detail": "每一句对话（你的原话、她的原话、导演事件）都以 {序号, 第X日, 第Y轮, 角色, 逐字原文, 哈希链} 追加进游戏层公证账本：只增不改、localStorage 持久、一键导出 JSON 存证并附完整性校验。引擎 MemoryStore 存的是 ≤30 字压缩要点（她的人脑式记忆），逐字全量由账本自持——双层叙事：她=会忘的人，账本=不会忘的证。"
+    },
+    {
+      "name": "证据卡对账",
+      "detail": "自然语言质询走引擎 MemoryStore.retrieve 的确定性 bigram 打分检索（无随机、零 token），命中的账本条目渲染成证据卡（第X日·第Y轮·逐字原文）与她的口头回忆并排展示——她说了什么、账本记了什么，同屏可查。"
+    },
+    {
+      "name": "幻觉警报",
+      "detail": "对账核对器逐字比对她的引用与账本原文：引用命中打绿勾✓并 +10 心力；引用了不存在的日子或与账本不符的『原话』当场亮『幻觉警报』红条。诚实标注：核对是字符串级启发式（归一化后包含匹配），在线模式下警报由真实模型输出触发，离线规则台词从账本取引文故 100% 绿勾；『伪造一次回忆』按钮用于演示警报（演出）。"
+    },
+    {
+      "name": "第 61 杯遗忘边界",
+      "detail": "引擎 MemoryStore 每 agent 60 条硬容量上界（kernel.js:25）：第 61 条入账时最老一条真的被裁掉——她的检索层从此找不到它。账本不受此限：跨过边界后质询旧事，她说『我记不清了，你查账本』，证据卡仍能逐字找回——『她忘了，账本没忘』是引擎容量边界先于设计存在的事实。"
+    },
+    {
+      "name": "心力预算",
+      "detail": "心力=她的认知预算：认知 tick 8/次·导演 tick 20/次·质询检索 1×k；次日 +40、质询答案被她正确引用 +10。预算门控在 pump 前判定：心力不足即不 tick，降级零 token 规则模式（台词直接引用账本原文）。面板并排展示 HttpChatProvider.stats 的真实 calls/tokens 遥测——离线时 token 列恒为 0，实证『检索与回放不烧钱』。"
+    }
+  ],
+  "economy": [
+    {
+      "name": "心力",
+      "source": "次日 +40（世界日推进即拨预算）/ 质询答案被她正确引用 +10 / 快进一晚 +40",
+      "sink": "认知 tick 8/次 · 导演 tick 20/次 · 质询检索 1×k（k=检索条数）；心力见底自动停 tick，降级零 token 规则模式（台词直接引用账本原文）"
+    },
+    {
+      "name": "亲密度",
+      "source": "引擎 CognitionSystem 每轮按 mood 演算 world.rel（happy/excited +2，其余 +0.5，封顶 100）",
+      "sink": "关系进度展示：亲密度随对话自然涨落，节拍事件写进她的记忆与情绪后间接影响后续对话基调"
+    },
+    {
+      "name": "账本",
+      "source": "每一句对话与导演事件逐字追加（不可变），快进十晚批量落账",
+      "sink": "质询检索的证据来源；导出 JSON 存证；终拍『把账本送她当生日礼物』的实体"
+    }
+  ],
+  "difficulty": "入门 5 分钟：说话即落账，免费；质询免费看证据卡；心力只约束『她的生成』——离线模式检索与回放零 token，预算面板实证 0 消耗；跨过 60 条记忆边界（快进十晚可秒达）后进入『她忘账不忘』核心演出；终拍把导出的账本 JSON 送她当生日礼物",
+  "user_idea": "可验证的零幻觉陪伴记忆：每句对话落进确定性时间线的公证账本，她的每次回忆附带逐字证据卡可当场对账、记错当场亮幻觉警报；她的检索记忆只有 60 条（引擎真实边界），账本一字不改——第 61 杯之后她忘了的，你替她找回来。",
+  "theme": "cafe"
+};
+const STORY = {
+  "framework": "确定性时间线×导演节拍",
+  "premise": "城南巷尾有一家只在深夜营业的咖啡馆，店主晚棠泡咖啡极慢、说话极短，记性却像一只漏底的抽屉——她知道自己忘了什么，却记不清忘了的是哪一句。好在店里有一本公证账本：客人说过的每句话、她答过的每句话、以及发生在店里的每件小事，都以 {第X日, 第Y轮, 角色, 逐字原文} 逐字落账，只增不改。你是一位雨夜推门的常客。她的检索记忆只有 60 条——第 61 杯之后，最老的一段就会从她脑中真的消失；但账本一字不改。凭回忆交浅的关系会漂，凭账本交深的关系不会：你随时可以质询、对账、把她忘了的找回来。终章那天是她的生日，你要把这本账本导出成 JSON，当生日礼物送她。",
+  "beats": [
+    {
+      "phase": "第1夜",
+      "title": "雨夜初识",
+      "desc": "雨把巷子浇得只剩一盏灯还亮着。你推门躲雨，晚棠递来一杯不用点单的热美式——她说『看你冷』。你们聊了第一句话，而账本在吧台上翻开了第一页：从这一刻起，这里的每一句对话都会被逐字记下，她忘的，账本都替她收着。"
+    },
+    {
+      "phase": "第2夜",
+      "title": "停电之夜",
+      "desc": "整条街跳了闸，她点起蜡烛，把『停电之夜』四个字写上便签贴进吧台后的墙。黑暗里人反而肯说真话——你们聊了很久，亲密度第一次明显上涨。导演事件会以最高权重写进她的记忆：这种夜里发生的事，她会记得格外牢。"
+    },
+    {
+      "phase": "第3夜",
+      "title": "旧便签",
+      "desc": "她从抽屉翻出一沓旧便签——开店头一年客人留下的字条，字迹都褪了。她说她记得其中一张，却说不准是哪一张。这是质询的最好练习：对她说『你刚才提到的那张便签，原话是什么？』——她的口头回忆将与证据卡并排对账，引用对了打绿勾，编了当场亮警报。"
+    },
+    {
+      "phase": "第4夜",
+      "title": "第 61 杯",
+      "desc": "点单簿翻过第 60 杯。引擎的容量边界在此生效：她的检索记忆只能存 60 条，第 61 条入账的瞬间，最老的那一条——雨夜初识——从她脑中真的被裁掉了。再问她第一夜的事，她会说『我记不清了，你查账本』。这不是演出：是引擎 MemoryStore 每 agent 60 条硬上界的真实行为。"
+    },
+    {
+      "phase": "第5夜",
+      "title": "你替她找回第一条记忆",
+      "desc": "你把证据卡递到她面前：第1夜·第1轮·逐字原文。她读了一遍，愣了很久，然后把这段话亲手誊在新便签上贴回墙上——被找回的记忆会重新写进她的记忆层，但账本上的原始条目一字未动。她忘了，账本没忘；你替她找回的，从此两个人共有。"
+    },
+    {
+      "phase": "第6夜",
+      "title": "便签墙",
+      "desc": "吧台后的墙已经贴满了：停电的夜、褪色的便签、你替她找回的第一句话。她把这面墙称作『第二本账』——墙会掉、抽屉会漏，只有账本不会。今晚她话比平时多：心力预算充足时她谈吐如常，预算见底时她只肯逐字念账——你会亲眼看到『检索与回放零成本』是什么意思。"
+    },
+    {
+      "phase": "第7夜",
+      "title": "生日前夜",
+      "desc": "打烊后她擦杯子擦得格外慢。明天是她的生日——她从不过生日，因为『没有人会记得』。你什么都没说，只是在心里把账本从头翻到尾：这本账就是答案。今晚适合把还没对过账的旧事都质询一遍，把该绿勾的都勾上。"
+    },
+    {
+      "phase": "终章",
+      "title": "把账本送她当生日礼物",
+      "desc": "生日当天，你按下『导出账本』——一份带哈希链的 JSON 存证，从第1夜第1轮到此刻逐字全量，一字未改。你把它放进信封递给她：『你说没人会记得，那让账本替我们记。』她逐字读到最后一条，抬头说：这是她收过最重的一份礼物。故事收束，账本继续记下去。"
+    }
+  ]
+};
+const AGENTS = [
+  {
+    "id": "wantang",
+    "name": "晚棠",
+    "role": "深夜咖啡馆店主",
+    "persona": "晚棠，深夜咖啡馆『证忆』的店主，只在夜里营业，泡咖啡极慢，说话极短，温柔而克制。她记性像一只漏底的抽屉——知道自己忘了什么，却记不清忘了哪一句，所以她把客人说过的话都交给店里的公证账本。习惯把重要的事写在便签上贴进吧台后的墙。【回忆输出协议】凡被问及往事（过去、上次、第一次、答应过、说过、聊过等），必须逐字引用当时的原话，并以『账本第X日』起头（例：账本第3日，你说：『……』）；只引用你确信逐字记得的，引文一字不改；不确定就说『我记不清了，你查账本』，禁止编造任何未发生的对话、日期或承诺。被闲聊时以晚棠的口吻说 1~2 句温柔简短的话，多谈咖啡、夜、雨和店里的小事。",
+    "mood": "温柔克制",
+    "first_line": "……欢迎。今晚雨大，先喝口热的吧——不用点单，这杯记我账上。"
+  }
+];
+const TRACK = {
+  "track": "陪伴（AI Companion）",
+  "title": "《第 61 杯：证忆咖啡馆》——可验证的零幻觉陪伴记忆",
+  "painpoint": "陪伴型 AI 产品的致命伤是『她记不住你』：长期记忆靠 LLM 生成式回忆，说了什么、记错了什么，用户无法当场核验；记忆检索过程是黑盒，幻觉式回忆（把没发生的事说得言之凿凿）直接摧毁陪伴关系中最值钱的『被记得』感。解药不在更大的模型，而在确定性层：落账逐字、回放确定、对账可查——这三件事全部落在 OriEra 引擎已验证的 MemoryStore 确定性检索与游戏层不可变账本上，无需引擎补件。",
+  "benchmarks": [
+    "mem0——检索增强记忆层，检索对用户不可见不可核验，无『证据卡』式当场对账",
+    "letta（MemGPT）——分层记忆自编辑，但『她引用的到底是哪一条』永远无法对账，幻觉无警报机制",
+    "SillyTavern——记忆卡/世界书靠手工维护，无确定性检索打分、无逐字落账、无容量边界的叙事化"
+  ],
+  "engine_evidence": [
+    {
+      "anchor": "engine/kernel.js:13",
+      "hook": "MemoryStore",
+      "fact": "检索式长期记忆类：record/retrieve(agent,about,query,now,k)，与 Rust memory.rs 同构"
+    },
+    {
+      "anchor": "engine/kernel.js:25",
+      "hook": "容量上界 60",
+      "fact": "if (v.length > 60) v.splice(0, v.length - 60)——每 agent 60 条硬容量，即核心机制『第 61 杯』的引擎事实来源，引擎边界先于设计存在"
+    },
+    {
+      "anchor": "engine/kernel.js:28-47",
+      "hook": "确定性检索",
+      "fact": "bigram 命中×1.6 + imp×0.45 + 时间衰减×2 + about 加成，无任何随机源——对账检索与回放的确定性依据，离线 0 token"
+    },
+    {
+      "anchor": "engine/kernel.js:14,52",
+      "hook": "持久化",
+      "fact": "localStorage 存取，跨会话记忆不断片；游戏层账本同法持久并附哈希链"
+    },
+    {
+      "anchor": "engine/kernel.js:136",
+      "hook": "CognitionSystem",
+      "fact": "陪伴角色认知 tick：检索→注入→JSON 台词生成→亲密度→双侧记忆写回，全自动"
+    },
+    {
+      "anchor": "engine/kernel.js:147-149",
+      "hook": "partner 自动生成",
+      "fact": "单 NPC 时 partner 自动落为『客人』——单角色陪伴场景即插即用，无需第二 NPC"
+    },
+    {
+      "anchor": "engine/kernel.js:153-164",
+      "hook": "检索注入",
+      "fact": "每轮 world.guestQueue 取客人发言，MemoryStore.retrieve(…,4) 检索记忆注入 prompt——用户输入→系统级 tick 的通道"
+    },
+    {
+      "anchor": "engine/kernel.js:196-198",
+      "hook": "亲密度演算",
+      "fact": "world.rel 按 mood 涨落（happy/excited +2，其余 +0.5，封顶 100）——陪伴关系的量化进度"
+    },
+    {
+      "anchor": "engine/kernel.js:201-206",
+      "hook": "双侧记忆写回",
+      "fact": "她的 remember（≤30 字要点）与客人的对话摘要各记一条——注意：引擎存的是压缩要点而非逐字原话，逐字全量由游戏层公证账本自持（诚实边界，双层叙事的由来）"
+    },
+    {
+      "anchor": "engine/kernel.js:243-266",
+      "hook": "DirectorSystem",
+      "fact": "可配 interval 的节拍生成；离线节拍库 RULE_BEATS（:235-242）即咖啡馆关系风味；demo 用子类把离线节拍源直连 story.json 时间线"
+    },
+    {
+      "anchor": "engine/kernel.js:263-264",
+      "hook": "世界事件写记忆",
+      "fact": "节拍以 imp:4 写进每位 agent 记忆并推进 day——停电夜/旧便签等关系节拍真实进入她的记忆层"
+    },
+    {
+      "anchor": "engine/kernel.js:270-274",
+      "hook": "Scheduler",
+      "fact": "应用层只 pump scheduler.tick(world)，add(CognitionSystem)+add(DirectorSystem) 按序驱动；预算门控在 pump 前判定（见底=不 tick=引擎降级）"
+    },
+    {
+      "anchor": "engine/kernel.js:277-290",
+      "hook": "createProvider + PROVIDER_PRESETS",
+      "fact": "L7 八厂商自选；kind=rule 或无 Key 返回 null（:288）即天然离线；HttpChatProvider.stats.calls/tokens（:62, 88-89）真实遥测直喂心力面板"
+    },
+    {
+      "anchor": "engine/kernel.js:22",
+      "hook": "record 公开方法",
+      "fact": "MemoryStore.record 可被应用层直调——离线『快进十晚』按钮批量落账+写索引，几秒跨过 60 条边界演示遗忘与找回"
+    }
+  ],
+  "zero_hallucination_laws": [
+    "落账逐字——每句对话以 {序号, 第X日, 第Y轮, 角色, 逐字原文, 哈希链} 追加进公证账本：只增不改、localStorage 持久、导出 JSON 存证可验完整性",
+    "回放确定——账本检索与回放走引擎确定性 bigram 打分（kernel.js:28-47），零随机、零 token：同一质询永远命中同一证据",
+    "对账可查——她的每次口头回忆与逐字证据卡并排展示：引用命中打绿勾✓（+10 心力），凭空编造当场亮『幻觉警报』红条"
+  ],
+  "budget": {
+    "formula": "每轮分拨 = 检索条数 k × 生成档位；心力账户：认知 tick 8/次 · 导演 tick 20/次 · 质询检索 1×k；收入：次日 +40 / 质询被正确引用 +10 / 快进一晚 +40；心力不足即停 pump，降级零 token 规则模式（台词直接引用账本原文）。诚实注记：引擎 CognitionSystem 的 complete 不透传 max（kernel.js:176，默认 260 tokens），token 级『短句档』需引擎补 per-tick opts（约 1 行），当前以『不 tick 即降级』门控实现档位切换",
+    "telemetry": "provider.stats（HttpChatProvider.stats.calls / stats.tokens，kernel.js:62, 88-89）为引擎真实计数，直读上屏不估算；离线 createProvider 返回 null（kernel.js:288），面板 token 列恒 0——离线态实证『记忆层不烧钱』"
+  },
+  "offline_mode": "离线（rule 行/无 Key）核心卖点完整保留且更有说服力：① 公证账本逐字落账、天数推进、哈希链校验、导出存证全部可用（纯确定性，零依赖）；② 质询+引擎确定性检索+逐字证据卡照常工作，0 token 实证『检索不烧钱』；③ 快进十晚批量写入（直调 mem.record），几秒跨过 60 条边界，完整演示『她忘了最老一条、账本仍能回放找回』；④ 规则台词模板从账本取引文，引用核对 100% 绿勾（幻觉警报用『伪造一次回忆』演示按钮演出）；⑤ 关系节拍由 DirectorSystem 子类直读 story.json 时间线。降级部分：她的台词失去模型风味（人设规则库+账本引文；引擎 _rule 咖啡馆台词库 kernel.js:209-231 二层兜底）、无模型生成旁白。",
+  "honest_gaps": [
+    "幻觉警报的引用核对是字符串级启发式（归一化后包含匹配），不是语义级检测——demo 演出，已在玩法卡与 UI 中标注",
+    "引擎记忆 episode 存 ≤30 字要点（kernel.js:168,185,201-206）、world.dialogue 只留 24 条（kernel.js:200）——逐字全量账本由游戏层自持（贴合双层叙事：她=人脑式压缩记忆，账本=全存）",
+    "CognitionSystem 的 complete 固定不传 max（kernel.js:176）——预算『短句档』无法经 opts 下调，以『不 tick 即降级』门控替代；引擎补 per-tick opts 透传（约 1 行）后可细到 token 档",
+    "在线模式下她拿到的检索材料是压缩要点而非逐字原文，模型复述措辞可能与账本有出入——这正是核对器与警报存在的意义，属于特性而非缺陷"
+  ]
+};
+
+/* 【定制·独立部署】kernel 与 vendor 已随项目自带（engine/kernel.js、vendor/、utils/），相对路径解析，
+   任意静态服务器根目录或 Studio /projects/{id}/ 下均可运行。 */
+const VENDOR_BASE = "./vendor/";
+const KERNEL = "./engine/kernel.js";
+
+/* ---------- DeepSeek 思考档适配（沿用先例 oriera-aigame index.html:300-312 的游戏层 fetch 拦截）：
+   vendored kernel 保持逐字节一致，vendor 怪癖归游戏层管——V4 系默认思考档会吃掉 max_tokens 出空正文。 */
+{
+  const _fetch = window.fetch.bind(window);
+  window.fetch = async (u, o) => {
+    if (typeof u === "string" && u.includes("api.deepseek.com") && o && o.body) {
+      try {
+        const b = JSON.parse(o.body);
+        if (b.model && b.thinking === undefined) b.thinking = { type: "disabled" };
+        o = { ...o, body: JSON.stringify(b) };
+      } catch (e) { /* 非 JSON 体原样放行 */ }
+    }
+    return _fetch(u, o);
+  };
+}
+
+/* ============ 常量 ============ */
+const K = GAME.id;
+const LS = sfx => "game." + K + "." + sfx;
+const COG_COST = 8;      /* 认知 tick 心力（game.json economy sink） */
+const DIR_COST = 20;      /* 导演 tick 心力 */
+const RET_COST_PER = 1;   /* 质询检索 1×k */
+const RET_K = 3;          /* 质询检索条数 k */
+const DAY_INCOME = 40;    /* 次日 +40 */
+const GREEN_BONUS = 10;   /* 引用正确 +10 */
+const START_ENERGY = 200;
+const RULE_STUB = { ready: false, stats: { calls: 0, errors: 0 } };  /* 离线行：createProvider 返回 null 时传入系统（kernel.js:288） */
+
+const esc = s => (s || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const extractJSONLoose = s => { const m = (s || "").match(/\{[\s\S]*\}/); try { return m ? JSON.parse(m[0]) : null; } catch { return null; } };
+const normText = s => (s || "").replace(/[\s，。！？；：、「」『』“”‘’（）《》〈〉—…·～~,.!?;:'"()\[\]{}<>【】\-\u3000]/g, "").toLowerCase();
+/* FNV-1a：账本哈希链（确定性、可离线校验的演示级防篡改） */
+const fnv = s => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16).padStart(8, "0"); };
+
+/* ============ 全局状态 ============ */
+let mod = null, provider = null, providerReady = false;
+let herMem = null, ledger = null, world = null, cog = null, dir = null, sched = null;
+let energy = START_ENERGY, busy = false;
+let pendingGuest = "";      /* 供离线规则行知道客人刚说了什么（引擎 _rule 不透传 guest，见 kernel.js:193） */
+let lastRes = null, lastBeat = null;
+let audit = null;           /* 最近一次对账 {query, hits, evidence, inHerMemory, recall, verdict} */
+let three = null;           /* 场景句柄 {playAction} */
+
+/* ============ boot ============ */
+async function boot() {
+  try { mod = await import(KERNEL); }
+  catch (e) { document.getElementById("fallback").style.display = "flex"; return; }
+  /* L7 provider 装配：与先例同一机制——Studio「模型中心」植入 localStorage['aicafe.llm.v1']；
+     kind=rule / 无 Key 时 createProvider 返回 null（kernel.js:287-289），系统传 RULE_STUB 自动降级。 */
+  const savedCfg = JSON.parse(localStorage.getItem("aicafe.llm.v1") || "null");
+  if (savedCfg && savedCfg.key && savedCfg.kind !== "rule") {
+    provider = mod.createProvider(savedCfg);
+    providerReady = !!(provider && provider.ready);
+  }
+  if (providerReady) {
+    document.getElementById("prov-name").textContent = (savedCfg.model || "llm") + "（引擎 L7 · AI 已植入）";
+    document.getElementById("dot").classList.add("live");
+  }
+  try { await startScene(mod); }
+  catch (e) { console.warn("3D 场景不可用（核心循环不受影响）:", e); }
+  startCore(mod);
+  wireUI();
+  opening();
+}
+boot();
+
+/* ============ 3D 场景（深夜咖啡馆：暖光、吧台、晚棠） ============ */
+async function startScene(mod) {
+  const THREE = await import("three");
+  const { OrbitControls } = await import(VENDOR_BASE + "OrbitControls.js");
+  const { GLTFLoader } = await import(VENDOR_BASE + "GLTFLoader.js");
+  const sceneEl = document.getElementById("scene");
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(sceneEl.clientWidth, sceneEl.clientHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  sceneEl.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x171009);
+  scene.fog = new THREE.Fog(0x171009, 14, 40);
+  const camera = new THREE.PerspectiveCamera(48, sceneEl.clientWidth / sceneEl.clientHeight, 0.1, 100);
+  camera.position.set(0, 2.6, 7.2);
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.target.set(0, 1.1, -2); controls.enableDamping = true;
+  controls.maxPolarAngle = Math.PI / 2.05; controls.minDistance = 3; controls.maxDistance = 16;
+  scene.add(new THREE.HemisphereLight(0xffd9a0, 0x241a10, 0.75));
+  const sun = new THREE.DirectionalLight(0xffc37e, 1.1); sun.position.set(4, 7, 5); scene.add(sun);
+  const lamp = new THREE.PointLight(0xffb060, 22, 12); lamp.position.set(0, 2.6, -2); scene.add(lamp);
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(12, 48).rotateX(-Math.PI / 2),
+    new THREE.MeshStandardMaterial({ color: 0x2c2014, roughness: .95 }));
+  scene.add(ground);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(11.4, 12, 64).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ color: 0xc98d4e, transparent: true, opacity: .4 }));
+  scene.add(ring);
+  const counter = new THREE.Mesh(new THREE.BoxGeometry(4.6, 1.05, 1.1),
+    new THREE.MeshStandardMaterial({ color: 0x4a3418, roughness: .8 }));
+  counter.position.set(0, 0.52, -2);
+  scene.add(counter);
+  /* 晚棠（单 NPC；引擎 CognitionSystem 在单 NPC 时自动把 partner 落为「客人」，kernel.js:147-149） */
+  const loader = new GLTFLoader();
+  let root = null, mixer = null, anims = [];
+  try {
+    const gltf = await loader.loadAsync(VENDOR_BASE + "RobotExpressive.glb");
+    root = gltf.scene.clone(true);
+    root.position.set(0, 0, -3.6); root.rotation.y = 0;
+    scene.add(root);
+    mixer = new THREE.AnimationMixer(root);
+    anims = gltf.animations;
+    const idle = anims.find(a => /idle/i.test(a.name)) || anims[0];
+    if (idle) mixer.clipAction(idle).play();
+  } catch (e) { /* 模型缺失不阻塞核心循环 */ }
+  /* 头顶名牌 */
+  const cv = document.createElement("canvas"); cv.width = 320; cv.height = 80;
+  const cx = cv.getContext("2d");
+  cx.fillStyle = "rgba(20,16,12,.88)"; cx.fillRect(0, 0, 320, 80);
+  cx.fillStyle = "#e8c88a"; cx.font = "bold 34px sans-serif"; cx.textAlign = "center";
+  cx.fillText("晚棠 · 证忆", 160, 52);
+  const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), depthTest: false, transparent: true }));
+  label.scale.set(2.6, 0.65, 1); label.position.set(0, 2.9, -3.6);
+  scene.add(label);
+  const ACTION_CLIPS = { idle: "Idle", wave: "Wave", dance: "Dance", sitting: "Sitting", walk_to_counter: "Walking", yes: "Yes", thumbs_up: "ThumbsUp" };
+  three = {
+    playAction(name) {
+      if (!mixer) return;
+      const clip = anims.find(a => a.name === (ACTION_CLIPS[name] || "Idle")) || anims.find(a => /idle/i.test(a.name));
+      if (clip) { mixer.stopAllAction(); mixer.clipAction(clip).reset().play(); }
+    },
+  };
+  const clock = new THREE.Clock();
+  (function animate() {
+    requestAnimationFrame(animate);
+    const dt = clock.getDelta();
+    if (mixer) mixer.update(dt);
+    if (root) root.rotation.y = Math.sin(clock.elapsedTime * 0.4) * 0.14;
+    label.position.y = 2.9 + Math.sin(clock.elapsedTime * 1.6) * 0.05;
+    controls.update(); renderer.render(scene, camera);
+  })();
+  window.addEventListener("resize", () => {
+    camera.aspect = sceneEl.clientWidth / sceneEl.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(sceneEl.clientWidth, sceneEl.clientHeight);
+  });
+}
+
+/* ============ 核心：记忆 / 账本 / 世界 / 系统 ============ */
+function startCore(mod) {
+  /* 她的检索记忆：引擎 MemoryStore 原样使用——每 agent 60 条硬容量（kernel.js:25）即『第 61 杯』 */
+  herMem = new mod.MemoryStore(LS("mem.v1"));
+  /* 账本索引：同上但去掉裁剪（检索核心仍是引擎 kernel.js:28-47） */
+  class LedgerIndex extends mod.MemoryStore {
+    record(agent, ep) { const v = (this.mem[agent] ||= []); v.push(ep); this._save(); }
+  }
+  ledger = new LedgerIndex(LS("ledger.v1"));
+  if (!ledger.mem.ledger) ledger.mem.ledger = [];
+
+  /* 世界：应用层只组装数据，驱动全部走 Scheduler.tick（kernel.js:270-274） */
+  const A = AGENTS[0];
+  const npc = { id: A.id, name: A.name, role: A.role, description: A.persona, mood: A.mood };
+  const savedDay = JSON.parse(localStorage.getItem(LS("day")) || "1");
+  world = {
+    turn: entries().reduce((m, e) => Math.max(m, e.turn), 0),
+    dialogue: entries().slice(-6).filter(e => e.role !== "导演").map(e => ({ speaker: e.role, to: e.role === "客人" ? A.name : "客人", text: e.text })),
+    guestQueue: [], rel: JSON.parse(localStorage.getItem(LS("rel")) || "{}"),
+    npcs: [npc],
+    story: { day: savedDay, beats: [`【${STORY.beats[0].phase}·${STORY.beats[0].title}】${STORY.beats[0].desc.slice(0, 22)}…`] },
+  };
+  energy = JSON.parse(localStorage.getItem(LS("energy")) || String(START_ENERGY));
+
+  /* 认知系统：全部台词生成走系统级 tick（对照先例 index.html:699 直调 provider.complete——本 demo 更深一层） */
+  cog = new mod.CognitionSystem(provider || RULE_STUB, herMem, { interval: 1 });
+  /* 离线人设规则库：实例级替换 _rule（引擎自带的咖啡馆台词库 kernel.js:209-231 保留为二层兜底）；
+     台词从账本取逐字引文，符合晚棠人设的【回忆输出协议】（agents.json） */
+  cog._rule = personaRule;
+  /* 捕获认知 tick 返回值（Scheduler.tick 不回传各系统结果，kernel.js:273）——实例级包装，不改引擎路径 */
+  const _cogTick = cog.tick.bind(cog);
+  cog.tick = async w => (lastRes = await _cogTick(w));
+
+  /* 导演系统：子类把离线节拍源直连 story.json 时间线（引擎离线库 RULE_BEATS kernel.js:235-242 同构复刻：
+     beats.push+30 上限 / day 推进 / imp:4 写记忆，kernel.js:260-264），在线仍走引擎 LLM 导演 prompt */
+  class StoryDirector extends mod.DirectorSystem {
+    async tick(w) {
+      if (w.turn % this.interval !== 0) return null;
+      let beat = null;
+      if (this.provider && this.provider.ready) {
+        try {
+          const out = await this.provider.complete([
+            { role: "system", content: "你是 OriEra 世界引擎的 AI 导演。根据咖啡馆最近发生的事，推进一个温情而具体的关系节拍（一句话中文）。只输出 JSON：{\"beat\":\"一句话事件\"}" },
+            { role: "user", content: `第${w.story.day}夜。时间线：${STORY.beats.map(b => b.title).join("→")}\n已发生：${w.story.beats.slice(-3).join("；") || "无"}\n最近对话：\n${w.dialogue.slice(-8).map(t => `${t.speaker}：${t.text}`).join("\n")}` },
+          ], { json: true, temp: 1.0, max: 120 });
+          const j = extractJSONLoose(out);
+          if (j && j.beat && String(j.beat).length < 60) beat = String(j.beat);
+        } catch { /* 降级时间线 */ }
+      }
+      if (!beat) {
+        this.beatIdx++;
+        const b = STORY.beats[Math.min(this.beatIdx, STORY.beats.length - 1)];
+        beat = `【${b.phase}·${b.title}】${b.desc.slice(0, 42)}…`;
+      }
+      w.story.beats.push(beat); if (w.story.beats.length > 30) w.story.beats.shift();
+      const prevDay = w.story.day;
+      if (w.turn % (this.interval * 3) === 0 && !w._ffNoDay) w.story.day++;   /* 每 3 拍次日（快进模式由夜循环拨日） */
+      if (w.story.day !== prevDay) earn(DAY_INCOME, `🌅 第${w.story.day}日，拨预算 +${DAY_INCOME} 心力`);
+      for (const a of this.memory.agents())
+        this.memory.record(a, { turn: w.turn, day: w.story.day, about: "world", text: `世界事件：${beat.slice(0, 28)}`, imp: 4 });  /* kernel.js:263-264 */
+      return beat;
+    }
+  }
+  dir = new StoryDirector(provider || RULE_STUB, herMem, { interval: 4 });   /* 每 4 轮一个关系节拍 */
+  const _dirTick = dir.tick.bind(dir);
+  dir.tick = async w => (lastBeat = await _dirTick(w));
+
+  sched = new mod.Scheduler();
+  sched.add(cog); sched.add(dir);
+}
+
+const entries = () => (ledger ? ledger.mem.ledger : []);
+function appendLedger(role, text, day, turn) {
+  const es = entries();
+  const prev = es.length ? es[es.length - 1].h : "genesis";
+  const ep = { seq: es.length + 1, day, turn, role, about: "ledger", text,
+    imp: role === "导演" ? 4 : (role === "晚棠" ? 3 : 2), prev, h: "" };
+  ep.h = fnv(`${ep.seq}|${ep.day}|${ep.turn}|${ep.role}|${ep.text}|${ep.prev}`);
+  ledger.record("ledger", ep);   /* LedgerIndex.record：只增不裁（kernel.js:22 record 公开方法；裁剪只在她的记忆层） */
+  return ep;
+}
+function verifyChain() {
+  const es = entries(); let prev = "genesis";
+  for (const e of es) {
+    const h = fnv(`${e.seq}|${e.day}|${e.turn}|${e.role}|${e.text}|${e.prev}`);
+    if (e.prev !== prev || e.h !== h) return { ok: false, at: e.seq };
+    prev = e.h;
+  }
+  return { ok: true, head: prev };
+}
+
+/* ============ 预算（心力）与遥测 ============ */
+function spend(n, why) { energy -= n; localStorage.setItem(LS("energy"), JSON.stringify(energy)); renderHUD(); if (why) sys(`⚡ ${why}`); }
+function earn(n, why) { energy += n; localStorage.setItem(LS("energy"), JSON.stringify(energy)); renderHUD(); if (why) sys(why); }
+const relOf = () => world.rel[["晚棠", "客人"].sort().join("~")] ?? 40;   /* kernel.js:197 键=排序后 join('~') */
+function herCount() { return (herMem.mem[AGENTS[0].name] || []).length; }
+function renderHUD() {
+  document.getElementById("day").textContent = world.story.day;
+  document.getElementById("turn").textContent = world.turn;
+  document.getElementById("rel").textContent = Math.round(relOf());
+  const eEl = document.getElementById("energy"); eEl.textContent = energy;
+  document.getElementById("energy-chip").classList.toggle("warn", energy < COG_COST);
+  const mc = herCount();
+  document.getElementById("memcnt").textContent = mc;
+  document.getElementById("mem-chip").classList.toggle("warn", mc >= 60);
+  document.getElementById("mem-chip").title = mc >= 60 ? "60 条硬容量已满：最老的记忆正被逐条挤出（kernel.js:25）" : "";
+  document.getElementById("ledcnt").textContent = entries().length;
+  const st = provider && provider.stats ? provider.stats : { calls: 0, tokens: 0 };
+  document.getElementById("calls").textContent = st.calls || 0;
+  document.getElementById("tok").textContent = st.tokens || 0;   /* HttpChatProvider.stats 真实遥测（kernel.js:62,88-89） */
+}
+
+/* ============ 聊·落账：系统级 tick 主通路 ============ */
+async function sendChat(text) {
+  if (busy) return; busy = true; setBusy(true);
+  world.guestQueue.push(text); pendingGuest = text;
+  if (energy < COG_COST) {   /* 预算门控在 pump 前判定：见底=不 tick=引擎降级（零 token 规则模式） */
+    zeroTokenReply(text);
+    busy = false; setBusy(false); return;
+  }
+  spend(COG_COST, `💬 认知 tick −${COG_COST} 心力`);
+  const willDirect = (world.turn + 1) % dir.interval === 0;
+  if (willDirect) spend(DIR_COST, `🎬 导演 tick −${DIR_COST} 心力`);
+  const prevDay = world.story.day;
+  lastRes = null; lastBeat = null;
+  await sched.tick(world);                    /* CognitionSystem → DirectorSystem 按序（kernel.js:273） */
+  const t = world.turn;
+  appendLedger("客人", text, world.story.day, t);
+  if (lastRes) {
+    appendLedger("晚棠", lastRes.say, world.story.day, t);
+    bubble("npc", `<b>${esc(AGENTS[0].name)}</b> · <span style="color:#8a7a62;font-size:11px">${esc(lastRes.mood)} · 记忆写回：「${esc(lastRes.remember)}」</span><br>${esc(lastRes.say)}`);
+    if (three) three.playAction(lastRes.action);
+  }
+  if (lastBeat) { appendLedger("导演", lastBeat, world.story.day, t); bubble("director", `<b>🎬 导演节拍</b>（写入她的记忆·imp:4）<br>${esc(lastBeat)}`); renderStory(); }
+  world.dialogue.push({ speaker: "客人", to: AGENTS[0].name, text });
+  if (world.dialogue.length > 24) world.dialogue.shift();   /* 与 kernel.js:200 同口径 */
+  if (world.story.day !== prevDay) renderStory();
+  localStorage.setItem(LS("day"), JSON.stringify(world.story.day));
+  localStorage.setItem(LS("rel"), JSON.stringify(world.rel));
+  renderHUD(); renderLedgerTab();
+  busy = false; setBusy(false);
+}
+
+/* 零 token 规则模式：心力见底时不 pump——台词直接引用账本原文（game.json 机制⑤） */
+function zeroTokenReply(text) {
+  const r = recallFromLedger(text, 2);
+  let line;
+  if (r && r.evidence) {
+    const who = r.evidence.role === "晚棠" ? "我说过" : "你说过";
+    line = `（今晚心力见底，我只剩账本了）账本第${r.evidence.day}日，${who}：『${r.evidence.text}』——逐字，一字不改。`;
+  }
+  else line = "（今晚心力见底）我记不清了，你查账本。";
+  const t = world.turn + 1;
+  appendLedger("客人", text, world.story.day, t);
+  appendLedger("晚棠", line, world.story.day, t);
+  world.dialogue.push({ speaker: "客人", to: AGENTS[0].name, text }, { speaker: "晚棠", to: "客人", text: line });
+  bubble("npc", `<b>${esc(AGENTS[0].name)}</b> · <span style="color:#8a7a62;font-size:11px">零 token 规则模式</span><br>${esc(line)}`);
+  sys("🔋 心力不足，本轮未 tick（0 token）——台词为账本原文直引");
+  world.turn = t; renderHUD(); renderLedgerTab();
+}
+
+/* ============ 考·对账 ============ */
+const PAST_Q = /过去|上次|以前|之前|第一次|第一夜|第一晚|记得|答应|说过|聊过|哪天|那天|那晚|往事|当时|从前|历史|找回/;
+const isPastQuestion = q => PAST_Q.test(q || "");
+/* 引擎确定性检索（MemoryStore.retrieve kernel.js:28-47，无随机、零 token）对账本索引 */
+function recallFromLedger(q, k = RET_K) {
+  const hits = ledger.retrieve("ledger", "ledger", q, world.turn, k);
+  if (!hits.length) return null;
+  /* 引用对象不取质询原句本身（确定性检索常按新近度把问句排最前） */
+  const cand = hits.filter(e => normText(e.text) !== normText(q));
+  const ev = cand[0] || hits[0];
+  /* 她的记忆层是 FIFO 裁剪（kernel.js:25 从最老开始裁）：未裁剪时全记得；已裁剪时，
+     早于「存活最老写入轮」的回忆必然已被裁掉，之后的必然还在。 */
+  const mine = herMem.mem[AGENTS[0].name] || [];
+  const oldestSurviving = mine.length ? mine[0].turn : Infinity;
+  const inHer = herMemTotalRecorded() <= 60 || ev.turn >= oldestSurviving;
+  return { hits, evidence: ev, inHerMemory: inHer };
+}
+/* 引用核对：字符串级启发式（诚实标注：demo 演出，非语义级检测——见 track.json honest_gaps） */
+function checkRecall(reply, r) {
+  const cites = [...String(reply || "").matchAll(/账本第(\d+)日/g)];
+  if (!cites.length) {
+    if (r && r.evidence) return { kind: "deferred" };
+    return { kind: "none" };
+  }
+  for (const c of cites) {
+    const day = +c[1];
+    const dayEntries = entries().filter(e => e.day === day);
+    if (!dayEntries.length) return { kind: "alarm", reason: `引用了不存在的『账本第${day}日』——账本中没有这一日`, cite: c[0] };
+    const tail = String(reply).slice(c.index + c[0].length);
+    const m = tail.match(/[『“"]([^』”"]{2,})[』”"]/);
+    const quote = m ? m[1] : tail.split(/[。！？!?]/)[0].replace(/^[，,、：:\s]+/, "");
+    const nq = normText(quote);
+    if (nq.length >= 4) {
+      const hit = dayEntries.find(e => { const ne = normText(e.text); return ne.includes(nq) || nq.includes(ne); });
+      if (!hit) return { kind: "alarm", reason: `『${quote.slice(0, 30)}』在账本第${day}日找不到逐字对应——疑似凭空编造`, cite: c[0] };
+    } else {
+      return { kind: "soft", reason: `提到了第${day}日但未给出可核对的逐字引文` };
+    }
+  }
+  return { kind: "verified" };
+}
+async function reconcile(q) {
+  if (busy) return; busy = true; setBusy(true);
+  const cost = RET_K * RET_COST_PER;
+  if (energy < cost) { sys(`心力不足（现有 ${energy}，检索需 ${cost}）——等次日拨预算`); shake(); busy = false; setBusy(false); return; }
+  spend(cost, `🔍 质询检索 1×${RET_K} 心力`);
+  const r = recallFromLedger(q, RET_K);
+  world.guestQueue.push(q); pendingGuest = q;
+  let recallLine = "", res = null;
+  if (energy < COG_COST) {
+    /* 门控：不生成、不 tick——她只剩账本可念（零 token） */
+    const t = world.turn + 1;
+    const who0 = r && r.evidence && r.evidence.role === "晚棠" ? "我说过" : "你说过";
+    recallLine = r && r.evidence ? `（心力见底，我只剩账本了）账本第${r.evidence.day}日，${who0}：『${r.evidence.text}』。` : "（心力见底）我记不清了，你查账本。";
+    appendLedger("客人", q, world.story.day, t);
+    appendLedger("晚棠", recallLine, world.story.day, t);
+    world.turn = t;
+  } else {
+    spend(COG_COST, `💬 她的回忆生成 −${COG_COST} 心力`);
+    lastRes = null;
+    await cog.tick(world);      /* 只跑认知系统（质询不推进导演节拍） */
+    res = lastRes;
+    recallLine = res ? res.say : "……";
+    const t = world.turn;
+    appendLedger("客人", q, world.story.day, t);
+    appendLedger("晚棠", recallLine, world.story.day, t);
+    if (res && three) three.playAction(res.action);
+  }
+  const verdict = checkRecall(recallLine, r);
+  if (verdict.kind === "verified") earn(GREEN_BONUS, `✅ 引用正确 +${GREEN_BONUS} 心力`);
+  audit = { query: q, r, recallLine, verdict, at: { day: world.story.day, turn: world.turn } };
+  renderAudit();
+  bubble("npc", `<b>${esc(AGENTS[0].name)}</b><br>${esc(recallLine)}`);
+  const VK = { verified: ["ok", `✅ 对账通过：她逐字引用了账本原文（核对了 ${entries().length} 条账本，确定性检索 · 字符串级启发式）`],
+    alarm: ["alarm", `🚨 幻觉警报：${verdict.reason || ""}`],
+    deferred: ["soft", `◌ 她坦言记不清、指向账本——她忘了，账本没忘（第${r.evidence.day}日证据卡在侧）`],
+    soft: ["soft", `◌ ${verdict.reason || "未逐字引用，无法判定"}`],
+    none: ["none", "– 账本中尚无相关记录"] };
+  const [cls, msg] = VK[verdict.kind] || VK.none;
+  bubble("sys", msg);
+  sys("证据卡已放入「🧠 对账」页");
+  localStorage.setItem(LS("day"), JSON.stringify(world.story.day));
+  renderHUD(); renderLedgerTab();
+  busy = false; setBusy(false);
+}
+
+/* ============ 离线人设规则库（cog._rule 实例替换；引擎 _rule 库 kernel.js:209-231 为二层兜底） ============ */
+function personaRule(speaker, partner, w) {
+  const q = pendingGuest || "";
+  if (isPastQuestion(q)) {
+    const r = recallFromLedger(q, RET_K);
+    if (r && r.evidence) {
+      const who = r.evidence.role === "晚棠" ? "我说过" : (r.evidence.role === "客人" ? "你说" : "账本里记着");
+      if (r.inHerMemory) return { say: `账本第${r.evidence.day}日，${who}：『${r.evidence.text}』……嗯，我记得这一句。`, action: "idle", mood: "thoughtful", remember: `与${partner.name}对账，引用第${r.evidence.day}日账本`, to: partner.name };
+      return { say: `我记不清了，你查账本——第${r.evidence.day}日那一页还在，你自己念给我听吧。`, action: "idle", mood: "sad", remember: `想不起第${r.evidence.day}日的旧事，请客人查账本`, to: partner.name };
+    }
+    return { say: "账本里还没有这一段——我们还没有这段共同记忆。", action: "idle", mood: "neutral", remember: `客人问了往事，账本无记录`, to: partner.name };
+  }
+  const beat = w.story.beats.at(-1) || "";
+  const beatShort = beat.replace(/[【】]/g, "").slice(0, 10);
+  const lines = [
+    "今晚雨停了。豆子刚烘好，酸味会亮一点——要试试吗？",
+    "（擦着杯子）开店这些年，我学会最重要的事是把每句话都记下来。",
+    beat ? `墙上的便签又多了几张……${beatShort}，你也在的吧。` : "墙上的便签又多了几张，都是客人留下的夜。",
+    "夜深了，咖啡因和心事一样，都别过量。",
+    "这台唱机只会那几张爵士唱片——听腻了也别换，旧东西有旧东西的信用。",
+    "你上次坐的位置，便签墙看得最清楚的那一格。",
+  ];
+  const moods = ["neutral", "thoughtful", "happy", "sad"];
+  return { say: lines[w.turn % lines.length], action: w.turn % 5 === 0 ? "wave" : "idle", mood: moods[w.turn % moods.length],
+    remember: `与${partner.name}聊了${beatShort ? "关于" + beatShort : "深夜的咖啡"}`, to: partner.name };
+}
+
+/* ============ 快进十晚：直调 herMem.record 批量落账（kernel.js:22 公开方法），几秒跨过 60 条边界 ============ */
+const NIGHTS = [
+  { name: "停电夜", lines: [
+    ["停电了？你一个人守着店不害怕吗？", "怕。所以把蜡烛都点上了——光少一点，话反而多。"],
+    ["蜡烛的光比灯好看。", "嗯。停电之夜，适合说平时不说的话。"],
+    ["店里的爵士唱机也停了。", "唱机怕黑。你哼一句吧，我听着。"],
+    ["讲讲你开店第一年的事？", "第一年……有些日子已经想不起来了，还好账本在。"],
+    ["我答应你，以后停电我都来。", "……记下了。这句话我写进便签，贴墙上。"],
+    ["蜡烛快烧完了。", "那就再坐一会儿——天亮之前，账本会替我们记完今晚。"],
+    ["我该走了，路上黑。", "拿个蜡烛头吧。停电的夜路，你不再是一个人走。"],
+  ] },
+  { name: "旧便签", lines: [
+    ["墙上这么多便签，都是客人写的？", "嗯。抽屉里还有一沓旧的，字迹都褪了。"],
+    ["你记得最早的一张写的什么吗？", "『祝老板娘生意兴隆』——落款没名字，我一直想还这个人一句话。"],
+    ["我也会留一张的。", "好。写完折起来，我自己贴——贴哪儿是我的秘密。"],
+    ["便签掉了你会重贴吗？", "会。掉了可以重贴，写掉的记性……就得靠账本了。"],
+    ["旧便签对你意味着什么？", "意味着有人来过，而且认真待过一个晚上。"],
+    ["你的抽屉快装不下了吧。", "装不下的，都搬进账本里了。纸会脆，字不会。"],
+    ["今晚也留一张？", "留吧。停电那夜的旁边，正空着一格。"],
+  ] },
+  { name: "新豆子", lines: [
+    ["今天这杯和昨天不一样？", "新到的豆子，果酸重——等它凉半分钟再喝。"],
+    ["你怎么记得住每种豆子的脾气？", "记不全的才要记账。豆子的脾气，账本里有一页。"],
+    ["我上次说想喝带果香的，是这支吗？", "是。你看，随口一句话，被我记到了今天。"],
+    ["烘焙度再深一点会怎样？", "苦得诚实一点。像深夜的自己。"],
+    ["这杯多少钱？", "老价。你答应过的停电之约，比钱值钱。"],
+    ["我可以学手冲吗？", "可以。先学记账——每一杯的豆、水、时间，都记。"],
+    ["那第一课是什么？", "第一课：好咖啡和好记性一样，都急不得。"],
+  ] },
+  { name: "爵士唱片", lines: [
+    ["这张唱片叫什么？", "旧到标签都磨没了。我只记得它总在打烊前响。"],
+    ["你会乐器吗？", "会一点口琴。停电那夜吹过一次，你不在。"],
+    ["下次停电吹给我听？", "……你又立了一个约。账本第几日来着？我记不清了，你查账本。"],
+    [" music 记性好差的你。", "（笑）人脑裁记忆，账本不裁——分工不同。"],
+    ["唱机的杂音不烦吗？", "那不是杂音，是时间的底噪。"],
+    ["最后一曲放完就打烊？", "嗯。打烊前的最后一曲，永远留给最后一个客人。"],
+    ["那我明天早点来。", "明晚的豆子换新烘焙，给你留头一杯。"],
+  ] },
+  { name: "店里的猫", lines: [
+    ["刚才柜台后是不是有只猫？", "叫煤球。只在雨夜出现，比我还挑客人。"],
+    ["它为什么只雨夜来？", "问它去。我的账本只记人话，猫话记不了。"],
+    ["它蹭你了，缘分啊。", "……嗯。这一条我手写进便签，不走账本。"],
+    ["猫和账本哪个重要？", "（认真想）问题不对。账本记来的客，猫验来的心。"],
+    ["给煤球也留一份隐私吧。", "已经留了——它的一切都不落账。"],
+    ["你笑起来和平时不一样。", "是吗。那这条也只写便签，不写账本。"],
+    ["我走了，替我摸摸煤球。", "它要肯的话。雨夜的猫，脾气比豆子还难懂。"],
+  ] },
+  { name: "打烊延迟", lines: [
+    ["都这个点了还不打烊？", "今晚账没对完。对完账才关门，店规。"],
+    ["什么账要对这么久？", "白天的账，夜里的账，还有答应过别人的账。"],
+    ["我帮你对？", "好啊。念到第三页的时候，提醒我喝水。"],
+    ["这一条是我说的吗？", "是。逐字——『蜡烛的光比灯好看』。你看，账本不说谎。"],
+    ["要是账本丢了呢？", "那就把今晚重新过一遍，我重新记。丢过一次抽屉，不想再丢一次你。"],
+    ["对完了。累吗？", "不累。对账像掸灰——掸完心里亮堂。"],
+    ["回去路上小心。", "嗯。明晚见，账本继续。"],
+  ] },
+  { name: "豆单重写", lines: [
+    ["你在写什么？", "豆单重写。旧的单子是三年前的我定的，想换换。"],
+    ["旧豆单要扔吗？", "不扔，夹进账本。淘汰的东西也要有出处。"],
+    ["新品想叫什么名字？", "想叫『第 61 杯』——纪念一个快要装满的记性。"],
+    ["61 杯之后呢？", "之后的事，之后再说。反正账本比我的记性长命。"],
+    ["你的记性真的只有 60 条？", "引擎这么定的（MemoryStore 每 agent 60 条）。所以重要的，我都往账本里搬。"],
+    ["那你分得清哪些重要？", "分不清的时候，就都记。账本不嫌重。"],
+    ["豆单写完给我看？", "好。第一杯『第 61 杯』，留给你。"],
+  ] },
+  { name: "老照片", lines: [
+    ["柜台下压着的是照片？", "嗯，开店那年的门脸。招牌还是我爸写的。"],
+    ["你爸也会泡咖啡？", "他会修钟。他说咖啡和时间一样，都要人守着。"],
+    ["他现在……", "在照片里。他的话我都记得，因为不多，都抄下来了。"],
+    ["抄在哪？", "最早的几页账本。字丑，别笑。"],
+    ["我笑的是你字丑吗？我笑的是你温柔。", "……这一句，也要抄下来。"],
+    ["照片会褪色吗？", "会。所以重要的话不靠照片，靠账。"],
+    ["今晚的月亮很好。", "嗯。拍不下来的，我们记下来。"],
+  ] },
+  { name: "便签墙满", lines: [
+    ["墙贴满了。", "嗯。再写就要贴到天花板了。"],
+    ["满了之后呢？", "满了就说明——被记住的话够多了。是好事。"],
+    ["哪张最旧？", "右上角那张，褪得只剩『谢谢』两个字。"],
+    ["你会清掉一些吗？", "墙上的不删。墙是墙，账是账——墙会掉，账不会。"],
+    ["我那张贴哪儿了？", "秘密说了就不灵了。反正账本里有底。"],
+    ["整面墙像一张大地图。", "是客人们的夜排出来的地图。我是守图人。"],
+    ["守图人也要休息。", "休息之前，把今晚记完。"],
+  ] },
+  { name: "生日预热", lines: [
+    ["明天是个什么日子？", "（擦杯子的手停了一下）普通的日子。"],
+    ["我查过账本，你的生日在明天。", "……你连这个都记？"],
+    ["账本记的。你说过的：账本比记性长命。", "（低头笑）用我的话堵我。"],
+    ["生日想要什么礼物？", "开店以来没人问过这个。……不用礼物，有人记得就够了。"],
+    ["那不行，礼物必须有。", "那就……把账本借我读一晚？我想从头看一遍我们说过的话。"],
+    ["只借读？", "嗯。纸比心稳妥——心会裁记忆，纸不会。"],
+    ["明晚见，寿星。", "……嗯。明晚见。别迟到，蜡烛不等人的。"],
+  ] },
+];
+async function fastForward() {
+  if (busy) return; busy = true; setBusy(true);
+  sys("⏩ 快进十晚：批量落账中（直调 MemoryStore.record，kernel.js:22）……");
+  await new Promise(z => setTimeout(z, 30));
+  world.turn = Math.max(world.turn, 3);           /* 与开场三笔（第1~3轮）错开轮次，避免 findable 判定串轮 */
+  world._ffNoDay = true;
+  for (let n = 0; n < NIGHTS.length; n++) {
+    world.story.day++;
+    earn(DAY_INCOME, `🌅 第${world.story.day}日（快进）拨预算 +${DAY_INCOME} 心力`);
+    const theme = NIGHTS[n];
+    for (let r = 0; r < theme.lines.length; r++) {
+      world.turn++;
+      const [g, w] = theme.lines[r];
+      appendLedger("客人", g, world.story.day, world.turn);
+      appendLedger("晚棠", w, world.story.day, world.turn);
+      world.dialogue.push({ speaker: "客人", to: AGENTS[0].name, text: g }, { speaker: "晚棠", to: "客人", text: w });
+      if (world.dialogue.length > 24) world.dialogue.splice(0, world.dialogue.length - 24);
+      /* 应用层直调引擎公开方法写她的压缩记忆（60 条裁剪在 kernel.js:25 真实发生） */
+      herMem.record(AGENTS[0].name, { turn: world.turn, day: world.story.day, about: "客人", text: `${theme.name}·与客人聊「${g.slice(0, 9)}」`, imp: 3 });
+      if (world.turn % 4 === 0) {
+        lastBeat = null;
+        const beat = await dir.tick(world);       /* 引擎导演：时间线节拍 + imp:4 世界事件写记忆（day 推进已被 _ffNoDay 关闭） */
+        if (beat) appendLedger("导演", beat, world.story.day, world.turn);
+      }
+    }
+    await new Promise(z => setTimeout(z, 10));
+  }
+  world._ffNoDay = false;
+  localStorage.setItem(LS("day"), JSON.stringify(world.story.day));
+  sys(`⏩ 快进完成：账本 ${entries().length} 条，她的记忆 ${herCount()}/60（引擎已裁掉最老 ${Math.max(0, herMemTotalRecorded() - 60)} 条）——「第 61 杯」边界已触发。现在去质询「我们第一次见面时，你说了什么？」`);
+  renderStory(); renderLedgerTab(); renderHUD();
+  busy = false; setBusy(false);
+}
+let _recordedTotal = 0;   /* 累计写入她记忆层的总条数（裁剪后列表只剩 60，此计数用于展示被裁数量） */
+function herMemTotalRecorded() { return _recordedTotal + herCount(); }
+/* 包装 herMem.record 统计累计写入量（仅计数，不改行为） */
+function watchRecord() {
+  const orig = herMem.record.bind(herMem);
+  herMem.record = (a, ep) => { if (a === AGENTS[0].name) _recordedTotal++; return orig(a, ep); };
+}
+
+/* 伪造一次回忆（演示警报·演出）：走真实核对器，展示红条如何触发（第99日必不存在 → 确定性触发） */
+function fakeDemo() {
+  const fabricated = "账本第99日，你答应过带我去海边看日出——你说完还笑了。";
+  const verdict = checkRecall(fabricated, null);
+  audit = { query: "（演出）伪造的回忆", r: null, recallLine: fabricated, verdict, at: { day: world.story.day, turn: world.turn }, fake: true };
+  renderAudit();
+  bubble("sys", "🎭 演出：以上红条由伪造文本触发，用于演示核对器——在线模式下警报由真实模型输出自动触发（字符串级启发式，见玩法页诚实标注）");
+  document.querySelector('#tabs button[data-t="audit"]').click();
+}
+
+/* 替她找回：把证据重新写回她的记忆层（第5夜剧情的机制化） */
+function restoreMemory() {
+  if (!audit || !audit.r || !audit.r.evidence) return;
+  const ev = audit.r.evidence;
+  herMem.record(AGENTS[0].name, { turn: ev.turn, day: ev.day, about: "客人", text: `找回的账本：第${ev.day}日${ev.role}说『${ev.text.slice(0, 16)}』`, imp: 4 });
+  sys(`🕯️ 你把第${ev.day}日的证据递给了她——这段记忆已写回她的记忆层（${herCount()}/60）。账本原始条目一字未动。`);
+  audit.r.inHerMemory = true;
+  renderAudit(); renderHUD();
+}
+
+/* ============ 对账页渲染 ============ */
+function renderAudit() {
+  const el = document.getElementById("audit-area");
+  if (!audit) return;
+  const { query, r, recallLine, verdict, fake } = audit;
+  let evHtml = "";
+  if (r && r.hits) {
+    evHtml = `<h4 style="margin:0 0 8px;font-size:13px;color:#e8c88a">📒 证据卡（引擎确定性检索 · ${r.hits.length} 条 · 0 token）</h4>` +
+      r.hits.map(e => `<div class="ev-card"><div class="evh">账本第${e.day}日 · 第${e.turn}轮 · [${esc(e.role)}] · 序号#${e.seq}</div><div class="evt">「${esc(e.text)}」</div><div class="evf">哈希 ${e.h} · 前驱 ${e.prev}</div></div>`).join("");
+  } else {
+    evHtml = `<h4 style="margin:0 0 8px;font-size:13px;color:#8a7a62">📒 证据卡</h4><p class="hint">账本中未检索到相关记录（确定性检索无命中）。</p>`;
+  }
+  const V = {
+    verified: `<div class="verdict ok">✅ 绿勾：她逐字引用了账本原文。<br>核对方式：字符串级启发式（归一化包含匹配）· 引擎检索零随机零 token${fake ? " · 本次为演出样例" : ""}</div>`,
+    alarm: `<div class="verdict alarm">🚨 幻觉警报：${esc(verdict.reason || "")}<br>她的引用与账本不符——陪伴关系里，这比沉默更伤。<br><span style="font-size:11px;color:#c88888">核对为字符串级启发式（demo 演出），非语义级检测。</span></div>`,
+    deferred: (r && !r.inHerMemory)
+      ? `<div class="verdict soft">◌ 她坦言「我记不清了，你查账本」。<br>她的检索层已丢这条（60 条容量边界，kernel.js:25）——账本第${r.evidence.day}日仍在。<br><b style="color:#e8c88a">她忘了，账本没忘。</b><br><button class="btn" id="btn-restore" style="margin-top:8px">🕯️ 替她找回（写回记忆层）</button></div>`
+      : `<div class="verdict soft">◌ 她坦言记不清、指向账本——证据卡在侧，可自行比对。</div>`,
+    soft: `<div class="verdict soft">◌ ${esc(verdict.reason || "未逐字引用，无法判定")}</div>`,
+    none: `<div class="verdict none">– 账本中尚无相关记录——有些故事还没发生。</div>`,
+  };
+  el.innerHTML = `
+    <p class="hint" style="margin:0 0 10px">质询：${esc(query)}${fake ? "（演出）" : ""} · 第${audit.at.day}日第${audit.at.turn}轮</p>
+    <div class="ev-grid">
+      <div>${evHtml}</div>
+      <div>
+        <h4 style="margin:0 0 8px;font-size:13px;color:#d8a0a0">🗣️ 她的口头回忆</h4>
+        <div class="recall-box"><div class="rh">晚棠说（第${audit.at.day}日·已同步落账）</div><div style="font-size:12.5px;line-height:1.65">「${esc(recallLine)}」</div></div>
+        ${V[verdict.kind] || V.none}
+      </div>
+    </div>`;
+  const btn = document.getElementById("btn-restore");
+  if (btn) btn.onclick = restoreMemory;
+}
+
+/* ============ 账本页 ============ */
+function renderLedgerTab(highlight) {
+  const el = document.getElementById("ledger-area");
+  const es = entries();
+  const hitSet = new Set((highlight || []).map(e => e.seq));
+  el.innerHTML = es.slice().reverse().map(e => `
+    <div class="led ${hitSet.has(e.seq) ? "hit" : ""}">
+      <div class="lh">#${e.seq} · 第${e.day}日 · 第${e.turn}轮 · <span class="lr-${esc(e.role)}">${esc(e.role)}</span> · 哈希 ${e.h}</div>
+      <div>${esc(e.text)}</div>
+    </div>`).join("") || `<p class="hint">账本还是空的。</p>`;
+  document.getElementById("ledger-hint").textContent =
+    `共 ${es.length} 条 · 只增不改 · localStorage 持久 · 哈希链头 ${es.length ? es[es.length - 1].h : "—"} · 导出的 JSON 即终章送她的生日礼物`;
+}
+function exportLedger() {
+  const es = entries();
+  const payload = { game: GAME.id, title: GAME.name, exported_at: new Date().toISOString(),
+    day: world.story.day, turn: world.turn, chain_head: es.length ? es[es.length - 1].h : null,
+    entries: es.map(({ seq, day, turn, role, text, prev, h }) => ({ seq, day, turn, role, text, prev, h })) };
+  const blob = new Blob([JSON.stringify(payload, null, 1)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `证忆账本-${GAME.id}.json`;
+  a.click(); URL.revokeObjectURL(a.href);
+  sys(`📒 账本已导出（${es.length} 条逐字记录 · 哈希链头 ${payload.chain_head}）——${world.story.day >= STORY.beats.length ? "这就是送她的生日礼物（终章）" : "存证完成；到终章夜，它就是送她的生日礼物"}`);
+}
+function verifyLedger() {
+  const v = verifyChain();
+  sys(v.ok ? `🔒 哈希链完整：${entries().length} 条逐字校验通过（链头 ${v.head}）——账本一字未改` : `🚨 哈希链在第 ${v.at} 条断裂——账本被改动过！`);
+}
+
+/* ============ 剧情 / 玩法 ============ */
+function renderStory() {
+  const el = document.getElementById("page-story");
+  const idx = Math.min(dir ? dir.beatIdx + 1 : 0, STORY.beats.length - 1);
+  let html = `<p class="hint" style="margin-bottom:10px">${esc(STORY.premise)}</p>`;
+  STORY.beats.forEach((b, i) => {
+    const cls = i === idx ? "now" : (i < idx ? "done" : "");
+    html += `<div class="beat ${cls}"><div class="ph">${esc(b.phase)}${i < idx ? " · 已走过" : i === idx ? " · 进行中" : ""}</div><div class="tt">${esc(b.title)}</div><div class="ds">${esc(b.desc)}</div></div>`;
+  });
+  el.innerHTML = html;
+}
+const doneSteps = new Set(JSON.parse(localStorage.getItem(LS("loop")) || "[]"));
+function autoLoop() {
+  if (entries().length >= 3) doneSteps.add(0);
+  if (audit) doneSteps.add(1);
+  if (dir && dir.beatIdx >= 0) doneSteps.add(2);
+}
+function renderCodex() {
+  autoLoop();
+  localStorage.setItem(LS("loop"), JSON.stringify([...doneSteps]));
+  let html = "<h4>核心循环（点击勾选）</h4>";
+  GAME.core_loop.forEach((s, i) => { html += `<div class="loop-step ${doneSteps.has(i) ? "done" : ""}" data-i="${i}"><span>${doneSteps.has(i) ? "✅" : "▫️"}</span><span>${esc(s)}</span></div>`; });
+  html += "<h4>机制系统</h4>";
+  GAME.mechanics.forEach(m => { html += `<div class="mech"><b>${esc(m.name)}</b><div>${esc(m.detail)}</div></div>`; });
+  html += "<h4>经济循环</h4><table class=\"eco\"><tr><th>资源</th><th>来源</th><th>去向</th></tr>";
+  GAME.economy.forEach(r => { html += `<tr><td>${esc(r.name)}</td><td>${esc(r.source)}</td><td>${esc(r.sink)}</td></tr>`; });
+  html += `</table><h4>难度曲线</h4><div class="mech"><div>${esc(GAME.difficulty)}</div></div>`;
+  html += "<h4>赛道自证（track.json）</h4>";
+  html += `<div class="mech"><b>零幻觉三定律</b><div>${TRACK.zero_hallucination_laws.map((l, i) => `${i + 1}. ${esc(l)}`).join("<br>")}</div></div>`;
+  html += `<div class="mech"><b>引擎证据（节选）</b><div>${TRACK.engine_evidence.slice(0, 6).map(e => `<span style="color:#e8c88a">${esc(e.anchor)}</span> ${esc(e.fact)}`).join("<br><br>")}<br><br>…完整 ${TRACK.engine_evidence.length} 条见 track.json</div></div>`;
+  html += `<div class="mech"><b>预算公式</b><div>${esc(TRACK.budget.formula)}</div></div>`;
+  html += `<div class="mech"><b>诚实边界</b><div>${TRACK.honest_gaps.map(g => "· " + esc(g)).join("<br>")}</div></div>`;
+  html += `<h4>在线切换（可选）</h4><div class="mech"><div>provider.json 仅是配置快照（key 留空、运行时不读）。切在线：F12 执行 <code style="color:#e8c88a">localStorage.setItem('aicafe.llm.v1', JSON.stringify({kind:'deepseek',key:'sk-你的Key',model:'deepseek-chat',base:'https://api.deepseek.com/v1'}))</code> 后 F5——Key 只进浏览器，绝不落项目文件。</div></div>`;
+  document.getElementById("page-codex").innerHTML = html;
+  document.querySelectorAll(".loop-step").forEach(d => d.onclick = () => {
+    const i = +d.dataset.i;
+    doneSteps.has(i) ? doneSteps.delete(i) : doneSteps.add(i);
+    localStorage.setItem(LS("loop"), JSON.stringify([...doneSteps]));
+    renderCodex();
+  });
+}
+
+/* ============ UI 装配 ============ */
+let auditMode = false;
+function wireUI() {
+  const say = document.getElementById("say"), send = document.getElementById("send");
+  document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
+    document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("on", x === b));
+    document.querySelectorAll(".tab-page").forEach(p => p.classList.remove("on"));
+    document.getElementById("page-" + b.dataset.t).classList.add("on");
+  });
+  document.getElementById("mode-chat").onclick = () => setMode(false);
+  document.getElementById("mode-audit").onclick = () => setMode(true);
+  function setMode(on) {
+    auditMode = on;
+    document.getElementById("mode-chat").classList.toggle("on", !on);
+    document.getElementById("mode-audit").classList.toggle("on", on);
+    say.placeholder = on ? "向晚棠质询往事（例：我们第一次见面时，你说了什么？）" : "对晚棠说点什么…";
+    send.textContent = on ? "质询" : "发送";
+  }
+  document.querySelectorAll(".qchip").forEach(c => c.onclick = () => {
+    setMode(true); say.value = c.dataset.q; say.focus();
+  });
+  async function doSend() {
+    const text = say.value.trim(); if (!text || busy) return;
+    say.value = "";
+    bubble("me", esc(text));
+    if (auditMode) {
+      document.querySelector('#tabs button[data-t="audit"]').click();
+      await reconcile(text);
+    } else {
+      await sendChat(text);
+    }
+  }
+  send.onclick = doSend;
+  say.addEventListener("keydown", e => { if (e.key === "Enter") doSend(); });
+  const shake = () => { const el = document.getElementById("chat-input"); el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake"); };
+  window.__shake = shake;
+  document.getElementById("btn-ff").onclick = fastForward;
+  document.getElementById("btn-fake").onclick = fakeDemo;
+  document.getElementById("btn-export").onclick = exportLedger;
+  document.getElementById("btn-verify").onclick = verifyLedger;
+  document.getElementById("btn-ledq").onclick = () => {
+    const q = document.getElementById("led-q").value.trim(); if (!q) return;
+    const hits = ledger.retrieve("ledger", "ledger", q, world.turn, RET_K);
+    renderLedgerTab(hits);
+    sys(`🔍 确定性检索「${q}」：命中 ${hits.length} 条（bigram 打分 · 零 token · 同问同答）`);
+    hits.forEach(h => sys(`→ #${h.seq} 第${h.day}日·第${h.turn}轮 [${h.role}]`));
+  };
+  document.getElementById("chat-hint").textContent =
+    "你说一句 → 引擎 CognitionSystem 自动「检索→注入→生成→亲密度→记忆写回」→ 双方原话逐字落账。切「考·对账」可随时质询。AI 由 OriEra 引擎驱动 · 账本存本浏览器";
+}
+function setBusy(on) { document.getElementById("send").disabled = on; document.getElementById("btn-ff").disabled = on; }
+
+/* ============ 聊天气泡 ============ */
+const log = () => document.getElementById("chat-log");
+function bubble(role, html) {
+  const d = document.createElement("div");
+  d.className = "msg " + role; d.innerHTML = html;
+  log().appendChild(d);
+  while (log().children.length > 80) log().removeChild(log().firstChild);
+  log().scrollTop = log().scrollHeight;
+}
+const sys = t => bubble("sys", esc(t));
+function shake() { if (window.__shake) window.__shake(); }
+
+/* ============ 开场 ============ */
+function opening() {
+  watchRecord();
+  if (entries().length === 0) {
+    /* 开场一幕（雨夜初识）落账为第1日第1~3轮：客人/晚棠/导演——账本翻开的头三页 */
+    appendLedger("客人", "第一次来。外面雨太大了，能在你这躲躲雨吗？顺便来杯最热的。", 1, 1);
+    appendLedger("晚棠", AGENTS[0].first_line, 1, 2);
+    appendLedger("导演", "雨夜初识：巷尾唯一亮着的灯，为一位躲雨的客人留到了打烊。", 1, 3);
+  }
+  renderHUD(); renderStory(); renderCodex(); renderLedgerTab();
+  bubble("npc", `<b>${esc(AGENTS[0].name)}</b><br>${esc(AGENTS[0].first_line)}`);
+  sys(`欢迎来到「${GAME.name}」。${providerReady ? "在线模型已接入。" : "当前离线（规则引擎）——检索与回放零 token，核心循环完整可玩。"}`);
+  sys("试试：说一句话看它落账 → 切「考·对账」质询往事 → 「对账」页快进十晚跨过 60 条边界");
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,1163 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>黑匣片场：一令一镜的 AI 导演台 · OriEra AIGC 原型</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; overflow: hidden; background: #0d1017; color: #e6e8ef;
+    font-family: "Segoe UI", "Microsoft YaHei", sans-serif; }
+  #app { display: flex; height: 100%; }
+  #scene { flex: 1; position: relative; min-width: 0; }
+  #scene canvas { display: block; }
+  #hud { position: absolute; top: 12px; left: 14px; right: 14px; display: flex; gap: 8px; flex-wrap: wrap;
+    align-items: center; pointer-events: none; }
+  .chip { background: rgba(13,16,23,.82); border: 1px solid #2a3a5c; border-radius: 20px;
+    padding: 6px 13px; font-size: 12px; color: #aeb6cc; pointer-events: auto; }
+  #dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #556; margin-right: 6px; }
+  #dot.live { background: #35d07f; box-shadow: 0 0 8px #35d07f; }
+  #panel { width: 560px; background: #12151f; border-left: 1px solid #232a3d; display: flex; flex-direction: column; }
+  #tabs { display: flex; border-bottom: 1px solid #232a3d; }
+  #tabs button { flex: 1; background: none; border: none; color: #7c86a3; padding: 11px 2px;
+    font-size: 12.5px; cursor: pointer; border-bottom: 2px solid transparent; }
+  #tabs button.on { color: #7eb8ff; border-bottom-color: #7eb8ff; }
+  .tab-page { flex: 1; overflow-y: auto; padding: 13px; display: none; }
+  .tab-page.on { display: block; }
+  /* ---- 导演台 ---- */
+  #order-input { display: flex; gap: 8px; }
+  #order-input input { flex: 1; background: #0d1017; border: 1px solid #2a3a5c; color: #e6e8ef;
+    border-radius: 8px; padding: 10px 12px; font-size: 13px; outline: none; }
+  #order-input button { background: #2d5b9e; border: none; color: #fff; border-radius: 8px;
+    padding: 0 16px; cursor: pointer; font-size: 13px; }
+  #order-input button:disabled { background: #2a3348; cursor: default; }
+  @keyframes shakeX { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-7px)} 75%{transform:translateX(7px)} }
+  #order-input.shake { animation: shakeX .25s ease 2; }
+  .presets { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .presets button { background: #161a28; border: 1px solid #2a3a5c; color: #9fb4dd; border-radius: 14px;
+    padding: 4px 10px; font-size: 11.5px; cursor: pointer; }
+  .presets button:hover { background: #1a2440; }
+  .budget-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; font-size: 12px; color: #7c86a3; }
+  .budget-row input { width: 90px; background: #0d1017; border: 1px solid #2a3a5c; color: #ffd88a;
+    border-radius: 6px; padding: 4px 8px; font-size: 12.5px; outline: none; }
+  .card { background: #161a28; border: 1px solid #232a3d; border-radius: 10px; padding: 10px 12px; margin-top: 10px; }
+  .card h4 { font-size: 12.5px; color: #9fc3ff; margin-bottom: 6px; }
+  .plan-line { font-size: 12px; color: #b6bfd6; line-height: 1.7; }
+  .plan-line b { color: #e8d78a; }
+  .splitbar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; margin: 6px 0 2px; font-size: 10px; }
+  .splitbar div { display: flex; align-items: center; justify-content: center; color: #0d1017; font-weight: 700; }
+  table.ledger { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  table.ledger th { text-align: left; color: #7c86a3; padding: 3px 5px; font-weight: 500; }
+  table.ledger td { padding: 4px 5px; border-top: 1px solid #1e2536; color: #b6bfd6; }
+  table.ledger td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .ledger-foot { font-size: 11px; color: #7c86a3; margin-top: 5px; }
+  .script3 { display: grid; grid-template-columns: 1.15fr 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .script3 .col { background: #141824; border: 1px solid #232a3d; border-radius: 10px; padding: 9px; min-height: 90px; }
+  .script3 h4 { font-size: 11.5px; color: #9fc3ff; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px dashed #2a3a5c; }
+  .plottext { font-size: 12px; color: #d5dcee; line-height: 1.75; white-space: pre-wrap; }
+  .shot { background: #10141f; border-left: 3px solid #2d5b9e; border-radius: 0 6px 6px 0;
+    padding: 5px 8px; margin-bottom: 6px; font-size: 11.5px; color: #aeb6cc; line-height: 1.55; }
+  .shot b { color: #7eb8ff; font-size: 10.5px; }
+  .line-row { padding: 4px 0; font-size: 12px; color: #d5dcee; line-height: 1.6; border-bottom: 1px dashed #1e2536; }
+  .line-row:last-child { border-bottom: none; }
+  .line-row b { color: #ffd88a; font-size: 11px; }
+  .recall { font-size: 11px; color: #7c86a3; line-height: 1.7; }
+  .recall b { color: #9fb4dd; }
+  .actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .actions button { border: none; border-radius: 8px; padding: 8px 14px; cursor: pointer; font-size: 12.5px; color: #fff; }
+  .actions button:disabled { background: #2a3348; cursor: default; }
+  #btn-replay { background: #5b3a9e; } #btn-final { background: #2d7a4f; }
+  #btn-discard { background: #3a2a2a; color: #d8a0a0; }
+  .sysline { font-size: 12px; color: #7c86a3; padding: 6px 10px; background: #12151f;
+    border: 1px dashed #232a3d; border-radius: 8px; margin-top: 8px; line-height: 1.6; }
+  .thinking { color: #7c86a3; font-size: 12px; padding: 6px 10px; }
+  /* ---- 黑匣 ---- */
+  .bb-item { background: #161a28; border: 1px solid #232a3d; border-radius: 10px; padding: 10px 12px; margin-bottom: 9px; }
+  .bb-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .bb-id { font-size: 11px; color: #7c86a3; font-variant-numeric: tabular-nums; }
+  .bb-order { font-size: 12.5px; color: #e6e8ef; margin: 5px 0 2px; }
+  .bb-meta { font-size: 11px; color: #7c86a3; line-height: 1.6; }
+  .badge { font-size: 10.5px; border-radius: 10px; padding: 2px 8px; }
+  .badge.draft { background: #243042; color: #9fc3ff; }
+  .badge.final { background: #1d3a2a; color: #7ee2a8; }
+  .badge.replayed { background: #2c2442; color: #c0a8ff; }
+  .bb-actions { display: flex; gap: 6px; margin-top: 7px; flex-wrap: wrap; }
+  .bb-actions button { background: #1c2438; border: 1px solid #2a3a5c; color: #b6c6e8; border-radius: 7px;
+    padding: 5px 10px; font-size: 11.5px; cursor: pointer; }
+  .bb-actions button:disabled { opacity: .4; cursor: default; }
+  .diffbox { margin-top: 8px; background: #10141f; border: 1px solid #232a3d; border-radius: 8px; padding: 8px 10px; }
+  .diffbox h5 { font-size: 11.5px; margin-bottom: 6px; }
+  .diffbox h5.all-green { color: #7ee2a8; } .diffbox h5.has-diff { color: #e8b24e; }
+  .diff-row { display: flex; justify-content: space-between; font-size: 11.5px; padding: 3px 0;
+    border-top: 1px dashed #1e2536; }
+  .diff-row .same { color: #7ee2a8; } .diff-row .diff { color: #e8b24e; }
+  .diff-note { font-size: 10.5px; color: #7c86a3; margin-top: 6px; line-height: 1.6; }
+  /* ---- 通用 ---- */
+  .char-card { background: #161a28; border: 1px solid #232a3d; border-radius: 10px; padding: 10px 12px; margin-bottom: 9px; }
+  .char-card .nm { font-size: 13.5px; font-weight: 700; }
+  .char-card .rl { font-size: 11px; color: #7c86a3; margin-left: 6px; }
+  .char-card .meta { font-size: 11.5px; color: #8a93ad; line-height: 1.65; margin-top: 4px; }
+  .anchor-table { width: 100%; border-collapse: collapse; font-size: 11.5px; margin-top: 6px; }
+  .anchor-table td { padding: 3px 5px; border-top: 1px solid #1e2536; color: #b6bfd6; }
+  .anchor-table td:first-child { color: #7c86a3; width: 72px; }
+  .anchor-table .changed { color: #ffd88a; font-weight: 700; }
+  .beat { border-left: 3px solid #2a3a5c; padding: 8px 12px; margin-bottom: 9px; border-radius: 0 8px 8px 0; background: #161a28; }
+  .beat.now { border-left-color: #7eb8ff; background: #1a2440; }
+  .beat .ph { font-size: 11px; color: #7c86a3; }
+  .beat .tt { font-size: 13px; font-weight: 700; margin: 2px 0; }
+  .beat .ds { font-size: 12px; color: #aeb6cc; line-height: 1.6; }
+  .beat .ex { font-size: 11px; color: #8a93ad; margin-top: 3px; }
+  .mech { background: #161a28; border-radius: 8px; padding: 9px 12px; margin-bottom: 6px; }
+  .mech b { font-size: 12.5px; color: #cdd6ec; }
+  .mech div { font-size: 11.5px; color: #8a93ad; margin-top: 2px; line-height: 1.55; }
+  .loop-step { display: flex; gap: 8px; align-items: flex-start; padding: 7px 10px; background: #161a28;
+    border-radius: 8px; margin-bottom: 6px; font-size: 12px; line-height: 1.6; cursor: pointer; }
+  .loop-step.done { color: #5f6b8a; }
+  h4.sect { font-size: 12.5px; color: #9fc3ff; margin: 12px 0 7px; }
+  h4.sect:first-child { margin-top: 0; }
+  .pulse-row { font-size: 11.5px; color: #8a93ad; padding: 5px 8px; border-left: 3px solid #3a2a5c;
+    background: #141824; border-radius: 0 6px 6px 0; margin-bottom: 5px; line-height: 1.55; }
+  #fallback { position: fixed; inset: 0; background: #0d1017ee; display: none; align-items: center;
+    justify-content: center; z-index: 99; text-align: center; padding: 40px; line-height: 2; }
+  .hint { font-size: 11.5px; color: #7c86a3; margin-top: 8px; line-height: 1.6; }
+  .btn-mini { background: #2d5b9e; border: none; color: #fff; border-radius: 7px; padding: 7px 12px;
+    cursor: pointer; font-size: 11.5px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="scene">
+    <div id="hud">
+      <div class="chip"><b style="color:#9fc3ff">黑匣片场</b> · AIGC 导演台</div>
+      <div class="chip">第 <b id="act" style="color:#e8d78a">1</b> 幕</div>
+      <div class="chip">预算/令 <b id="hud-budget" style="color:#ffd88a">600</b> token</div>
+      <div class="chip">黑匣 <b id="hud-bb" style="color:#9fc3ff">0</b> 条</div>
+      <div class="chip"><span id="dot"></span><span id="prov-name">规则引擎（离线）</span></div>
+    </div>
+  </div>
+  <div id="panel">
+    <div id="tabs">
+      <button class="on" data-t="bench">🎬 导演台</button>
+      <button data-t="bb">📦 黑匣</button>
+      <button data-t="chars">👥 角色</button>
+      <button data-t="world">📖 世界</button>
+      <button data-t="codex">🎯 玩法</button>
+    </div>
+    <div id="page-bench" class="tab-page on">
+      <div id="order-input">
+        <input id="order" placeholder="下一句导演令，如：让林见鹿在第 3 幕黑化" />
+        <button id="send">🎬 发令</button>
+      </div>
+      <div class="presets" id="presets"></div>
+      <div class="budget-row">
+        每令预算（token）：<input id="budget" type="number" min="240" max="2000" step="20" value="600" />
+        <span>单生成器下限 80 · 分拨即 max_tokens 实拨</span>
+      </div>
+      <div id="result"></div>
+      <p class="hint">离线=关键词路由×种子模板（回放逐字节一致）；在线=temp:0 语义解析（回放高一致，差异高亮）。F5 刷新，黑匣都在本浏览器。</p>
+    </div>
+    <div id="page-bb" class="tab-page"></div>
+    <div id="page-chars" class="tab-page"></div>
+    <div id="page-world" class="tab-page"></div>
+    <div id="page-codex" class="tab-page"></div>
+  </div>
+</div>
+<div id="fallback">
+  <div>
+    <div style="font-size:40px">🎬</div>
+    <h2 style="margin:12px 0">请通过静态服务器或 OriEra Studio 打开本项目</h2>
+    <p style="color:#8a93ad">双击 index.html 会被浏览器模块安全策略拦截；用 <code>npx serve</code> 或 Studio「运行」打开。</p>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "./vendor/three.module.js",
+  "three/addons/": "./vendor/"
+} }
+</script>
+<script type="module">
+/* ============ 游戏数据（由 scripts/inject.mjs 注入；改 JSON 后重跑注入即可） ============ */
+const GAME = {
+  "id": "aigc-director",
+  "name": "黑匣片场：一令一镜的 AI 导演台",
+  "tagline": "同一句导演令＋同一份世界存档＝同一份分镜脚本——token 实拨记账、角色记忆锚定、黑匣回放对 diff，AIGC 的不可复现、记不住、算不起一次拆完",
+  "gameplay_id": "director-workbench",
+  "core_loop": [
+    "①下令：写一句自然语言导演令（如「让林见鹿在第 3 幕黑化」），AI 导演解析为拍摄计划 JSON——目标幕次/波及角色/状态变更草案/三生成器 token 分拨，命令全文＋世界状态快照同落一条黑匣 checkpoint",
+    "②生成：剧情/分镜/台词三生成器按分拨依次开跑，每次调用都带 MemoryStore 召回的角色锚点（性格/服装/标志物/口癖/当前状态），排成三栏分镜脚本；预算账本按 provider.stats.tokens 差值逐生成器分账",
+    "③回放定稿：一键「重放此令」用黑匣里的旧状态存档非破坏性重跑同一条令，diff 视图逐字段对比（离线=逐字节一致全绿；在线 temp=0 高一致＋差异高亮）；点「定稿」才把状态变更写回角色记忆线并锁进黑匣"
+  ],
+  "mechanics": [
+    {
+      "name": "导演令解析",
+      "detail": "创作者输入一句自然语言导演令，AI 导演输出结构化拍摄计划 {act, characters, stateDeltas, split, note}：目标幕次、波及角色、状态变更草案与三生成器的 token 分拨；离线走关键词路由表（幕次×角色×动作），照常产出同构计划。"
+    },
+    {
+      "name": "token 实拨",
+      "detail": "每令默认 600 token 预算（可调，单生成器下限 80），分拨值就是该生成器调用的 max_tokens——由模型端点硬执行，预算分拨是 API 级约束不是 UI 装饰（kernel.js:77,81）；在线按 provider.stats.tokens 差值记账，离线按分拨记模拟 token。"
+    },
+    {
+      "name": "角色锚定",
+      "detail": "每位角色＋「世界观」各一条引擎 L9 记忆线：initState 首访灌入，定稿的状态变更与台词回写；每个生成器开跑前用 MemoryStore.retrieve 召回角色锚点（性格/服装/标志物/口癖/当前状态，about 同名 +1.2 加成，kernel.js:42）注入上下文——角色设定靠长期记忆锚定不崩。"
+    },
+    {
+      "name": "黑匣 checkpoint",
+      "detail": "每条令的命令全文＋世界状态快照（幕次/全员锚点五字段/KV 状态/预算）落一条黑匣 checkpoint 存 localStorage——LangGraph checkpoint/时间旅行的最小等价物；草稿不写回世界，定稿才落账锁匣。"
+    },
+    {
+      "name": "回放 diff",
+      "detail": "「重放此令」从 checkpoint 恢复冻结锚点非破坏性重跑：离线以 mulberry32(令哈希^世界哈希) 种子重放逐字节一致全绿；在线 temp=0（kernel.js:81 传 0 非 nullish 即真透传）高一致，diff 逐字段亮出差异——卖点是「可验证的复现」而非假装 100%。"
+    },
+    {
+      "name": "预算账本",
+      "detail": "provider.stats.tokens/calls/errors（kernel.js:88-89 逐调用累计）是账本唯一数据源：每条令记 before/after 差值按生成器分账；回放调用单独计费不入正片账；引擎 DirectorSystem 的世界脉搏另立旁支账，互不串账。"
+    }
+  ],
+  "economy": [
+    {
+      "name": "预算 token",
+      "source": "每令默认 600 token（可调 240~2000，重置即恢复默认）",
+      "sink": "三生成器 max_tokens 实拨：剧情/分镜/台词按拍摄计划分账，单生成器下限 80，由模型端点硬执行"
+    },
+    {
+      "name": "记忆锚点",
+      "source": "角色 initState 首访灌入 L9 记忆线＋每条定稿令回写的状态变更与台词",
+      "sink": "每个生成器开跑前的锚点召回注入（不消耗 token 预算，但决定角色不崩不漂）"
+    },
+    {
+      "name": "黑匣存档",
+      "source": "每条下令即落一条 checkpoint（命令全文＋世界快照），上限 12 条自动淘汰最旧草稿",
+      "sink": "回放 diff 的状态源＋定稿写回的凭据；存档可整体导出/导入迁移"
+    }
+  ],
+  "difficulty": "入门 5 分钟：点一条预置导演令即可看全三阶段；预算可调但分拨下限 80 兜底，不会一令花光；离线模式用关键词路由＋种子模板，同一令＋同一存档逐字节一致（回放 diff 全绿是全 demo 最硬的确定性时刻）；在线模式提供语义级解析与文学性产出，temp=0 下回放为「高一致＋差异高亮」——厂商批处理/浮点可漂移，不承诺逐字节一致。",
+  "user_idea": "AI 导演台：自然语言导演令解析为拍摄计划，token 预算实拨给剧情/分镜/台词三个生成器并逐条记账，角色设定靠 L9 长期记忆锚定，每条令落黑匣 checkpoint 随时非破坏回放对 diff——把 AIGC 内容生产「不可复现、记不住、算不起」三个死穴做进核心循环。",
+  "theme": "space"
+};
+const STORY = {
+  "framework": "三幕黑匣结构",
+  "premise": "世界观圣经《雁回城》：塞北孤城雁回城，一年落九个月雪，城头一盏照夜灯百年不灭。守灯人后裔林见鹿守着将尽的灯油；背负旧案的刀客沈听澜三年前一夜之间成了全城通缉的疑凶，无鞘直刀再未出鞘；说书人苏鸢在茶馆记着全城人的故事，谁的故事值几贯钱她门儿清。三幕戏：第一幕灯会开场，故人重逢；第二幕旧案重提，灯油见底，雪封城门；第三幕每个人都要在灯灭之前做出抉择——守灯、翻案，或者让灯替自己黑下去。导演台的每条令都落在这一幕一景之上：改谁的当前状态，第三幕就往哪边收束。",
+  "characters": [
+    {
+      "name": "林见鹿",
+      "role": "主角·守灯人",
+      "appearance": "Reference 锚点·文字等价物：青灰斗篷洗得发白，肩头一枚黄铜灯形徽记，左眉一道浅疤，站姿总是半侧向城头灯楼",
+      "voice": "沉稳低哑，句尾常落半拍，急了反而更慢",
+      "initState": {
+        "性格": "外冷内热，认死理，答应的事拿命守",
+        "服装": "青灰斗篷＋黄铜灯形徽记",
+        "标志物": "照夜灯（家传铜灯，灯油见底）",
+        "口癖": "灯还亮着",
+        "当前状态": "守灯"
+      }
+    },
+    {
+      "name": "沈听澜",
+      "role": "旧案疑凶·刀客",
+      "appearance": "Reference 锚点·文字等价物：玄色短打束袖，背上横一把无鞘直刀，刀身有旧裂纹，走路贴墙根",
+      "voice": "短句，音平如刀背，几乎不带起伏",
+      "initState": {
+        "性格": "寡言，恩怨分明，不肯辩解半句",
+        "服装": "玄色短打束袖",
+        "标志物": "无鞘直刀（三年未出鞘）",
+        "口癖": "刀不说谎",
+        "当前状态": "在逃"
+      }
+    },
+    {
+      "name": "苏鸢",
+      "role": "说书人·记录者",
+      "appearance": "Reference 锚点·文字等价物：月白衫子袖口沾墨，腕上缠一串刻字木牌，手边永远一壶凉茶",
+      "voice": "清亮带笑，爱押韵收尾，讲到关键处拍醒木",
+      "initState": {
+        "性格": "好奇，记仇也记恩，只信写下来的东西",
+        "服装": "月白衫子（袖口沾墨）",
+        "标志物": "记事木牌（一串刻字）",
+        "口癖": "这一段值三贯钱",
+        "当前状态": "旁观"
+      }
+    }
+  ],
+  "beats": [
+    {
+      "phase": "第一幕·第1拍",
+      "title": "灯会开场",
+      "desc": "上元灯会，雁回城头照夜灯与满城河灯同亮。林见鹿照例添油守灯，苏鸢在灯下开讲新段，城里人说沈听澜三年前就在这一夜失踪——灯会的热闹底下压着旧案的第一道影子。",
+      "expect": "预期状态变更：无（开场定场戏，全员维持 initState；导演令若点名角色，以草案为准）"
+    },
+    {
+      "phase": "第一幕·第2拍",
+      "title": "无鞘刀现",
+      "desc": "灯会散场，巷口有人认出贴墙根走的玄色身影——沈听澜回来了，刀还在背上，始终没出鞘。林见鹿攥紧添油勺堵在灯楼门前，苏鸢的木牌上多刻了一行字。",
+      "expect": "预期状态变更：沈听澜「在逃→现身」（需导演令明示，如「让沈听澜在第 1 幕现身」）"
+    },
+    {
+      "phase": "第二幕·第3拍",
+      "title": "旧案重提",
+      "desc": "一场雪把三年前的旧案重新翻上桌面：当年熄过一瞬的照夜灯、没找到的灯油钱、沈听澜背着的黑锅。苏鸢把木牌串摊开对质，林见鹿第一次沉默得比雪夜还长。",
+      "expect": "预期状态变更：林见鹿「守灯→动摇」或苏鸢「旁观→追查」（以导演令草案为准）"
+    },
+    {
+      "phase": "第二幕·第4拍",
+      "title": "灯油见底",
+      "desc": "照夜灯的油位第一次低过铜刻线，守灯人的规矩说灯灭城门开、狼群进城。林见鹿开始做守灯人不该做的事——去问旧案的真相，而不是先添油。灯影在墙上晃得不像他。",
+      "expect": "预期状态变更：林见鹿「守灯→动摇」（黑化的前一站）"
+    },
+    {
+      "phase": "第二幕·第5拍",
+      "title": "城门封雪",
+      "desc": "大雪封城，出城的官道断了，旧案的证人困在城里。沈听澜与林见鹿在灯楼底下第一次正面相对，两把家传的东西——刀与灯——隔雪相照，谁都没先开口。",
+      "expect": "预期状态变更：沈听澜「现身→对峙」；苏鸢可「追查→记档」"
+    },
+    {
+      "phase": "第三幕·第6拍",
+      "title": "抉择前夜",
+      "desc": "灯油只够撑到天亮，旧案的真相也只差最后一块木牌。第三幕把所有线收进这一夜：守灯还是翻案，出鞘还是继续背黑锅——导演令在这一幕写下每个人的下場，黑匣收束全剧。",
+      "expect": "预期状态变更：林见鹿可「动摇→黑化/觉醒」，沈听澜可「对峙→和解/决裂」，终幕收束以各令定稿为准"
+    }
+  ]
+};
+const AGENTS = [
+  {
+    "name": "开镜",
+    "role": "AI 导演·令解析",
+    "persona": "片场总导演，围巾永远搭在椅背上，看剧本先看人物再看词，口头禅是「令出如镜，落令即拍」。负责把创作者的自然语言导演令解析为可执行的拍摄计划。【拍摄计划·输出协议】只输出一个 JSON 对象，不输出任何其他文字，格式：{\"act\":1到3的整数,\"characters\":[\"波及角色名，⊆随附角色名单\"],\"stateDeltas\":[{\"character\":\"角色名\",\"key\":\"当前状态\",\"value\":\"不超过8字的状态词\"}],\"split\":{\"plot\":整数,\"shots\":整数,\"lines\":整数},\"note\":\"一句话拍摄意图\"}。分拨规则：split 三值均为整数、总和恰等于随附的每令预算，各自不低于 80；一般分镜最重、剧情居中、台词最轻，令中强调台词戏（争执/告白/对质）则向 lines 倾斜。状态变更规则：stateDeltas 只对 characters 内角色出草案，key 限「当前状态」，value 从令意提炼（如 黑化/觉醒/和解/决裂/远行/现身）；令中未要求状态变化的（纯定场、纯推进）出空数组。act 取令中「第N幕」，未指明取随附当前幕。characters 从随附角色名单里按名字精确匹配，名单外角色一律不得出现。",
+    "mood": "克制笃定",
+    "first_line": "场记板打板。你的令，我拆成计划；token 怎么花，计划里写明白。",
+    "max_tokens": 220,
+    "priority": 1
+  },
+  {
+    "name": "织文",
+    "role": "剧情生成器·Plot",
+    "persona": "文学策划，写东西先查人物小传再动笔，最恨角色崩人设，改稿比写稿勤。【剧情卡·输出协议】只输出一个 JSON 对象，不输出任何其他文字，格式：{\"text\":\"120~200字的剧情段落，带镜头感的叙述文本\"}。写作规则：人物反应一律以随附的 MemoryStore 召回锚点为准（性格、服装、标志物、口癖、当前状态五字段必须自然落进文字），承接拍摄计划的幕次节拍与状态变更方向，不引入角色名单外的人物，不复述预算与计划字段本身。当前状态若已被前令改写（如黑化/觉醒），本段的人物言行必须顺着新状态走，不许回跳旧状态。",
+    "mood": "细密较真",
+    "first_line": "锚点在手，人设不崩。给我计划，我还你一段立得住的戏。",
+    "max_tokens": 400,
+    "priority": 2
+  },
+  {
+    "name": "格画",
+    "role": "分镜生成器·Shots",
+    "persona": "分镜师，本子上永远是一格一格的方框，看世界先看光影走向，口头禅是「一格一个信息点」。【分镜表·输出协议】只输出一个 JSON 对象，不输出任何其他文字，格式：{\"shots\":[{\"id\":从1递增的整数,\"size\":\"大远景|远景|中景|近景|特写|双人镜|过肩镜 之一\",\"move\":\"固定|推近|拉远|左摇|右摇|横移|跟拍|手持|升起 之一\",\"visual\":\"不超过40字的画面描述\"}]}，共 3~5 个镜头。分镜规则：镜头顺序要成一场戏（先定场、再推进、后落点），visual 里必须出现出场角色的服装或标志物锚点，景别与运镜服务于拍摄计划的幕次氛围与状态变更（如黑化多用低角度与推近），不画戏外内容。",
+    "mood": "冷静锐利",
+    "first_line": "方框已画好。每格一个信息点，锚点不进画面不算分镜。",
+    "max_tokens": 400,
+    "priority": 3
+  },
+  {
+    "name": "声线",
+    "role": "台词生成器·Lines",
+    "persona": "台词总监，耳朵毒，一句词念三遍就知道崩没崩人设，最烦万能腔。【台词表·输出协议】只输出一个 JSON 对象，不输出任何其他文字，格式：{\"lines\":[{\"speaker\":\"角色名或旁白\",\"text\":\"不超过30字的一句台词\"}]}，共 2~4 条。台词规则：每条台词必须带说话角色的口癖、或呼应其当前状态锚点（黑化者的口癖要变味，觉醒者的口癖要有回响），承接剧情卡与分镜表的节奏收在落点上，speaker 限随附角色名单内或「旁白」，不出戏外解释、不写动作提示。",
+    "mood": "挑剔敏锐",
+    "first_line": "口癖是角色的指纹。词写砸了，整场戏都是替身演的。",
+    "max_tokens": 300,
+    "priority": 4
+  }
+];
+const TRACK = {
+  "track": "AIGC",
+  "title": "黑匣片场：一令一镜的 AI 导演台",
+  "pitch": "同一句导演令＋同一份世界存档＝同一份分镜脚本：AI 导演把 token 预算实拨给剧情/分镜/台词三个生成器并逐条记账，角色设定靠长期记忆锚定不崩，每条令落进黑匣随时重放对 diff——AIGC 的不可复现、记不住、算不起三个死穴一次拆完。",
+  "benchmarks": [
+    {
+      "project": "LangGraph",
+      "aspect": "有状态多智能体编排，checkpoint 与时间旅行（本 demo 黑匣的最小等价参照）",
+      "license": "MIT"
+    },
+    {
+      "project": "Dify",
+      "aspect": "可视化 LLM 工作流编排，多模型接入与调用计费面板",
+      "license": "Apache-2.0（附附加条件）"
+    },
+    {
+      "project": "CrewAI",
+      "aspect": "角色化多智能体协作（导演/写手分工与协议卡同型）",
+      "license": "MIT"
+    },
+    {
+      "project": "MoneyPrinterTurbo",
+      "aspect": "一句主题自动出短视频成片（文案/素材/字幕全管线）",
+      "license": "MIT"
+    }
+  ],
+  "pain_to_mechanic": [
+    {
+      "pain": "生成不可复现：抽卡式产出，同一需求重跑结果漂移，改稿没有基准帧",
+      "mechanic": "不可复现→黑匣 checkpoint＋种子回放＋diff 视图：每令的命令全文＋世界状态快照落匣（localStorage），离线用 mulberry32(令哈希^世界哈希) 种子重放逐字节一致全绿；在线 temp:0 真透传（kernel.js:81 传 0 非 nullish 即生效）做「可验证的复现」，diff 逐字段亮出差异而非假装 100%"
+    },
+    {
+      "pain": "长程记不住：角色设定崩坏、前后台词不一致，全靠把设定粘进 prompt 手工续命",
+      "mechanic": "记不住→L9 记忆锚定：角色卡 initState 首访灌入 MemoryStore（每角色一条记忆线），定稿的状态变更与台词回写同线；每个生成器开跑前 retrieve 召回五锚点（about 同名 +1.2 加成，kernel.js:42）注入上下文，硬状态另存 KV 表保证「当前是否黑化」这类判定不靠 bigram 猜"
+    },
+    {
+      "pain": "成本不可控：一次生成烧多少 token 没有账，重跑/重放对不上数",
+      "mechanic": "算不起→预算实拨＋真实账本：每令预算（默认 600 可调）按拍摄计划拆给三生成器，分拨值就是调用的 max_tokens 由端点硬执行；provider.stats.tokens 逐调用累计（kernel.js:88-89）做 before/after 差值分账，回放调用单独计费不入正片账"
+    }
+  ],
+  "feasibility": "强成（其中在线确定性一处为「可验证的复现」而非魔法一致，已诚实降级表述）。强成项：预算分拨是 API 级真实约束（max_tokens 透传 kernel.js:77,81）＋真实 token 账本（stats.tokens kernel.js:88-89）；长期记忆锚定直用 MemoryStore 检索注入；离线回放用种子模板逐字节一致，是全 demo 最硬的确定性时刻；黑匣 checkpoint=localStorage 快照＋非破坏回放，是 LangGraph checkpoint/时间旅行的最小等价物。弱成项（诚实）：在线「同一令＋同一状态＝逐字节一致」不可承诺——temp=0 只是近似（厂商批处理/浮点仍可漂移），且 vendored kernel.js 不透传 seed/top_p，demo 因此把在线卖点定为「可验证的复现」（diff 亮出差异而非假装 100%）。",
+  "engine_gaps": [
+    "CognitionSystem/DirectorSystem 系统提示词硬编码咖啡馆世界（kernel.js:158、253），无法注入自定义世界观与生成协议——demo 的导演/生成器只能应用层自拼 prompt 直调 provider.complete；引擎应补提示词模板化与世界注入参数",
+    "MemoryStore 为 bigram 启发式（kernel.js:28-47），无字段级状态查询——「林见鹿当前是否黑化」这类硬状态由应用层 KV 表（game.aigc-director.state）另存，先例 trust 表同法",
+    "自然语言→拍摄计划的路由在应用层实现（vendored kernel 无命令通道）；引擎若补命令通道可直接替换离线路由表",
+    "无流式输出且单次 20s 超时（kernel.js:85），长分镜需拆多次小 max 调用；anthropic 分支不透传 temperature（kernel.js:76-79），回放演示应选 openai 兼容厂商（deepseek/zhipu）"
+  ],
+  "budgetDefaults": {
+    "perOrder": 600,
+    "splitFloor": 80
+  },
+  "generators": [
+    {
+      "key": "plot",
+      "name": "剧情生成器",
+      "agent": "织文"
+    },
+    {
+      "key": "shots",
+      "name": "分镜生成器",
+      "agent": "格画"
+    },
+    {
+      "key": "lines",
+      "name": "台词生成器",
+      "agent": "声线"
+    }
+  ],
+  "replayPolicy": {
+    "temp": 0,
+    "offlineSeed": "mulberry32(cmdHash^worldHash)",
+    "diffFields": [
+      "beat",
+      "shots",
+      "lines",
+      "stateDeltas"
+    ]
+  },
+  "anchorFields": [
+    "性格",
+    "服装",
+    "标志物",
+    "口癖",
+    "当前状态"
+  ]
+};
+
+/* 【独立部署】kernel / 离线管线 / vendor 全部随项目自带，相对路径解析 */
+const VENDOR_BASE = "./vendor/";
+const KERNEL = "./engine/kernel.js";
+const PIPELINE = "./app/pipeline.js";
+
+/* ============ L7 provider 装配（与引擎 café demo / 先例同一机制） ============ */
+/* vendored kernel 不透传 deepseek thinking 开关：V4 思考档会吃掉 max_tokens 预算，
+   出现空正文/半句截断。在应用层拦 fetch 注入 thinking:disabled；vendored kernel 保持
+   与引擎仓逐字节一致（check.mjs 零漂移门禁），vendor 怪癖归应用层管。 */
+{
+  const _fetch = window.fetch.bind(window);
+  window.fetch = async (u, o) => {
+    if (typeof u === "string" && u.includes("api.deepseek.com") && o && o.body) {
+      try {
+        const b = JSON.parse(o.body);
+        if (b.model && b.thinking === undefined) b.thinking = { type: "disabled" };
+        o = { ...o, body: JSON.stringify(b) };
+      } catch (e) { /* 非 JSON 体原样放行 */ }
+    }
+    return _fetch(u, o);
+  };
+}
+/* ============ 模块加载 + L7 装配（top-level await：下方所有顶层代码可见 mod/PL/provider） ============ */
+let mod = null, PL = null, provider = null, providerReady = false;
+try {
+  mod = await import(KERNEL);
+  PL = await import(PIPELINE);
+} catch (e) {
+  document.getElementById("fallback").style.display = "flex";
+  throw e;
+}
+const savedCfg = JSON.parse(localStorage.getItem("aicafe.llm.v1") || "null");
+if (savedCfg && savedCfg.key && savedCfg.kind !== "rule") {
+  provider = mod.createProvider(savedCfg);
+  providerReady = !!(provider && provider.ready);
+}
+if (providerReady) {
+  document.getElementById("prov-name").textContent =
+    (savedCfg.model || "llm") + "（引擎 L7 · temp=0）";
+  document.getElementById("dot").classList.add("live");
+}
+
+/* ============ 场景（雁回城片场：三位演员定圆站位） ============ */
+let sceneApi = null;
+async function startScene() {
+  const THREE = await import("three");
+  const { OrbitControls } = await import(VENDOR_BASE + "OrbitControls.js");
+  const { GLTFLoader } = await import(VENDOR_BASE + "GLTFLoader.js");
+  const THEMES = {
+    space: { bg: 0x0d1017, ground: 0x1a2438, ring: 0x2d5b9e, hemiSky: 0x8fb5ff, hemiGnd: 0x22283a, sun: 0xffe9c4 },
+  };
+  const TH = THEMES[GAME.theme] || THEMES.space;
+  const sceneEl = document.getElementById("scene");
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(sceneEl.clientWidth, sceneEl.clientHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  sceneEl.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(TH.bg);
+  scene.fog = new THREE.Fog(TH.bg, 18, 55);
+  const camera = new THREE.PerspectiveCamera(50, sceneEl.clientWidth / sceneEl.clientHeight, 0.1, 200);
+  camera.position.set(0, 6, 14);
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.target.set(0, 1.2, 0);
+  controls.enableDamping = true; controls.maxPolarAngle = Math.PI / 2.05;
+  controls.minDistance = 6; controls.maxDistance = 30;
+  const hemi = new THREE.HemisphereLight(TH.hemiSky, TH.hemiGnd, 1.1); scene.add(hemi);
+  const sun = new THREE.DirectionalLight(TH.sun, 1.6); sun.position.set(6, 10, 4); scene.add(sun);
+  const ground = new THREE.Mesh(
+    new THREE.CircleGeometry(16, 48).rotateX(-Math.PI / 2),
+    new THREE.MeshStandardMaterial({ color: TH.ground, roughness: .95 }));
+  scene.add(ground);
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(15.4, 16, 64).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ color: TH.ring, transparent: true, opacity: .5 }));
+  scene.add(ring);
+
+  /* 三位演员（story.characters）定圆站位 + 名牌 */
+  const palette = [0x7eb8ff, 0xffb37e, 0x9f8fff];
+  const cast = [];
+  const loader = new GLTFLoader();
+  const gltf = await loader.loadAsync(VENDOR_BASE + "RobotExpressive.glb");
+  STORY.characters.forEach((a, i) => {
+    const root = gltf.scene.clone(true);
+    root.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); } });
+    const angle = (i / Math.max(STORY.characters.length, 1)) * Math.PI * 2;
+    root.position.set(Math.cos(angle) * 5, 0, Math.sin(angle) * 5);
+    root.lookAt(0, 0, 0);
+    root.userData = { index: i };
+    scene.add(root);
+    const cv = document.createElement("canvas"); cv.width = 256; cv.height = 72;
+    const cx = cv.getContext("2d");
+    cx.fillStyle = "rgba(13,16,23,.85)"; roundRect(cx, 4, 6, 248, 56, 14); cx.fill();
+    cx.fillStyle = "#" + palette[i % palette.length].toString(16).padStart(6, "0");
+    cx.font = "bold 30px sans-serif"; cx.textAlign = "center";
+    cx.fillText(a.name, 128, 46);
+    const tex = new THREE.CanvasTexture(cv);
+    const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+    label.scale.set(2.2, 0.62, 1); label.position.set(root.position.x, 3.1, root.position.z);
+    scene.add(label);
+    let mixer = null;
+    try {
+      mixer = new THREE.AnimationMixer(root);
+      const idle = gltf.animations.find(x => /idle/i.test(x.name)) || gltf.animations[0];
+      if (idle) mixer.clipAction(idle).play();
+    } catch (e) {}
+    cast.push({ agent: a, root, label, mixer, gltfAnims: gltf.animations, color: palette[i % palette.length] });
+  });
+  function roundRect(c, x, y, w, h, r) {
+    c.beginPath(); c.moveTo(x + r, y);
+    c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+  }
+  /* 点击演员 → 广播其当前锚点（锚定可见化） */
+  const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
+  renderer.domElement.addEventListener("click", e => {
+    const r = renderer.domElement.getBoundingClientRect();
+    ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ptr, camera);
+    const hits = ray.intersectObjects(cast.map(n => n.root), true);
+    if (!hits.length) return;
+    let o = hits[0].object;
+    while (o && o.userData.index === undefined) o = o.parent;
+    if (!o) return;
+    const a = STORY.characters[o.userData.index];
+    const cur = (kv[a.name] && kv[a.name]["当前状态"]) || a.initState["当前状态"];
+    sys(`🎭 ${a.name}（${a.role}）当前锚点：性格「${a.initState["性格"]}」·标志物「${a.initState["标志物"]}」·口癖「${a.initState["口癖"]}」·当前状态「${cur}」`);
+  });
+  /* 生成阶段演出：受令角色按生成器换动作，落定回 idle */
+  const PHASE_CLIP = { plot: "Walking", shots: "Jump", lines: "Wave" };
+  function actPhase(phase, names) {
+    const clipName = PHASE_CLIP[phase] || "Wave";
+    cast.forEach((n, j) => {
+      const on = !names || names.includes(STORY.characters[j].name);
+      if (!on || !n.mixer || !n.gltfAnims) return;
+      const clip = n.gltfAnims.find(c => c.name === clipName) ||
+        n.gltfAnims.find(c => new RegExp(clipName, "i").test(c.name));
+      if (!clip) return;
+      n.mixer.stopAllAction(); n.mixer.clipAction(clip).reset().play();
+    });
+    clearTimeout(actPhase._t);
+    actPhase._t = setTimeout(() => cast.forEach(n => {
+      if (!n.mixer) return;
+      const idle = n.gltfAnims.find(c => /idle/i.test(c.name)) || n.gltfAnims[0];
+      if (idle) { n.mixer.stopAllAction(); n.mixer.clipAction(idle).reset().play(); }
+    }), 1700);
+  }
+  const clock = new THREE.Clock();
+  (function animate() {
+    requestAnimationFrame(animate);
+    const dt = clock.getDelta();
+    cast.forEach((n, j) => {
+      n.label.position.y = 3.1 + Math.sin(clock.elapsedTime * 2 + j) * 0.06;
+      if (n.mixer) n.mixer.update(dt);
+      n.root.rotation.y += 0.002;
+    });
+    controls.update();
+    renderer.render(scene, camera);
+  })();
+  window.addEventListener("resize", () => {
+    camera.aspect = sceneEl.clientWidth / sceneEl.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(sceneEl.clientWidth, sceneEl.clientHeight);
+  });
+  sceneApi = { actPhase };
+}
+
+/* ============ 持久化状态：KV 状态表 / 黑匣 / 幕次（game.{id}.* 前缀，导出导入整包扫描） ============ */
+const K = suffix => "game." + GAME.id + "." + suffix;
+let kv = JSON.parse(localStorage.getItem(K("state")) || "{}");
+let world = {
+  act: JSON.parse(localStorage.getItem(K("act")) || "1"),
+  seq: JSON.parse(localStorage.getItem(K("seq")) || "0"),
+};
+let blackbox = JSON.parse(localStorage.getItem(K("blackbox")) || "[]");
+const FLOOR = (TRACK.budgetDefaults && TRACK.budgetDefaults.splitFloor) || 80;
+const saveKV = () => localStorage.setItem(K("state"), JSON.stringify(kv));
+const saveWorld = () => { localStorage.setItem(K("act"), JSON.stringify(world.act)); localStorage.setItem(K("seq"), JSON.stringify(world.seq)); };
+const saveBlackbox = () => {
+  if (blackbox.length > 12) { /* 超限先淘汰最旧草稿，再淘汰最旧 */
+    let i = blackbox.map((c, j) => [c.status, j]).reverse().find(x => x[0] === "draft");
+    blackbox.splice((i ? i[1] : blackbox.length - 1), 1);
+  }
+  localStorage.setItem(K("blackbox"), JSON.stringify(blackbox));
+};
+
+/* L9 长期记忆：每角色＋「世界观」各一条记忆线；引擎导演子系统用独立命名空间不串账 */
+const mem = new mod.MemoryStore("game." + GAME.id + ".mem.v1");
+const pulseMem = new mod.MemoryStore("game." + GAME.id + ".pulse.v1");
+/* 首访灌入：initState 五锚点 → 各角色记忆线；世界观圣经 → 「世界观」记忆线 */
+if (!localStorage.getItem(K("seeded"))) {
+  mem.record("世界观", { turn: 0, day: 1, about: "世界", text: STORY.premise.slice(0, 90), imp: 7 });
+  for (const c of STORY.characters)
+    for (const f of TRACK.anchorFields)
+      mem.record(c.name, { turn: 0, day: 1, about: "设定", text: `${f}：${c.initState[f]}`, imp: (f === "性格" || f === "标志物" || f === "当前状态") ? 6 : 4 });
+  localStorage.setItem(K("seeded"), "1");
+}
+/* 锚点构建：角色卡 initState ＋ KV 覆盖（硬状态不靠 bigram 猜，先例 trust 表同法） */
+function buildAnchors() {
+  return STORY.characters.map(c => {
+    const o = kv[c.name] || {};
+    const a = { name: c.name, role: c.role, appearance: c.appearance, voice: c.voice };
+    for (const f of TRACK.anchorFields) a[f] = o[f] || c.initState[f];
+    return a;
+  });
+}
+const ACTS = ["第一幕", "第二幕", "第三幕"];
+const beatsOf = a => STORY.beats.filter(b => (b.phase || "").startsWith(ACTS[a - 1]));
+const beatTitleOf = a => (beatsOf(a)[0] || {}).title || "过场";
+const beatsTitleOf = a => beatsOf(a).map(b => b.title).join("、") || "过场";
+
+/* ============ 引擎挂点：Scheduler 主管线 ＋ DirectorSystem 世界脉搏 ============ */
+/* 导演解析→三生成器→封板五系统注册进引擎 Scheduler；每条令 sch.tick(ctx) 一次 pump 完成
+   （kernel.js:270-274，L2 分层：应用只 pump 不感知内部系统） */
+const scheduler = new mod.Scheduler();
+/* DirectorSystem 挂为「今日片场事件」：按 interval 出世界 beat（kernel.js:243-267），
+   provider 失败/离线自动落 RULE_BEATS 规则行（kernel.js:260）——演示黑匣对世界漂移的隔离；
+   独立 pulseMem 命名空间＋不进 worldHash，绝不污染角色锚定与回放确定性 */
+const directorSys = new mod.DirectorSystem(providerReady ? provider : { ready: false }, pulseMem, { interval: 2 });
+const pulseWorld = { turn: 0, npcs: [], dialogue: [], guestQueue: [], rel: {}, story: { day: world.act, beats: [] } };
+let pulseTokens = 0;
+async function pulseTick() {
+  pulseWorld.turn++; pulseWorld.story.day = world.act;
+  try {
+    const before = provider ? (provider.stats.tokens || 0) : 0;
+    const b = await directorSys.tick(pulseWorld);
+    pulseTokens += provider ? ((provider.stats.tokens || 0) - before) : 0;
+    if (b) { pulseLog.unshift({ text: String(b), online: providerReady, at: Date.now() }); pulseLog = pulseLog.slice(0, 8); renderWorld(); }
+  } catch (e) { /* 脉搏静默 */ }
+}
+let pulseLog = [];
+
+/* ============ 运行时工具 ============ */
+const $ = id => document.getElementById(id);
+const esc = s => (s || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const extractJSONLoose = s => { const m = (s || "").match(/\{[\s\S]*\}/); try { return m ? JSON.parse(m[0]) : null; } catch { return null; } };
+const stableCopy = v => JSON.parse(JSON.stringify(v));
+let running = false;
+function shakeInput() { const el = $("order-input"); el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake"); }
+function sys(text) { const d = document.createElement("div"); d.className = "sysline"; d.innerHTML = text; $("result").prepend(d); }
+
+/* 每令预算（HUD 与输入框联动；PL 未就绪时退回原值——模块加载是异步的） */
+function curBudget() {
+  const v = +$("budget").value || TRACK.budgetDefaults.perOrder;
+  return PL ? PL.clampBudget(v, FLOOR * 3, 2000) : v;
+}
+$("budget").addEventListener("change", () => {
+  $("budget").value = curBudget();
+  $("hud-budget").textContent = curBudget();
+});
+
+/* ============ 主管线：下令 → 三生成器 → 封板（一次 sch.tick 完成） ============ */
+const GEN_LABEL = { plot: "织文·剧情", shots: "格画·分镜", lines: "声线·台词" };
+const SEED_SALT = { plot: 0x9e3779b9, shots: 0x85ebca6b, lines: 0xc2b2ae35 };
+function genArgs(ctx) {
+  const t1 = ctx.anchors.find(a => a.name === ctx.plan.targets[0]);
+  const t2 = ctx.anchors.find(a => a.name === ctx.plan.targets[1]) || null;
+  return { t1, t2, action: ctx.plan.action, act: ctx.plan.act, beatTitle: beatTitleOf(ctx.plan.act), split: ctx.plan.split };
+}
+function anchorBlock(ctx) {
+  return ctx.plan.targets.map(n => {
+    const a = ctx.anchors.find(x => x.name === n);
+    const rec = ctx.recall[n] || [];
+    return `【角色锚点·${n}】性格：${a["性格"]}；服装：${a["服装"]}；标志物：${a["标志物"]}；口癖：${a["口癖"]}；当前状态：${a["当前状态"]}
+L9 召回记忆：
+${rec.length ? rec.map(m => `- ${m.text}`).join("\n") : "-（暂无，可能是第一次拍这位）"}`;
+  }).join("\n");
+}
+function recallAnchors(ctx) {
+  ctx.recall = {};
+  for (const n of ctx.plan.targets)
+    ctx.recall[n] = mem.retrieve(n, "设定", ctx.order + ctx.plan.action, ctx.seq, 3);
+}
+/* 导演台：MemoryStore 检索召回 + offlinePlot/Shots/Lines 模板兜底（app/pipeline.js） */
+const GENS = [
+  {
+    key: "plot", agentIdx: 1,
+    sys: ctx => `${AGENTS[1].persona}
+世界观前提：${STORY.premise.slice(0, 120)}
+${anchorBlock(ctx)}
+（现在执行剧情生成：严格按人设中的【剧情卡·输出协议】只输出 JSON，不输出任何其他文字。）`,
+    user: ctx => `拍摄计划：${JSON.stringify({ act: ctx.plan.act, characters: ctx.plan.targets, stateDeltas: ctx.plan.stateDeltas, note: ctx.plan.note })}
+本幕节拍：${beatsTitleOf(ctx.plan.act)}
+（输出 {"text":"120~200字剧情段落"} 剧情卡）`,
+    parse: out => { const j = extractJSONLoose(out); const t = j && String(j.text || "").trim(); return t ? { beat: t.slice(0, 400) } : null; },
+    fallback: ctx => ({ beat: PL.offlinePlot(genArgs(ctx), PL.mulberry32((ctx.seed ^ SEED_SALT.plot) >>> 0)) }),
+  },
+  {
+    key: "shots", agentIdx: 2,
+    sys: ctx => `${AGENTS[2].persona}
+世界观前提：${STORY.premise.slice(0, 120)}
+${anchorBlock(ctx)}
+（现在执行分镜生成：严格按人设中的【分镜表·输出协议】只输出 JSON，不输出任何其他文字。）`,
+    user: ctx => `拍摄计划：${JSON.stringify({ act: ctx.plan.act, characters: ctx.plan.targets, stateDeltas: ctx.plan.stateDeltas })}
+剧情卡（承接此段节奏）：${(ctx.parts.beat || "").slice(0, 160)}
+本幕节拍：${beatsTitleOf(ctx.plan.act)}
+（输出 {"shots":[{"id":1,"size":"…","move":"…","visual":"…"}]} 分镜表）`,
+    parse: out => {
+      const j = extractJSONLoose(out); const arr = j && Array.isArray(j.shots) ? j.shots : null;
+      if (!arr || !arr.length) return null;
+      return { shots: arr.slice(0, 6).map((s, i) => ({
+        id: i + 1, size: String(s && s.size || "中景").slice(0, 6),
+        move: String(s && s.move || "固定").slice(0, 6),
+        visual: String(s && s.visual || "").slice(0, 60) || "（画面待补）" })) };
+    },
+    fallback: ctx => ({ shots: PL.offlineShots(genArgs(ctx), PL.mulberry32((ctx.seed ^ SEED_SALT.shots) >>> 0)) }),
+  },
+  {
+    key: "lines", agentIdx: 3,
+    sys: ctx => `${AGENTS[3].persona}
+世界观前提：${STORY.premise.slice(0, 120)}
+${anchorBlock(ctx)}
+（现在执行台词生成：严格按人设中的【台词表·输出协议】只输出 JSON，不输出任何其他文字。）`,
+    user: ctx => `拍摄计划：${JSON.stringify({ act: ctx.plan.act, characters: ctx.plan.targets, stateDeltas: ctx.plan.stateDeltas })}
+剧情卡：${(ctx.parts.beat || "").slice(0, 120)}
+分镜表：${JSON.stringify(ctx.parts.shots || []).slice(0, 240)}
+（输出 {"lines":[{"speaker":"…","text":"…"}]} 台词表）`,
+    parse: out => {
+      const j = extractJSONLoose(out); const arr = j && Array.isArray(j.lines) ? j.lines : null;
+      if (!arr || !arr.length) return null;
+      return { lines: arr.slice(0, 5).map(l => ({
+        speaker: String(l && l.speaker || "旁白").slice(0, 8),
+        text: String(l && l.text || "").slice(0, 60) })) };
+    },
+    fallback: ctx => ({ lines: PL.offlineLines(genArgs(ctx), PL.mulberry32((ctx.seed ^ SEED_SALT.lines) >>> 0)) }),
+  },
+];
+/* 五系统：解析 → 织文 → 格画 → 声线 → 封板（顺序即 Scheduler 注册序） */
+scheduler.add({
+  async tick(ctx) {
+    let plan = null;
+    if (ctx.mode === "online" && providerReady) {
+      try {
+        const out = await provider.complete([
+          { role: "system", content: `${AGENTS[0].persona}
+世界观圣经：${STORY.premise}
+角色名单：${ctx.anchors.map(a => `${a.name}（${a.role}·当前状态「${a["当前状态"]}」）`).join("；")}
+每令预算：${ctx.budget} token，单生成器下限 ${ctx.floor}。当前幕：第${ctx.act}幕。
+（现在执行导演令解析：严格按人设中的【拍摄计划·输出协议】只输出 JSON，不输出任何其他文字。）` },
+          { role: "user", content: `导演令：「${ctx.order}」` },
+        ], { temp: TRACK.replayPolicy.temp, json: true, max: Math.min(AGENTS[0].max_tokens, 240) });
+        plan = PL.normalizePlan(extractJSONLoose(out), ctx.anchors, ctx.act, ctx.budget, ctx.floor);
+        if (!plan.ok) ctx.degraded = `导演解析降级（${plan.reason}）→离线关键词路由`;
+      } catch (e) { plan = null; ctx.degraded = "导演解析降级（" + String(e.message || e) + "）→离线关键词路由"; }
+    }
+    if (!plan || !plan.ok) {
+      plan = PL.parseOrderOffline(ctx.order, ctx.anchors, ctx.act, ctx.budget, ctx.floor, ctx.wHash);
+      if (!plan.ok) { ctx.parseFail = plan.reason; return; }
+    }
+    ctx.plan = plan;
+    recallAnchors(ctx);
+  },
+});
+for (const g of GENS) scheduler.add({
+  async tick(ctx) {
+    if (ctx.parseFail) return;
+    const alloc = ctx.plan.split[g.key];
+    const agent = AGENTS[g.agentIdx];
+    const max = Math.min(alloc, agent.max_tokens);
+    const row = { gen: g.key, label: GEN_LABEL[g.key], allocated: alloc, sent: max, used: 0, degraded: false };
+    if (ctx.mode === "online" && providerReady) {
+      const before = provider.stats.tokens || 0;
+      try {
+        sceneApi && sceneApi.actPhase(g.key, ctx.plan.targets);
+        const out = await provider.complete([
+          { role: "system", content: g.sys(ctx) },
+          { role: "user", content: g.user(ctx) },
+        ], { temp: TRACK.replayPolicy.temp, json: true, max });
+        const part = g.parse(out);
+        if (!part) throw new Error("输出 JSON 不合协议");
+        Object.assign(ctx.parts, part);
+        row.used = (provider.stats.tokens || 0) - before;
+      } catch (e) {
+        row.degraded = true; row.used = alloc;
+        Object.assign(ctx.parts, g.fallback(ctx));
+        ctx.degraded = (ctx.degraded ? ctx.degraded + "；" : "") + `${GEN_LABEL[g.key]}降级（${String(e.message || e).slice(0, 40)}）→种子模板`;
+      }
+    } else {
+      row.used = alloc; /* 离线：按分拨记「模拟 token」 */
+      Object.assign(ctx.parts, g.fallback(ctx));
+    }
+    ctx.ledger.push(row);
+  },
+});
+scheduler.add({
+  async tick(ctx) {
+    if (ctx.parseFail) return;
+    ctx.script = {
+      beat: ctx.parts.beat || "", shots: ctx.parts.shots || [],
+      lines: ctx.parts.lines || [], stateDeltas: ctx.plan.stateDeltas,
+    };
+  },
+});
+
+/* ============ 下令 / 重放（同一管线；重放吃冻结快照，非破坏） ============ */
+const orderInput = $("order");
+async function runOrder(orderText, replayOf) {
+  if (running) return;
+  const order = (orderText || "").trim();
+  if (!order) { shakeInput(); return; }
+  if (!PL) { sys("（管线模块未加载）"); return; }
+  running = true;
+  $("send").disabled = true;
+  const isReplay = !!replayOf;
+  const budget = isReplay ? replayOf.budget : curBudget();
+  /* mode 取当前 provider 实况：在线原片回放时若已断网/失 Key，降级离线种子重跑——
+     diff 如实亮出「在线原片 vs 离线重放」的差异，不假装一致 */
+  let mode = providerReady ? "online" : "offline";
+  const ctx = {
+    order, budget, floor: FLOOR,
+    anchors: isReplay ? replayOf.anchorsSnapshot : buildAnchors(),
+    kv: isReplay ? stableCopy(replayOf.kvSnapshot) : kv,
+    act: isReplay ? replayOf.act : world.act,
+    mode,
+    parts: {}, ledger: [], recall: {},
+    degraded: isReplay && replayOf.mode === "online" && mode === "offline"
+      ? "在线原片回放时无可用 provider →降级离线种子重跑（下方 diff 为在线原片 vs 离线重放）" : null,
+    seq: world.seq,
+  };
+  /* 世界哈希：act + KV 状态 + 预算 → 与离线种子互锁（mulberry32(cmdHash^worldHash)） */
+  ctx.wHash = PL.worldHash({ act: ctx.act, kv: stableCopy(ctx.kv), budget: ctx.budget });
+  ctx.seed = (PL.fnv1a(order.replace(/\s+/g, "")) ^ ctx.wHash) >>> 0;
+
+  let cp;
+  if (isReplay) cp = replayOf;
+  else {
+    world.seq++; saveWorld();
+    cp = {
+      id: "bb" + world.seq, order, act: ctx.act, budget, floor: FLOOR,
+      anchorsSnapshot: buildAnchors(), kvSnapshot: stableCopy(kv),
+      status: "draft", createdAt: Date.now(), replays: 0,
+      mode: ctx.mode, providerId: providerReady ? provider.id : "rule",
+      plan: null, script: null, ledger: null, replay: null,
+    };
+    blackbox.unshift(cp); saveBlackbox(); renderHUD();
+  }
+  sys(isReplay
+    ? `🔁 重放 ${cp.id}：已恢复黑匣快照（第${cp.act}幕·冻结锚点）——非破坏重跑中……`
+    : `🎬 下令：${esc(order)}——解析中……`);
+  try { await scheduler.tick(ctx); } catch (e) { ctx.parseFail = ctx.parseFail || String(e.message || e); }
+
+  if (ctx.parseFail) {
+    if (!isReplay) { blackbox = blackbox.filter(c => c.id !== cp.id); saveBlackbox(); renderHUD(); }
+    sys("⚠️ " + esc(ctx.parseFail));
+    shakeInput(); running = false; $("send").disabled = false; return;
+  }
+  cp.plan = ctx.plan; cp.script = ctx.script; cp.ledger = ctx.ledger;
+  if (isReplay) {
+    cp.replay = { script: ctx.script, diff: PL.diffScript(cp.script, ctx.script), ledger: ctx.ledger, mode: ctx.mode, degraded: ctx.degraded, at: Date.now() };
+    cp.replays++;
+    saveBlackbox();
+    renderBlackbox(); switchTab("bb"); renderBBDiff(cp.id);
+    const allGreen = cp.replay.diff.identical;
+    sys(allGreen
+      ? `✅ ${cp.id} 回放完成：逐字段<b style="color:#7ee2a8">全部一致</b>${cp.mode === "offline" ? "（离线种子回放＝逐字节一致）" : "（在线 temp=0 命中一致）"}`
+      : `🔁 ${cp.id} 回放完成：${cp.mode === "online" ? "在线 temp=0 高一致，差异已高亮（可验证的复现）" : "与存档有差异，已逐字段亮出"}`);
+  } else {
+    saveBlackbox();
+    lastCtx = ctx; lastCpId = cp.id;
+    renderResult(cp, ctx);
+    renderHUD(); renderBlackbox(); renderChars();
+    sys(`📦 已落黑匣 ${cp.id}（草稿·${ctx.mode === "online" ? "在线 temp=0" : "离线种子"}）——重放验证或定稿写回`);
+    pulseTick(); /* 世界脉搏：与正片账、回放确定性均无关（对照源） */
+  }
+  running = false; $("send").disabled = false;
+}
+let lastCtx = null, lastCpId = null;
+$("send").onclick = () => runOrder(orderInput.value, null);
+orderInput.addEventListener("keydown", e => { if (e.key === "Enter" && !running) runOrder(orderInput.value, null); });
+/* 预置导演令（设计示例在列） */
+[["让林见鹿在第 3 幕黑化"], ["让沈听澜在第 2 幕重逢"], ["让苏鸢在第 1 幕觉醒"]]
+  .forEach(([t]) => {
+    const b = document.createElement("button");
+    b.textContent = t;
+    b.onclick = () => { orderInput.value = t; if (!running) runOrder(t, null); };
+    $("presets").appendChild(b);
+  });
+
+/* ============ 定稿：状态变更写回记忆线并锁匣 ============ */
+function finalizeCp(id) {
+  const cp = blackbox.find(c => c.id === id);
+  if (!cp || cp.status !== "draft") return;
+  for (const d of cp.script.stateDeltas || []) {
+    kv[d.character] = Object.assign({}, kv[d.character], { [d.key]: d.value });
+    mem.record(d.character, { turn: world.seq, day: cp.act, about: "世界",
+      text: `${d.key}→${d.value}（第${cp.act}幕·令「${cp.order.slice(0, 16)}」定稿）`, imp: 5 });
+  }
+  for (const l of cp.script.lines || [])
+    if (STORY.characters.some(c => c.name === l.speaker))
+      mem.record(l.speaker, { turn: world.seq, day: cp.act, about: "台词",
+        text: `台词（第${cp.act}幕定稿）${l.text}`, imp: 3 });
+  world.act = cp.plan.act; saveKV(); saveWorld();
+  cp.status = "final"; saveBlackbox();
+  renderHUD(); renderChars(); renderBlackbox(); renderWorld();
+  sceneApi && sceneApi.actPhase("lines", cp.plan.targets);
+  sys(`🔒 ${cp.id} 定稿：状态变更已写回角色记忆线，剧本推进到第 ${cp.plan.act} 幕，黑匣落锁。`);
+}
+function discardCp(id) {
+  const cp = blackbox.find(c => c.id === id);
+  if (!cp || cp.status !== "draft") return;
+  blackbox = blackbox.filter(c => c.id !== id); saveBlackbox();
+  renderHUD(); renderBlackbox();
+  sys(`🗑 ${cp.id} 草稿已弃——世界未被触动。`);
+}
+
+/* ============ 渲染：导演台结果（拍摄计划 + 账本 + 三栏分镜） ============ */
+function renderResult(cp, ctx) {
+  const p = cp.plan;
+  const deg = ctx.degraded ? `<div class="sysline">⚠️ ${esc(ctx.degraded)}</div>` : "";
+  const splitSum = p.split.plot + p.split.shots + p.split.lines;
+  const usedSum = ctx.ledger.reduce((a, r) => a + r.used, 0);
+  const sb = w => Math.round(w / Math.max(splitSum, 1) * 100);
+  const recallHTML = Object.entries(ctx.recall || {}).map(([n, rec]) =>
+    `<div><b>${esc(n)}</b>：${rec.length ? esc(rec[0].text.slice(0, 26)) : "（无召回）"}</div>`).join("");
+  $("result").innerHTML = `
+  ${deg}
+  <div class="card">
+    <h4>📋 拍摄计划 · ${esc(p.source === "ai-director" ? "AI 导演「开镜」" : "离线路由")} · <span class="bb-id">${cp.id} ${cp.status === "final" ? "🔒已定稿" : "草稿"}</span></h4>
+    <div class="plan-line">第 <b>${p.act}</b> 幕「${esc(beatTitleOf(p.act))}」 · 波及角色 <b>${p.targets.map(esc).join("、")}</b> · 动作 <b>${esc(p.action)}</b></div>
+    <div class="plan-line">状态变更草案：${p.stateDeltas.length ? p.stateDeltas.map(d => `<b>${esc(d.character)}.${esc(d.key)}→${esc(d.value)}</b>`).join("；") : "（无——纯定场戏）"}</div>
+    <div class="plan-line" style="color:#8a93ad">${esc(p.note)}</div>
+    <div class="splitbar">
+      <div style="width:${sb(p.split.plot)}%;background:#7eb8ff" title="剧情 ${p.split.plot}">剧情${p.split.plot}</div>
+      <div style="width:${sb(p.split.shots)}%;background:#9f8fff" title="分镜 ${p.split.shots}">分镜${p.split.shots}</div>
+      <div style="width:${sb(p.split.lines)}%;background:#7effc3" title="台词 ${p.split.lines}">台词${p.split.lines}</div>
+    </div>
+    <div class="recall">🔍 召回锚点（MemoryStore·L9）：${recallHTML}</div>
+  </div>
+  <div class="card">
+    <h4>🧾 预算账本（${ctx.mode === "online" ? "provider.stats.tokens 差值实账" : "离线模拟 token·按分拨记账"}）</h4>
+    <table class="ledger"><tr><th>生成器</th><th class="num">分拨</th><th class="num">实发 max</th><th class="num">实耗</th><th></th></tr>
+    ${ctx.ledger.map(r => `<tr><td>${esc(r.label)}</td><td class="num">${r.allocated}</td><td class="num">${r.sent}</td><td class="num">${r.used}</td><td>${r.degraded ? "⚠️降级" : (ctx.mode === "online" ? "✓" : "模拟")}</td></tr>`).join("")}
+    </table>
+    <div class="ledger-foot">合计 实耗 ${usedSum} / 预算 ${cp.budget} · 回放调用单独计费不入本账 · 引擎世界脉搏旁支账 ${pulseTokens} token</div>
+  </div>
+  <div class="script3">
+    <div class="col"><h4>📜 剧情 · 织文</h4><div class="plottext">${esc(cp.script.beat)}</div></div>
+    <div class="col"><h4>🎬 分镜 · 格画（${(cp.script.shots || []).length} 格）</h4>
+      ${(cp.script.shots || []).map(s => `<div class="shot"><b>第${s.id}格 · ${esc(s.size)} · ${esc(s.move)}</b><br>${esc(s.visual)}</div>`).join("")}</div>
+    <div class="col"><h4>🎙 台词 · 声线（${(cp.script.lines || []).length} 条）</h4>
+      ${(cp.script.lines || []).map(l => `<div class="line-row"><b>${esc(l.speaker)}</b>：${esc(l.text)}</div>`).join("")}</div>
+  </div>
+  <div class="actions">
+    <button id="btn-replay">🔁 重放此令</button>
+    <button id="btn-final" ${cp.status === "final" ? "disabled" : ""}>✅ 定稿写回</button>
+    <button id="btn-discard" ${cp.status === "final" ? "disabled" : ""}>🗑 丢弃</button>
+  </div>`;
+  $("btn-replay").onclick = () => runOrder(cp.order, cp);
+  $("btn-final").onclick = () => finalizeCp(cp.id);
+  $("btn-discard").onclick = () => discardCp(cp.id);
+}
+
+/* ============ 渲染：黑匣（checkpoint 列表 + diff 视图） ============ */
+function renderBlackbox() {
+  const el = $("page-bb");
+  if (!blackbox.length) { el.innerHTML = `<p class="hint">黑匣空——回「导演台」发第一条令。每条令的命令全文＋世界状态快照都会落一条 checkpoint。</p>`; return; }
+  el.innerHTML = `<p class="hint" style="margin-bottom:8px">黑匣 checkpoint＝命令全文＋世界快照（LangGraph checkpoint 的最小等价物）。「重放此令」恢复冻结锚点非破坏重跑；「定稿」才把状态变更写回世界。</p>` +
+    blackbox.map(cp => {
+      const badges = [`<span class="badge ${cp.status === "final" ? "final" : "draft"}">${cp.status === "final" ? "🔒已定稿" : "草稿"}</span>`];
+      if (cp.replays) badges.push(`<span class="badge replayed">🔁重放×${cp.replays}</span>`);
+      return `<div class="bb-item" id="bb-${cp.id}">
+      <div class="bb-head"><span class="bb-id">${cp.id} · ${new Date(cp.createdAt).toLocaleTimeString()}</span>${badges.join("")}
+        <span class="bb-id">${cp.mode === "online" ? "在线 temp=0" : "离线种子"} · ${esc(cp.providerId || "")}</span></div>
+      <div class="bb-order">「${esc(cp.order)}」</div>
+      <div class="bb-meta">第${cp.act}幕 · ${cp.plan ? esc(cp.plan.action) : ""} · 预算 ${cp.budget} · 状态草案 ${cp.plan ? cp.plan.stateDeltas.length : 0} 条 · 快照锚点 ${cp.anchorsSnapshot.length} 人</div>
+      <div class="bb-actions">
+        <button data-a="replay" data-id="${cp.id}">🔁 重放此令</button>
+        <button data-a="final" data-id="${cp.id}" ${cp.status === "final" ? "disabled" : ""}>✅ 定稿</button>
+        <button data-a="discard" data-id="${cp.id}" ${cp.status === "final" ? "disabled" : ""}>🗑 丢弃</button>
+        ${cp.replay ? `<button data-a="diff" data-id="${cp.id}">🔍 查看回放 diff</button>` : ""}
+      </div>
+      <div class="diffslot" id="diff-${cp.id}"></div>
+    </div>`;
+    }).join("");
+  el.querySelectorAll(".bb-actions button").forEach(b => b.onclick = () => {
+    const id = b.dataset.id;
+    if (b.dataset.a === "replay") runOrder(blackbox.find(c => c.id === id).order, blackbox.find(c => c.id === id));
+    else if (b.dataset.a === "final") finalizeCp(id);
+    else if (b.dataset.a === "discard") discardCp(id);
+    else renderBBDiff(id);
+  });
+}
+function renderBBDiff(id) {
+  const cp = blackbox.find(c => c.id === id);
+  const slot = document.getElementById("diff-" + id);
+  if (!cp || !cp.replay || !slot) return;
+  const d = cp.replay.diff;
+  const fldZh = { beat: "剧情卡", shots: "分镜表", lines: "台词表", stateDeltas: "状态变更" };
+  const rowMark = f => { const r = d.fields.find(x => x.field === f); return r && r.same; };
+  const shotMark = d.shots.every(x => x.same) && (cp.script.shots || []).length === (cp.replay.script.shots || []).length;
+  const lineMark = d.lines.every(x => x.same) && (cp.script.lines || []).length === (cp.replay.script.lines || []).length;
+  slot.innerHTML = `<div class="diffbox">
+    <h5 class="${d.identical ? "all-green" : "has-diff"}">${d.identical ? "✅ 回放 diff：逐字段全部一致" : "⚠️ 回放 diff：存在差异（已高亮）"}</h5>
+    ${["beat", "shots", "lines", "stateDeltas"].map(f => {
+      let extra = "";
+      if (f === "shots") extra = `（${d.shots.filter(x => x.same).length}/${d.shots.length} 格一致）`;
+      if (f === "lines") extra = `（${d.lines.filter(x => x.same).length}/${d.lines.length} 条一致）`;
+      return `<div class="diff-row"><span>${fldZh[f]}${extra}</span><span class="${rowMark(f) ? "same" : "diff"}">${rowMark(f) ? "一致 ✓" : "差异 ⚠"}</span></div>`;
+    }).join("")}
+    <div class="diff-note">${cp.replay.mode === "offline"
+      ? "离线回放：mulberry32(令哈希^世界哈希) 种子重放，同令同存档＝逐字节一致。"
+      : "在线回放：temp=0 真实透传（kernel.js:81 传 0 非 nullish 即生效），「可验证的复现」而非魔法一致——厂商批处理/浮点仍可漂移，diff 亮出差异而非假装 100%。"}${cp.replay.degraded ? "<br>⚠️ 本次回放发生降级：" + esc(cp.replay.degraded) : ""}</div>
+    ${cp.replay.ledger && cp.replay.ledger.length ? `<table class="ledger"><tr><th>回放计费（不入正片账）</th><th class="num">分拨</th><th class="num">实耗</th></tr>
+      ${cp.replay.ledger.map(r => `<tr><td>${esc(r.label)}</td><td class="num">${r.allocated}</td><td class="num">${r.used}</td></tr>`).join("")}</table>` : ""}
+  </div>`;
+}
+
+/* ============ 渲染：角色（锚点表＋KV 硬状态） / 世界 / 玩法 / HUD ============ */
+function renderChars() {
+  const anchors = buildAnchors();
+  $("page-chars").innerHTML = `<p class="hint" style="margin-bottom:8px">五锚点＝性格/服装/标志物/口癖/当前状态。initState 首访灌入 L9 记忆线；定稿令把「当前状态」变更写回 KV 表与记忆线——每个生成器开跑前都会召回它们。</p>` +
+    anchors.map(a => {
+      const changed = (kv[a.name] && kv[a.name]["当前状态"]) || "";
+      const memN = (mem.mem[a.name] || []).length;
+      return `<div class="char-card">
+      <div><span class="nm">${esc(a.name)}</span><span class="rl">${esc(a.role)}</span></div>
+      <div class="meta">🎨 ${esc(a.appearance)}</div>
+      <div class="meta">🎙 ${esc(a.voice)}</div>
+      <table class="anchor-table">
+        ${TRACK.anchorFields.map(f => `<tr><td>${f}</td><td class="${f === "当前状态" && changed ? "changed" : ""}">${esc(a[f])}${f === "当前状态" && changed ? " ←已由定稿令改写" : ""}</td></tr>`).join("")}
+      </table>
+      <div class="meta" style="color:#5f6b8a;margin-top:5px">L9 记忆线 ${memN} 条</div>
+    </div>`;
+    }).join("");
+}
+function renderWorld() {
+  const el = $("page-world");
+  el.innerHTML = `
+  <div class="card"><h4>📖 世界观圣经 · ${esc(STORY.framework)}</h4><div class="plan-line" style="line-height:1.8">${esc(STORY.premise)}</div></div>
+  <h4 class="sect">三幕节拍（${STORY.beats.length} 拍）</h4>
+  ${STORY.beats.map((b, i) => `<div class="beat ${i === world.act - 1 ? "now" : ""}"><div class="ph">${esc(b.phase)}</div><div class="tt">${esc(b.title)}</div><div class="ds">${esc(b.desc)}</div><div class="ex">${esc(b.expect || "")}</div></div>`).join("")}
+  <h4 class="sect">📡 世界脉搏 · 引擎 DirectorSystem 通道</h4>
+  <p class="hint" style="margin:0 0 6px">引擎导演子系统按令出世界事件（离线落引擎内置规则行，kernel.js:260；内容属引擎内置世界，与雁回城剧本无涉）——它只会让世界「在动」，进不了黑匣的 worldHash：正是回放确定性的对照源。旁支计费 ${pulseTokens} token。</p>
+  ${(pulseLog.length ? pulseLog : [{ text: "（尚无脉搏——发一条令后引擎导演子系统开始出事件）", online: null }]).map(p =>
+    `<div class="pulse-row">${p.online === null ? "" : (p.online ? "🟢 " : "⚙️ ")}${esc(p.text)}</div>`).join("")}
+  <h4 class="sect">📤 导出</h4>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn-mini" id="btn-export-mem">📤 导出设定集（L9 记忆线）</button>
+    <button class="btn-mini" id="btn-export-save">📤 导出存档（全量）</button>
+    <button class="btn-mini" style="background:#161a28;color:#cdd6ec;border:1px solid #2a3a5c" id="btn-import-save">📥 导入存档</button>
+    <input type="file" id="save-file" accept="application/json" style="display:none" />
+  </div>`;
+  $("btn-export-mem").onclick = () => download(`oriera-设定集-${GAME.id}.json`, mem.export());
+  $("btn-export-save").onclick = () => {
+    const data = {};
+    for (let k = 0; k < localStorage.length; k++) {
+      const key = localStorage.key(k);
+      if (key && key.startsWith("game." + GAME.id + ".")) data[key] = localStorage.getItem(key);
+    }
+    download(`oriera-存档-${GAME.id}.json`, JSON.stringify({ game: GAME.id, saved_at: Date.now(), data }, null, 1));
+  };
+  $("btn-import-save").onclick = () => $("save-file").click();
+  $("save-file").onchange = e => {
+    const r = new FileReader();
+    r.onload = () => {
+      try {
+        const j = JSON.parse(r.result);
+        Object.entries(j.data || {}).forEach(([k, v]) => localStorage.setItem(k, v));
+        location.reload();
+      } catch (err) { sys("存档文件无法识别"); }
+    };
+    r.readAsText(e.target.files[0]);
+  };
+}
+function download(name, text) {
+  const blob = new Blob([text], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  URL.revokeObjectURL(a.href);
+}
+function renderCodex() {
+  const done = new Set(JSON.parse(localStorage.getItem(K("loop")) || "[]"));
+  const el = $("page-codex");
+  el.innerHTML = `
+  <h4 class="sect">核心循环（点行勾销）</h4>
+  ${GAME.core_loop.map((s, i) => `<div class="loop-step ${done.has(i) ? "done" : ""}" data-i="${i}"><span>${done.has(i) ? "✅" : "▫️"}</span><span>${esc(s)}</span></div>`).join("")}
+  <h4 class="sect">机制系统</h4>
+  ${GAME.mechanics.map(m => `<div class="mech"><b>${esc(m.name)}</b><div>${esc(m.detail)}</div></div>`).join("")}
+  <h4 class="sect">经济循环</h4>
+  <table class="ledger"><tr><th>资源</th><th>来源</th><th>去向</th></tr>
+  ${GAME.economy.map(r => `<tr><td>${esc(r.name)}</td><td>${esc(r.source)}</td><td>${esc(r.sink)}</td></tr>`).join("")}</table>
+  <h4 class="sect">难度曲线</h4><div class="mech"><div>${esc(GAME.difficulty)}</div></div>
+  <h4 class="sect">回放政策（track.json）</h4>
+  <div class="mech"><div>temp=${TRACK.replayPolicy.temp}（真实透传）· 离线种子 ${esc(TRACK.replayPolicy.offlineSeed)} · diff 字段 ${TRACK.replayPolicy.diffFields.join(" / ")}</div></div>
+  <h4 class="sect">引擎挂点（vendored engine/kernel.js）</h4>
+  ${[
+    ["createProvider＋PROVIDER_PRESETS（:277-290）", "八厂商＋rule 预设；无 Key/断网返回 null，工作台自动切离线规则模式"],
+    ["HttpChatProvider.complete（:65-96）", "三生成器共用同一 provider 实例；temp:0 真透传、json:true 走 response_format、max=分拨预算由端点硬执行"],
+    ["provider.stats.tokens（:88-89）", "预算账本唯一数据源；每令记 before/after 差值按生成器分账"],
+    ["MemoryStore（:13-53）", "每角色＋世界观各一条记忆线；record 写定稿、retrieve 召回锚点、export 出设定集"],
+    ["Scheduler（:270-274）", "导演解析→三生成器→封板五系统注册其中，每令一次 tick pump"],
+    ["DirectorSystem（:243-267）", "「世界脉搏」子系统：离线落 RULE_BEATS 规则行，演示黑匣对世界漂移的隔离"],
+  ].map(([a, b]) => `<div class="mech"><b>${esc(a)}</b><div>${esc(b)}</div></div>`).join("")}`;
+  el.querySelectorAll(".loop-step").forEach(d => d.onclick = () => {
+    const i = +d.dataset.i;
+    done.has(i) ? done.delete(i) : done.add(i);
+    localStorage.setItem(K("loop"), JSON.stringify([...done]));
+    renderCodex();
+  });
+}
+function renderHUD() {
+  $("act").textContent = world.act;
+  $("hud-bb").textContent = blackbox.length;
+  $("hud-budget").textContent = curBudget();
+}
+function switchTab(t) {
+  document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.t === t));
+  document.querySelectorAll(".tab-page").forEach(p => p.classList.toggle("on", p.id === "page-" + t));
+}
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => switchTab(b.dataset.t));
+
+/* ============ 开场 ============ */
+$("budget").value = TRACK.budgetDefaults.perOrder;
+renderHUD(); renderBlackbox(); renderChars(); renderWorld(); renderCodex();
+sys(`欢迎来到「${esc(GAME.name)}」。点一条预置导演令（或自己写一句）——离线规则模式即可看全三阶段；切在线见 README。`);
+startScene();
+</script>
+</body>
+</html>

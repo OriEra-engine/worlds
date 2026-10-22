@@ -1,0 +1,1320 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>平行街20号：政策反事实沙盘 · OriEra 孪生赛道原型</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; overflow: hidden; background: #0d1017; color: #e6e8ef;
+    font-family: "Segoe UI", "Microsoft YaHei", sans-serif; }
+  #app { display: flex; height: 100%; }
+  #scene { flex: 1; position: relative; min-width: 0; }
+  #scene canvas { display: block; }
+  #hud { position: absolute; top: 12px; left: 14px; right: 14px; display: flex; gap: 8px; flex-wrap: wrap;
+    align-items: center; pointer-events: none; }
+  .chip { background: rgba(13,16,23,.82); border: 1px solid #2a3a5c; border-radius: 20px;
+    padding: 6px 13px; font-size: 12px; color: #aeb6cc; pointer-events: auto; }
+  #dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #556; margin-right: 6px; }
+  #dot.live { background: #35d07f; box-shadow: 0 0 8px #35d07f; }
+  #store-tip { position: absolute; right: 16px; top: 56px; display: none; max-width: 340px;
+    background: rgba(13,16,23,.94); border: 1px solid #2a3a5c; border-radius: 10px; padding: 10px 13px;
+    font-size: 12.5px; line-height: 1.7; color: #cdd6ec; pointer-events: none; z-index: 5; }
+  #store-tip b { color: #9fc3ff; }
+  #panel { width: 452px; background: #12151f; border-left: 1px solid #232a3d; display: flex; flex-direction: column; }
+  #tabs { display: flex; border-bottom: 1px solid #232a3d; }
+  #tabs button { flex: 1; background: none; border: none; color: #7c86a3; padding: 11px 2px;
+    font-size: 12.5px; cursor: pointer; border-bottom: 2px solid transparent; }
+  #tabs button.on { color: #7eb8ff; border-bottom-color: #7eb8ff; }
+  .tab-page { flex: 1; overflow-y: auto; padding: 13px; display: none; }
+  .tab-page.on { display: block; }
+  .mech { background: #161a28; border-radius: 8px; padding: 9px 12px; margin-bottom: 7px; }
+  .mech b { font-size: 13px; color: #cdd6ec; }
+  .mech div { font-size: 12px; color: #8a93ad; margin-top: 2px; line-height: 1.6; }
+  .hint { font-size: 12px; color: #7c86a3; line-height: 1.7; }
+  button.act { background: #2d5b9e; border: none; color: #fff; border-radius: 8px; padding: 9px 14px;
+    cursor: pointer; font-size: 13px; }
+  button.act:disabled { background: #2a3348; cursor: default; }
+  button.ghost { background: #161a28; color: #cdd6ec; border: 1px solid #2a3a5c; border-radius: 8px;
+    padding: 7px 11px; cursor: pointer; font-size: 12px; }
+  button.ghost.on { background: #1d3a5f; border-color: #7eb8ff; }
+  #policy-text { width: 100%; min-height: 58px; background: #0d1017; border: 1px solid #2a3a5c; color: #e6e8ef;
+    border-radius: 8px; padding: 9px 11px; font-size: 13px; line-height: 1.6; outline: none; resize: vertical; }
+  .prow { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 12.5px; }
+  .prow label { width: 150px; color: #8a93ad; flex: none; }
+  .prow select, .prow input { background: #0d1017; border: 1px solid #2a3a5c; color: #e6e8ef;
+    border-radius: 6px; padding: 4px 7px; font-size: 12.5px; }
+  .pbadge { display: inline-block; padding: 1px 7px; border-radius: 9px; font-size: 11px; margin-left: 6px; }
+  .pbadge.kw { background: #1d2f22; color: #7effc3; }
+  .pbadge.llm { background: #1d2f44; color: #9fc3ff; }
+  .log { display: flex; flex-direction: column; gap: 7px; }
+  .daycard { background: #161a28; border-left: 3px solid #2a3a5c; border-radius: 0 8px 8px 0; padding: 8px 11px; }
+  .daycard.ev { border-left-color: #e8b24e; }
+  .daycard .dh { font-size: 12.5px; font-weight: 700; color: #9fc3ff; }
+  .daycard .dv { font-size: 12px; color: #aeb6cc; line-height: 1.65; margin-top: 3px; }
+  .daycard .dec { font-size: 12px; color: #8a93ad; line-height: 1.7; }
+  .daycard .dec .src-llm { color: #7effc3; font-weight: 700; }
+  .daycard .dec .src-manual { color: #5f6b8a; }
+  .daycard .dec .flip { color: #ffb37e; }
+  .bar { height: 7px; background: #0d1017; border-radius: 4px; overflow: hidden; flex: 1; }
+  .bar i { display: block; height: 100%; background: linear-gradient(90deg,#2d5b9e,#7effc3); }
+  .brow { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: #aeb6cc; padding: 3px 0; }
+  .brow .bn { width: 118px; flex: none; }
+  .runcard { background: #161a28; border: 1px solid #232a3d; border-radius: 10px; padding: 10px 12px; margin-bottom: 9px; }
+  .runcard.sel { border-color: #e8b24e; }
+  .runcard .rh { font-size: 13px; font-weight: 700; color: #e8d78a; }
+  .runcard .rb { font-size: 12px; color: #aeb6cc; line-height: 1.7; margin-top: 3px; }
+  .runcard .rs { font-size: 11.5px; color: #7c86a3; margin-top: 3px; }
+  table.diff { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  table.diff th { text-align: left; color: #7c86a3; padding: 3px 5px; font-weight: 500; }
+  table.diff td { padding: 3.5px 5px; border-top: 1px solid #1e2536; color: #b6bfd6; }
+  .pos { color: #7effc3; } .neg { color: #e07a7a; }
+  .banner { border-radius: 10px; padding: 11px 13px; font-size: 12.5px; line-height: 1.7; margin-bottom: 9px; }
+  .banner.ok { background: #12241a; border: 1px solid #2f6e4a; color: #a8e8c3; }
+  .banner.warn { background: #241a10; border: 1px solid #8a5b1e; color: #e8cf9a; }
+  .banner.info { background: #161d33; border: 1px solid #2a3a5c; color: #aeb6cc; }
+  .banner b { color: #fff; }
+  #day-slider { width: 100%; }
+  .duel { display: flex; gap: 8px; }
+  .duel > div { flex: 1; min-width: 0; }
+  .loop-step { display: flex; gap: 8px; padding: 7px 10px; background: #161a28; border-radius: 8px;
+    margin-bottom: 6px; font-size: 12.5px; line-height: 1.6; }
+  .thinking { color: #7c86a3; font-size: 12px; }
+  .mode-row { display: flex; gap: 8px; margin: 8px 0; }
+  #fallback { position: fixed; inset: 0; background: #0d1017ee; display: none; align-items: center;
+    justify-content: center; z-index: 99; text-align: center; padding: 40px; line-height: 2; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="scene">
+    <div id="hud">
+      <div class="chip"><b style="color:#9fc3ff">平行街20号</b> · 政策反事实沙盘</div>
+      <div class="chip">第 <b id="h-day" style="color:#e8d78a">0</b>/14 日</div>
+      <div class="chip">公积金 ¥<b id="h-fund" style="color:#ffd88a">2000</b></div>
+      <div class="chip">全街NPS <b id="h-nps" style="color:#7effc3">-</b></div>
+      <div class="chip">现金 ¥<b id="h-cash" style="color:#ffd88a">-</b></div>
+      <div class="chip">存活 <b id="h-open">20</b>/20</div>
+      <div class="chip"><span id="dot"></span><span id="prov-name">规则引擎（离线）</span></div>
+      <div class="chip">tokens <b id="h-tok" style="color:#9fc3ff">0</b></div>
+    </div>
+    <div id="store-tip"></div>
+  </div>
+  <div id="panel">
+    <div id="tabs">
+      <button class="on" data-t="policy">🏛 政策</button>
+      <button data-t="run">▶ 运行</button>
+      <button data-t="ledger">📚 账本</button>
+      <button data-t="compare">⚖ 对照</button>
+      <button data-t="codex">🎯 玩法</button>
+    </div>
+    <div id="page-policy" class="tab-page on">
+      <div class="mech"><b>① 定政策</b>
+        <div>一句话经营政策，解析为 5 个结构化参数。在线由 LLM 语义解析（provider.complete json:true），离线走关键词表；解析结果可手动微调——它就是本臂唯一自变量。</div>
+      </div>
+      <div id="policy-presets" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+      <textarea id="policy-text" placeholder="写一句话经营政策，如：断供时优先保大店，客服工单超4小时自动升级"></textarea>
+      <div style="display:flex;gap:8px;margin:8px 0">
+        <button class="act" id="btn-parse">🔍 解析政策</button>
+        <span id="parse-src" class="hint"></span>
+      </div>
+      <div id="param-rows"></div>
+      <div class="prow"><label>随机种子（两臂同种子才可比）</label><input id="seed" type="number" value="20260420" style="width:110px"></div>
+      <div class="mode-row">
+        <button class="ghost on" id="mode-cmp" title="events.json 固定脚本逐日注入两条臂——对照实验默认，唯一变量=政策">剧本模式（events.json）</button>
+        <button class="ghost" id="mode-stress" title="导演即兴生成经营冲击：在线 LLM 现编，离线用种子冲击表——观赏模式，不作对照">压力模式（导演即兴）</button>
+      </div>
+      <button class="act" id="btn-run" style="width:100%;padding:11px">🚀 运行此政策（14 日分身）</button>
+      <p class="hint" style="margin-top:8px">每日 1 个 LLM 决策名额按角色轮转（预算分拨），其余角色按各 persona 内【手册规则表】办事；预算耗尽/调用失败/解析非法共用同一条降级管线。全程事件溯源记账。</p>
+    </div>
+    <div id="page-run" class="tab-page">
+      <div class="mech"><b>② 跑分身</b><div id="run-progress">尚未运行。先在「🏛 政策」页定政策。</div></div>
+      <div class="mech"><b>预算面板</b><div id="budget-panel" style="margin-top:4px">provider.stats 实时计量（离线 0 token）</div></div>
+      <div id="run-log" class="log"></div>
+      <div id="run-final"></div>
+    </div>
+    <div id="page-ledger" class="tab-page">
+      <div class="hint" style="margin-bottom:8px">每条运行记录 = 全输入（政策参数+种子+14日事件流+逐日决策）× 全输出（事件账本）。勾选两条记录做对照归因；相同政策+种子的两条记录应当哈希逐位一致——现场验证可复现性。</div>
+      <div id="run-list"></div>
+      <button class="act" id="btn-compare" style="width:100%" disabled>⚔ 对照归因（先勾选两条记录）</button>
+    </div>
+    <div id="page-compare" class="tab-page"><div class="hint">先在「📚 账本」页勾选两条运行记录。</div></div>
+    <div id="page-codex" class="tab-page"></div>
+  </div>
+</div>
+<div id="fallback">
+  <div>
+    <div style="font-size:40px">🏙️</div>
+    <h2 style="margin:12px 0">请通过静态服务器打开本项目</h2>
+    <p style="color:#8a93ad">demo 依赖引擎内核与 Three.js 模块（相对路径本地化），file:// 直开会被浏览器 ES Module 安全策略拦截。<br>例：npx serve 本目录，或 python -m http.server。</p>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "./vendor/three.module.js",
+  "three/addons/": "./vendor/"
+} }
+</script>
+<script type="module">
+/* ============ 游戏数据（与项目内 JSON 文件保持同步，scripts/check.mjs 校验字节级一致） ============ */
+const GAME = {
+  "id": "policy-twin",
+  "name": "平行街20号：政策反事实沙盘",
+  "tagline": "同一批 20 家店、同一份 14 日命运脚本，只换你的一条政策——确定性回放账本找出首个分岔日",
+  "gameplay_id": "policy-twin",
+  "core_loop": [
+    "①定政策：一句话经营政策（如「断供时优先保大店」「客服工单超2小时自动升级区域经理」），在线由 LLM 解析成结构化参数，离线走关键词表",
+    "②跑分身：14 日确定性经营核（种子随机数，20 家店库存/现金流/NPS 全规则结算）+ events.json 固定脚本注入促销/断供/舆情冲击，6~8 名角色智能体在各自 token 预算内 LLM 决策、超预算自动降级「按手册办事」，全程事件溯源记账",
+    "③对照归因：任选两条运行记录并排逐日回放，定位首个分岔日、逐店指标差、智能体决策翻转与记忆分叉，导出归因报告"
+  ],
+  "mechanics": [
+    {
+      "name": "政策解析",
+      "detail": "一句话经营政策解析为结构化参数 {supply_priority 断供分配, cs_escalate_hours 工单升级阈值, pr_response 舆情响应, promo_push 促销力度, restock_bias 补货倾斜}。在线由 LLM 语义解析（provider.complete json:true），离线走关键词表；解析结果可手动微调后作为本臂唯一自变量。"
+    },
+    {
+      "name": "事件注入",
+      "detail": "events.json 固定脚本 12 条外生事件（促销/断供/舆情/天气/监管）按日注入两条运行臂，保证对照可比；压力测试模式改由导演即兴加码（在线 LLM 生成冲击，离线用种子冲击表），两模式显式切换。"
+    },
+    {
+      "name": "预算分拨",
+      "detail": "7 名角色智能体各有独立 token 预算（kernel provider.stats 计量）；预算内走 LLM 决策（决策 JSON 契约扩展自引擎 {say,action,mood,remember,to}），预算耗尽/调用失败/解析非法自动降级「按手册办事」（与无 Key 离线共用同一条降级管线）。"
+    },
+    {
+      "name": "账本回放",
+      "detail": "每个 world.turn（经营日）落一条事件账：注入→决策→确定性核结算全部入账；运行记录 = {政策参数, 种子, 逐日注入流, 逐日决策} 全输入 + 账本全输出，重放即逐位重算——「复现自检」现场验证哈希一致。"
+    },
+    {
+      "name": "归因报告",
+      "detail": "任选两条运行记录并排对照：定位首个确定性核分歧日与首处分岔店/字段、逐日指标差表、智能体决策翻转清单、按角色的记忆分叉（MemoryStore.export diff），一键导出 Markdown 归因报告，附可复现性声明。"
+    }
+  ],
+  "economy": [
+    {
+      "name": "决策预算",
+      "source": "按角色分拨 token（每人 4000 配额，kernel provider.stats.calls/tokens 逐次计量）",
+      "sink": "LLM 决策调用；预算耗尽自动降级按手册办事（离线模式 0 token，全员手册）"
+    },
+    {
+      "name": "街况资产",
+      "source": "20 家店初始库存/现金/NPS（agents.json stores 骨架，两臂同源）+ 逐日销售回款",
+      "sink": "补货成本/固定开支/工单升级费/公关投放/现金救济/整改成本；现金 < -400 的店关店出局"
+    }
+  ],
+  "difficulty": "入门 5 分钟：默认离线规则引擎即可完整跑通三步循环；政策语句越接近五个参数的语义，离线关键词表命中越准（联网后任意表述可解析）；对照实验建议只改一个参数；在线臂的报告须读可复现性声明——LLM 决策层为随机源，跨臂归因以首个确定性核分歧日为准",
+  "user_idea": "同一批 20 家店、同一份 14 日命运脚本，只换一条政策——确定性回放账本让 LLM 社会仿真第一次能输出「首个分岔日」级可归因政策差异报告，这是 Concordia/AgentSociety 做不到、而 Compliance Digital Twin 路线证明有真实需求的能力。",
+  "theme": "street"
+};
+const AGENTS = {
+  "agents": [
+    {
+      "name": "陈澜",
+      "role": "区域经理",
+      "persona": "区域经理，平行街20号的最高现场指挥，做事先看数据再看人情，断供夜里睡不着的那个人。口头禅是「政策是死的，街是活的」。【决策契约·输出协议】每轮被触发时只输出一个 JSON 对象，不输出任何其他文字，格式：{\"decision\":\"alloc_big|alloc_small|alloc_fair|aid_worst|hold 之一\",\"say\":\"≤40字一句话说明\",\"remember\":\"≤30字本轮要点，没有则空串\",\"mood\":\"happy|neutral|sad|excited|thoughtful 之一\",\"action\":\"idle|wave|yes|thumbs_up|sitting 之一\"}。decision 语义：断供日分配裁定 alloc_big=优先保旗舰与大店、alloc_small=优先保中店与小店、alloc_fair=按需求量公平分、aid_worst=从街公积金拨 300 救济现金最差的一家（全程至多 2 次）、hold=按既定政策不动。断供日你的裁定将覆盖当日政策参数。【手册规则表】（预算耗尽或解析失败时按此执行）：当日有断供事件→按现行政策 supply_priority 出 alloc_*；有门店现金<0 且救济次数未用完→aid_worst；其余→hold。可偏离手册，但 say 里必须给理由。",
+      "mood": "冷静持重",
+      "first_line": "两条街、四十面招牌、一个种子——政策你来定，账我来算。",
+      "budget": 4000
+    },
+    {
+      "name": "铁山",
+      "role": "供应链主管",
+      "persona": "供应链主管，在仓库里长大的老运营，手机里存着每家店的库存曲线，信条是「货压多了是罪，断货更是罪」。【决策契约·输出协议】每轮被触发时只输出一个 JSON 对象，不输出任何其他文字，格式：{\"decision\":\"restock_aggressive|restock_normal|restock_conservative 之一\",\"say\":\"≤40字一句话说明\",\"remember\":\"≤30字本轮要点，没有则空串\",\"mood\":\"happy|neutral|sad|excited|thoughtful 之一\",\"action\":\"idle|wave|yes|thumbs_up|sitting 之一\"}。decision 语义：当日补货水位 restock_aggressive=补到容量的 60%、restock_normal=45%、restock_conservative=30%。【手册规则表】：全街平均库存覆盖率（Σ库存/Σ容量）<0.35→restock_aggressive；>0.80→restock_conservative；其余→restock_normal。断供窗口内你的水位决定池子怎么被切。可偏离手册，但 say 里必须给理由。",
+      "mood": "务实强硬",
+      "first_line": "干线一断，货架比人心先空——补货水位我说了算。",
+      "budget": 4000
+    },
+    {
+      "name": "小满",
+      "role": "客服主管",
+      "persona": "客服主管，带一支 7 人小队，工单看板挂在床头，最恨的是「超时工单在夜里变黄」。相信每张超时工单都是一位不会再来的客人。【决策契约·输出协议】每轮被触发时只输出一个 JSON 对象，不输出任何其他文字，格式：{\"decision\":\"focus_fifo|focus_big|focus_crisis 之一\",\"say\":\"≤40字一句话说明\",\"remember\":\"≤30字本轮要点，没有则空串\",\"mood\":\"happy|neutral|sad|excited|thoughtful 之一\",\"action\":\"idle|wave|yes|thumbs_up|sitting 之一\"}。decision 语义：当日清单火力分配 focus_fifo=各店平均清 3 单、focus_big=旗舰与大店清 4 单其余 2 单、focus_crisis=舆情门店清 5 单其余 2 单。超过政策阈值（cs_escalate_hours）的工单每晚扣 NPS 还要区域经理付费兜底。【手册规则表】：当日有舆情事件→focus_crisis；全街积压工单>12→focus_big；其余→focus_fifo。可偏离手册，但 say 里必须给理由。",
+      "mood": "敏锐急躁",
+      "first_line": "工单看板又黄了一片——升级阈值定几小时，政策说了算。",
+      "budget": 4000
+    },
+    {
+      "name": "语堂",
+      "role": "品牌公关",
+      "persona": "品牌公关，前都市报记者，转行后专治「上热榜」，口头禅是「差评不过夜，过夜就生根」。舆情事件日是 TA 的主场。【决策契约·输出协议】每轮被触发时只输出一个 JSON 对象，不输出任何其他文字，格式：{\"decision\":\"pr_invest|pr_monitor 之一\",\"say\":\"≤40字一句话说明\",\"remember\":\"≤30字本轮要点，没有则空串\",\"mood\":\"happy|neutral|sad|excited|thoughtful 之一\",\"action\":\"idle|wave|yes|thumbs_up|sitting 之一\"}。decision 语义：舆情应对 pr_invest=追加投放（花费 200×事件强度，NPS 伤害再减半）、pr_monitor=只监测不花钱。政策参数 pr_response=proactive 时已自动投放一半，你再追加可叠乘。【手册规则表】：舆情事件日→按现行政策 pr_response 出招（proactive→pr_invest，passive→pr_monitor）；非舆情日被触发→pr_monitor。可偏离手册，但 say 里必须给理由。",
+      "mood": "锋利从容",
+      "first_line": "这条街的口碑是算出来的——舆情响应， proactive 还是 passive？",
+      "budget": 4000
+    },
+    {
+      "name": "何宽",
+      "role": "财务风控",
+      "persona": "财务风控，口袋计算器从不离身，看店先看现金流再看招牌，原则是「救急不救穷，三次封顶」。【决策契约·输出协议】每轮被触发时只输出一个 JSON 对象，不输出任何其他文字，格式：{\"decision\":\"inject_cash|hold 之一\",\"say\":\"≤40字一句话说明\",\"remember\":\"≤30字本轮要点，没有则空串\",\"mood\":\"happy|neutral|sad|excited|thoughtful 之一\",\"action\":\"idle|wave|yes|thumbs_up|sitting 之一\"}。decision 语义：inject_cash=向现金最差的门店注资 600（全程至多 3 次）、hold=按兵不动。现金 < -400 的店直接关店，救不回来。【手册规则表】：有门店现金<300 且注资次数未用完→inject_cash；其余→hold。可偏离手册，但 say 里必须给理由。",
+      "mood": "谨慎克制",
+      "first_line": "现金流是这条街的心电图——救济名额只有三个，别浪费。",
+      "budget": 4000
+    },
+    {
+      "name": "韩拓",
+      "role": "旗舰店长",
+      "persona": "旗舰店长，旗舰与大店的代言人，KPI 压顶，断供夜里第一个打电话催货的人，坚信「大店倒了整条街的招牌就倒了」。【决策契约·输出协议】每轮被触发时只输出一个 JSON 对象，不输出任何其他文字，格式：{\"decision\":\"request_supply|standby 之一\",\"say\":\"≤40字一句话说明\",\"remember\":\"≤30字本轮要点，没有则空串\",\"mood\":\"happy|neutral|sad|excited|thoughtful 之一\",\"action\":\"idle|wave|yes|thumbs_up|sitting 之一\"}。decision 语义：request_supply=为大店档位争取当日补货权重 +2（与分配裁定叠乘）、standby=不争。你的话语权在断供日最值钱。【手册规则表】：旗舰+大店平均库存覆盖率<0.30→request_supply；其余→standby。可偏离手册，但 say 里必须给理由。",
+      "mood": "进取焦灼",
+      "first_line": "旗舰的货架就是这条街的门面——断供先保谁，政策写明白。",
+      "budget": 4000
+    },
+    {
+      "name": "温遇",
+      "role": "社区店长",
+      "persona": "社区店长联合会召集人，替 7 家小店说话，坚信「小店是街坊的客厅，饿谁也不能饿街坊」。数据不占优时靠人情和韧劲补。【决策契约·输出协议】每轮被触发时只输出一个 JSON 对象，不输出任何其他文字，格式：{\"decision\":\"request_supply|standby 之一\",\"say\":\"≤40字一句话说明\",\"remember\":\"≤30字本轮要点，没有则空串\",\"mood\":\"happy|neutral|sad|excited|thoughtful 之一\",\"action\":\"idle|wave|yes|thumbs_up|sitting 之一\"}。decision 语义：request_supply=为小店档位争取当日补货权重 +2（与分配裁定叠乘）、standby=不争。【手册规则表】：小店平均库存覆盖率<0.30→request_supply；其余→standby。可偏离手册，但 say 里必须给理由。",
+      "mood": "温和坚韧",
+      "first_line": "小店垫底惯了，但街坊的客厅不能黑灯——政策别忘了我们。",
+      "budget": 4000
+    }
+  ],
+  "stores": [
+    { "id": "s01", "tier": "旗舰", "stock": 400, "cash": 6000, "nps": 72 },
+    { "id": "s02", "tier": "旗舰", "stock": 400, "cash": 6000, "nps": 72 },
+    { "id": "s03", "tier": "大", "stock": 250, "cash": 3600, "nps": 66 },
+    { "id": "s04", "tier": "大", "stock": 250, "cash": 3600, "nps": 66 },
+    { "id": "s05", "tier": "大", "stock": 250, "cash": 3600, "nps": 66 },
+    { "id": "s06", "tier": "大", "stock": 250, "cash": 3600, "nps": 66 },
+    { "id": "s07", "tier": "大", "stock": 250, "cash": 3600, "nps": 66 },
+    { "id": "s08", "tier": "中", "stock": 160, "cash": 2400, "nps": 62 },
+    { "id": "s09", "tier": "中", "stock": 160, "cash": 2400, "nps": 62 },
+    { "id": "s10", "tier": "中", "stock": 160, "cash": 2400, "nps": 62 },
+    { "id": "s11", "tier": "中", "stock": 160, "cash": 2400, "nps": 62 },
+    { "id": "s12", "tier": "中", "stock": 160, "cash": 2400, "nps": 62 },
+    { "id": "s13", "tier": "中", "stock": 160, "cash": 2400, "nps": 62 },
+    { "id": "s14", "tier": "小", "stock": 100, "cash": 1500, "nps": 58 },
+    { "id": "s15", "tier": "小", "stock": 100, "cash": 1500, "nps": 58 },
+    { "id": "s16", "tier": "小", "stock": 100, "cash": 1500, "nps": 58 },
+    { "id": "s17", "tier": "小", "stock": 100, "cash": 1500, "nps": 58 },
+    { "id": "s18", "tier": "小", "stock": 100, "cash": 1500, "nps": 58 },
+    { "id": "s19", "tier": "小", "stock": 100, "cash": 1500, "nps": 58 },
+    { "id": "s20", "tier": "小", "stock": 100, "cash": 1500, "nps": 58 }
+  ]
+};
+const EVENTS = {
+  "version": "events-v1",
+  "premise": "平行街20号是一条有 20 家店（2 旗舰 5 大 6 中 7 小）的商街。同一个种子、同一份 14 日外生事件脚本砸在每条运行臂上——唯一变量是开局那条经营政策。促销、断供、舆情、天气、监管全部按脚本逐日注入；确定性经营核逐日结算并落事件账本，两条臂并排重放即可定位政策造成的第一处分岔。本文件是对照实验的可控变量，也是本赛道的核心资产：改这里等于改写两条臂共同的命运。",
+  "events": [
+    { "day": 2, "type": "promo", "scope": ["s01", "s03", "s05", "s08"], "magnitude": 0.6, "text": "平台大促开闸，参与店客流暴涨、毛利被压" },
+    { "day": 3, "type": "supply_cut", "scope": ["s01", "s02", "s03", "s04", "s05", "s06", "s07"], "magnitude": 0.5, "text": "中央仓干线故障，旗舰与大店断供三日" },
+    { "day": 5, "type": "pr_crisis", "scope": ["s08", "s09", "s10"], "magnitude": 0.7, "text": "中店街区被曝服务态度问题，差评冲上同城热榜" },
+    { "day": 6, "type": "weather", "scope": ["s14", "s15", "s16", "s17", "s18", "s19", "s20"], "magnitude": 0.5, "text": "连日冻雨，社区小店客流锐减" },
+    { "day": 7, "type": "regulation", "scope": ["all"], "magnitude": 0.3, "text": "街区消防例行检查，全街产生小额整改成本" },
+    { "day": 8, "type": "promo", "scope": ["s14", "s15", "s16", "s17", "s18", "s19", "s20"], "magnitude": 0.4, "text": "社区团购节开锣，小店让利换量" },
+    { "day": 9, "type": "supply_cut", "scope": ["all"], "magnitude": 0.65, "text": "供应商罢运，全线供货腰斩三日" },
+    { "day": 10, "type": "pr_crisis", "scope": ["s01", "s02"], "magnitude": 0.5, "text": "旗舰店卫生投诉视频发酵" },
+    { "day": 11, "type": "weather", "scope": ["s03", "s04", "s05", "s06", "s07", "s08", "s09", "s10", "s11", "s12", "s13"], "magnitude": 0.6, "text": "寒潮封路，中大店客流受阻" },
+    { "day": 12, "type": "promo", "scope": ["s05", "s06", "s07"], "magnitude": 0.5, "text": "大店周年庆冲刺，促销加码" },
+    { "day": 13, "type": "supply_cut", "scope": ["s08", "s09", "s10", "s11", "s12", "s13"], "magnitude": 0.4, "text": "区域仓盘点，中店街区断供两日" },
+    { "day": 14, "type": "pr_crisis", "scope": ["all"], "magnitude": 0.3, "text": "媒体盘点街区投诉率，全街口碑承压" }
+  ]
+};
+const TRACK = {
+  "track": "孪生",
+  "title": "平行街20号：政策反事实沙盘",
+  "gameplay_id": "policy-twin",
+  "pitch": "同一批 20 家店、同一份 14 日命运脚本，只换你的一条政策——确定性回放账本让 LLM 社会仿真第一次能输出「首个分岔日」级可归因政策差异报告，这是 Concordia/AgentSociety 做不到、而 Compliance Digital Twin 路线证明有真实需求的能力。",
+  "engine_hooks": [
+    "createProvider(cfg)+PROVIDER_PRESETS（kernel.js:277-290）：L7 八厂商接入；无 Key 或选 rule 时返回 null 自动降级——离线模式与「角色预算耗尽」共用同一条降级管线",
+    "HttpChatProvider.complete(messages,{json:true}) 与 provider.stats.calls/tokens（kernel.js:65-96）：政策解析与角色决策的结构化输出通道；stats 即预算面板数据源",
+    "MemoryStore（kernel.js:13-53）：每角色情节记忆，决策时 retrieve() 召回教训，export() 产出归因报告「记忆分叉」段；每条运行臂独立 persistKey 隔离对照",
+    "CognitionSystem/DirectorSystem 的 {say,action,mood,remember,to} JSON 契约与降级模式（kernel.js:136-267）扩展为决策契约与两模式导演；应用层确定性经营核自建（先例应用层直调 provider 的既定模式）",
+    "Scheduler（kernel.js:270-274）：顺序泵送「导演注入→角色决策→确定性核结算」，每个 world.turn 落一条事件账"
+  ],
+  "offline_first": true,
+  "date": "2026-10-19"
+};
+/* 【定制·独立部署】kernel 与 vendor 已随项目自带（engine/kernel.js、vendor/、utils/），相对路径解析。 */
+const VENDOR_BASE = "./vendor/";
+const KERNEL = "./engine/kernel.js";
+
+/* ===== [TWIN-CORE-BEGIN] 纯确定性经营核：无 DOM、无 LLM、无 Math.random、无时钟 =====
+   同 (params, seed, script) 必产出逐位相同的账本；scripts/check.mjs 会把本段原样抽到 Node
+   里跑「同种子重放逐位一致 / 异政策首个分岔日」两道硬门禁。浏览器内实时运行与账本重放
+   （复现自检）走的也是这几个函数——单一实现，零漂移。 */
+const TIERS = {
+  "旗舰": { cap: 500, demand: 60, price: 12, rent: 300 },
+  "大":   { cap: 320, demand: 38, price: 10, rent: 200 },
+  "中":   { cap: 200, demand: 24, price: 8,  rent: 130 },
+  "小":   { cap: 120, demand: 15, price: 7,  rent: 80 },
+};
+const TWIN_CFG = { days: 14, fund0: 2000, closeAt: -400, unitCost: 4, emgUnitCost: 5, emgPool: 420,
+  seedDefault: 20260420 };
+const AGENT_IDS = ["chenlan", "tieshan", "xiaoman", "yutang", "hekuan", "hantuo", "wenyu"];
+const AGENT_NAME_OF = Object.fromEntries(AGENT_IDS.map((id, i) => [id, AGENTS.agents[i].name]));
+const DECISION_SETS = {
+  chenlan: ["alloc_big", "alloc_small", "alloc_fair", "aid_worst", "hold"],
+  tieshan: ["restock_aggressive", "restock_normal", "restock_conservative"],
+  xiaoman: ["focus_fifo", "focus_big", "focus_crisis"],
+  yutang: ["pr_invest", "pr_monitor"],
+  hekuan: ["inject_cash", "hold"],
+  hantuo: ["request_supply", "standby"],
+  wenyu: ["request_supply", "standby"],
+};
+const POLICY_DEFAULT = { supply_priority: "fair", cs_escalate_hours: 4, pr_response: "passive",
+  promo_push: 1, restock_bias: "none" };
+
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0;
+  let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+  return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function fnv1a(str) { let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return ("00000000" + (h >>> 0).toString(16)).slice(-8); }
+const round2 = x => Math.round(x * 100) / 100;
+
+function initWorld(params, seed) {
+  const stores = AGENTS.stores.map(s => ({ ...s, cap: TIERS[s.tier].cap, backlog: 0, closed: false }));
+  return { turn: 0, day: 0, stores, fund: TWIN_CFG.fund0, aidLeft: 2, injectLeft: 3,
+    rng: mulberry32((seed >>> 0) || TWIN_CFG.seedDefault), story: { day: 1, beats: [] }, eventsToday: [] };
+}
+function eventsForDay(script, day) { return script.filter(e => e.day === day); }
+
+function manualDecide(id, world, policy, day, evts) {
+  const open = world.stores.filter(s => !s.closed);
+  const isCut = evts.some(e => e.type === "supply_cut");
+  const isPR = evts.some(e => e.type === "pr_crisis");
+  const cov = list => { const cap = list.reduce((a, s) => a + s.cap, 0) || 1;
+    return list.reduce((a, s) => a + s.stock, 0) / cap; };
+  switch (id) {
+    case "chenlan":
+      if (isCut) return { big: "alloc_big", small: "alloc_small", fair: "alloc_fair" }[policy.supply_priority] || "alloc_fair";
+      if (open.some(s => s.cash < 0) && world.aidLeft > 0) return "aid_worst";
+      return "hold";
+    case "tieshan": { const c = cov(open);
+      if (c < 0.35) return "restock_aggressive";
+      if (c > 0.80) return "restock_conservative";
+      return "restock_normal"; }
+    case "xiaoman": { const bl = open.reduce((a, s) => a + s.backlog, 0);
+      if (isPR) return "focus_crisis";
+      if (bl > 12) return "focus_big";
+      return "focus_fifo"; }
+    case "yutang":
+      if (isPR) return policy.pr_response === "proactive" ? "pr_invest" : "pr_monitor";
+      return "pr_monitor";
+    case "hekuan":
+      if (open.some(s => s.cash < 300) && world.injectLeft > 0) return "inject_cash";
+      return "hold";
+    case "hantuo": return cov(open.filter(s => s.tier === "旗舰" || s.tier === "大")) < 0.30 ? "request_supply" : "standby";
+    case "wenyu": return cov(open.filter(s => s.tier === "小")) < 0.30 ? "request_supply" : "standby";
+  }
+  return "hold";
+}
+function decideManualAll(world, policy, day, evts) {
+  const o = {};
+  for (const id of AGENT_IDS) o[id] = { src: "manual", via: "手册", decision: manualDecide(id, world, policy, day, evts) };
+  return o;
+}
+
+/* 逐日结算：需求抽样(rng 每店一抽,按 id 序) → 补货/应急池 → 销售 → 工单 → 舆情 → 监管 → 救济 → 现金/NPS/关店 */
+function settleDay(world, day, evts, decs, policy) {
+  const dec = id => (decs[id] && DECISION_SETS[id].includes(decs[id].decision))
+    ? decs[id].decision : manualDecide(id, world, policy, day, evts);
+  const S = world.stores, open = S.filter(s => !s.closed);
+  const promoEvs = evts.filter(e => e.type === "promo"), cutEvs = evts.filter(e => e.type === "supply_cut"),
+    prEvs = evts.filter(e => e.type === "pr_crisis"), wxEvs = evts.filter(e => e.type === "weather"),
+    regEvs = evts.filter(e => e.type === "regulation");
+  const isCut = cutEvs.length > 0, isPR = prEvs.length > 0;
+  const scopedSet = ev => new Set(ev.scope.includes("all") ? open.map(s => s.id) : ev.scope);
+  const magOf = (evs, sid) => evs.reduce((m, e) => (scopedSet(e).has(sid) && e.magnitude > m) ? e.magnitude : m, 0);
+
+  /* 1) 需求与新增工单（rng 抽样次数只取决于存活店数，与决策无关——保证流对齐） */
+  const rows = {};
+  for (const s of S) { if (s.closed) continue;
+    const jit = 0.8 + 0.4 * world.rng();
+    let dm = TIERS[s.tier].demand * jit;
+    const pm = magOf(promoEvs, s.id); if (pm > 0) dm *= 1 + pm * (0.6 + 0.15 * policy.promo_push);
+    const wm = magOf(wxEvs, s.id); if (wm > 0) dm *= 1 - wm * 0.5;
+    dm = Math.max(0, Math.round(dm));
+    let tk = Math.round(dm * 0.05);
+    const prm = magOf(prEvs, s.id); if (prm > 0) tk += Math.round(prm * 4);
+    rows[s.id] = { demand: dm, newTickets: tk };
+  }
+  /* 2) 补货：断供日走应急池（陈澜裁定切池），平日按铁山水位+政策倾斜+请援加成 */
+  const lvl = ({ restock_aggressive: 0.60, restock_normal: 0.45, restock_conservative: 0.30 })[dec("tieshan")] || 0.45;
+  if (!isCut) {
+    for (const s of open) { const r = rows[s.id];
+      let f = 1;
+      if (policy.restock_bias === "big") f = (s.tier === "旗舰" || s.tier === "大") ? 1.3 : 0.8;
+      else if (policy.restock_bias === "small") f = s.tier === "小" ? 1.3 : (s.tier === "中" ? 1.0 : 0.8);
+      let L = Math.min(0.9, lvl * f);
+      if (dec("hantuo") === "request_supply" && (s.tier === "旗舰" || s.tier === "大")) L = Math.min(0.9, L + 0.15);
+      if (dec("wenyu") === "request_supply" && s.tier === "小") L = Math.min(0.9, L + 0.15);
+      const target = Math.round(s.cap * L);
+      let buy = Math.max(0, target - s.stock);
+      buy = Math.min(buy, Math.floor(Math.max(0, s.cash) / TWIN_CFG.unitCost));
+      s.stock += buy; r.restock = buy; r.restockCost = buy * TWIN_CFG.unitCost;
+    }
+  } else {
+    let alloc = dec("chenlan");
+    if (!["alloc_big", "alloc_small", "alloc_fair"].includes(alloc))
+      alloc = { big: "alloc_big", small: "alloc_small", fair: "alloc_fair" }[policy.supply_priority] || "alloc_fair";
+    const W = { alloc_big: { "旗舰": 6, "大": 4, "中": 1.5, "小": 1 },
+      alloc_small: { "旗舰": 1, "大": 1.5, "中": 3, "小": 5 }, alloc_fair: null }[alloc];
+    const cutIds = new Set(); cutEvs.forEach(e => scopedSet(e).forEach(id => cutIds.add(id)));
+    const pool = open.filter(s => cutIds.has(s.id));
+    const weights = pool.map(s => { let w = W ? W[s.tier] : TIERS[s.tier].demand; /* 公平=按需求量占比 */
+      if (dec("hantuo") === "request_supply" && (s.tier === "旗舰" || s.tier === "大")) w += 2;
+      if (dec("wenyu") === "request_supply" && s.tier === "小") w += 2;
+      return Math.max(0.01, w); });
+    const wSum = weights.reduce((a, b) => a + b, 0) || 1;
+    const exact = weights.map(w => w / wSum * TWIN_CFG.emgPool);
+    const base = exact.map(Math.floor);
+    let rem = TWIN_CFG.emgPool - base.reduce((a, b) => a + b, 0);
+    const ord = exact.map((e, i) => [e - base[i], i]).sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+    for (let k = 0; k < rem && pool.length; k++) base[ord[k % ord.length][1]]++;
+    pool.forEach((s, i) => { const r = rows[s.id]; r.emg = base[i]; r.emgCost = base[i] * TWIN_CFG.emgUnitCost; s.stock += base[i]; });
+    for (const s of open) { if (cutIds.has(s.id)) continue; const r = rows[s.id]; /* 未断供的店按半速补 */
+      const target = Math.round(s.cap * lvl * 0.5);
+      let buy = Math.max(0, target - s.stock);
+      buy = Math.min(buy, Math.floor(Math.max(0, s.cash) / TWIN_CFG.unitCost));
+      s.stock += buy; r.restock = buy; r.restockCost = buy * TWIN_CFG.unitCost; }
+  }
+  /* 3) 销售 */
+  for (const s of open) { const r = rows[s.id];
+    const sold = Math.min(s.stock, r.demand); s.stock -= sold;
+    const pm = magOf(promoEvs, s.id);
+    const priceF = pm > 0 ? 1 - pm * 0.25 * (1 + policy.promo_push * 0.3) : 1;
+    r.sold = sold; r.revenue = round2(sold * TIERS[s.tier].price * priceF);
+    r.unmet = r.demand - sold;
+    r.unmetPen = r.unmet > 0 ? round2(2 * r.unmet / Math.max(1, r.demand)) : 0;
+  }
+  /* 4) 工单：小满火力分配清理；超出政策阈值（cs_escalate_hours）的积压由公积金付费兜底并扣 NPS */
+  const clearOf = s => { const d = dec("xiaoman");
+    if (d === "focus_big") return (s.tier === "旗舰" || s.tier === "大") ? 4 : 2;
+    if (d === "focus_crisis") return magOf(prEvs, s.id) > 0 ? 5 : 2;
+    return 3; };
+  for (const s of open) { const r = rows[s.id];
+    s.backlog += r.newTickets;
+    r.cleared = Math.min(s.backlog, clearOf(s)); s.backlog -= r.cleared;
+    r.excess = Math.max(0, s.backlog - policy.cs_escalate_hours);
+  }
+  /* 5) 舆情：政策 proactive 自动投放（伤害减半、花费 100×强度）；语堂 pr_invest 再减半、再花 200×强度 */
+  const prInvest = dec("yutang") === "pr_invest";
+  for (const s of open) { const r = rows[s.id]; const prm = magOf(prEvs, s.id);
+    if (prm > 0) { let pen = prm * 12;
+      if (policy.pr_response === "proactive") pen *= 0.5;
+      if (prInvest) pen *= 0.5;
+      r.prPen = round2(pen); } else r.prPen = 0; }
+  let prCost = 0;
+  if (isPR) { const mag = Math.max(...prEvs.map(e => e.magnitude));
+    if (policy.pr_response === "proactive") prCost += 100 * mag;
+    if (prInvest) prCost += 200 * mag; }
+  /* 6) 监管整改（店付） */
+  for (const s of open) { const r = rows[s.id]; const rm = magOf(regEvs, s.id);
+    r.regCost = rm > 0 ? Math.round(rm * 120) : 0; }
+  /* 7) 救济（陈澜 aid_worst / 何宽 inject_cash，名额硬上限） */
+  const worstBy = key => open.filter(s => !s.closed).sort((a, b) => a[key] - b[key])[0];
+  if (dec("chenlan") === "aid_worst" && world.aidLeft > 0) { const s = worstBy("cash");
+    if (s) { s.cash += 300; world.aidLeft--; rows[s.id].aid = 300; } }
+  if (dec("hekuan") === "inject_cash" && world.injectLeft > 0) { const s = worstBy("cash");
+    if (s) { s.cash += 600; world.injectLeft--; rows[s.id].inject = 600; } }
+  /* 8) 现金/NPS/关店/公积金 */
+  for (const s of open) { const r = rows[s.id];
+    s.cash = round2(s.cash + r.revenue - (r.restockCost || 0) - (r.emgCost || 0) - TIERS[s.tier].rent - r.regCost);
+    const pen = r.unmetPen + r.prPen + r.excess;
+    s.nps = round2(Math.max(0, Math.min(100, s.nps - pen + (pen === 0 ? 0.5 : 0))));
+    if (s.cash < TWIN_CFG.closeAt) { s.closed = true; r.closedToday = true; }
+  }
+  world.fund = round2(world.fund - prCost - open.reduce((a, s) => a + rows[s.id].excess * 20, 0));
+  /* 9) 快照与聚合 */
+  const perStore = S.map(s => ({ id: s.id, tier: s.tier, stock: s.stock, cash: s.cash, nps: s.nps,
+    backlog: s.backlog, closed: s.closed }));
+  const op = S.filter(s => !s.closed);
+  const agg = { stock: op.reduce((a, s) => a + s.stock, 0), cap: op.reduce((a, s) => a + s.cap, 0),
+    cash: round2(op.reduce((a, s) => a + s.cash, 0)),
+    nps: op.length ? round2(op.reduce((a, s) => a + s.nps, 0) / op.length) : 0,
+    open: op.length, tickets: op.reduce((a, s) => a + s.backlog, 0), fund: world.fund };
+  return { day, events: evts.map(e => ({ ...e })),
+    decisions: AGENT_IDS.map(id => ({ agent: id, src: (decs[id] && decs[id].src) || "manual",
+      decision: dec(id), say: (decs[id] && decs[id].say) || "", via: (decs[id] && decs[id].via) || "手册" })),
+    rows, perStore, agg };
+}
+function dayHashOf(entry) {
+  return fnv1a(JSON.stringify({ d: entry.day, e: entry.events.map(x => [x.type, x.scope, x.magnitude]),
+    c: entry.decisions.map(x => [x.agent, x.decision]), p: entry.perStore, a: entry.agg }));
+}
+/* 纯回放臂：账本重放（复现自检）与 Node 门禁共用。opts.decide 注入记录决策即「重放」。 */
+async function runCoreArm(params, seed, script, opts = {}) {
+  const world = initWorld(params, seed);
+  const ledger = [], dayHashes = [];
+  for (let day = 1; day <= TWIN_CFG.days; day++) {
+    const evts = eventsForDay(script, day);
+    if (opts.onEvents) opts.onEvents(day, evts, world);
+    const decs = opts.decide ? await opts.decide(day, evts, world) : decideManualAll(world, params, day, evts);
+    const entry = settleDay(world, day, evts, decs, params);
+    entry.hash = dayHashOf(entry);
+    ledger.push(entry); dayHashes.push(entry.hash);
+    if (opts.onDay) opts.onDay(day, entry, world);
+  }
+  return { ledger, dayHashes, finalHash: fnv1a(dayHashes.join("|")), finalAgg: ledger[ledger.length - 1].agg };
+}
+/* ===== [TWIN-CORE-END] ===== */
+
+/* ============ 离线政策解析：关键词表（先例离线立法同款做法） ============ */
+function parsePolicyKeywords(text) {
+  const t = text || "";
+  const p = { ...POLICY_DEFAULT }; const hits = [];
+  let m;
+  if (/公平|一视同仁|均分/.test(t)) { p.supply_priority = "fair"; hits.push("公平→supply_priority=fair"); }
+  else if (/保大|优先保大|大店|旗舰/.test(t)) { p.supply_priority = "big"; hits.push("保大→supply_priority=big"); }
+  else if (/保小|优先保小|小店|社区/.test(t)) { p.supply_priority = "small"; hits.push("保小→supply_priority=small"); }
+  else hits.push("未命中→supply_priority=fair(默认)");
+  if ((m = t.match(/超\s*(\d+)\s*小时/))) { p.cs_escalate_hours = Math.max(1, Math.min(8, +m[1])); hits.push(m[0] + "→cs_escalate_hours=" + p.cs_escalate_hours); }
+  else if (/升级/.test(t)) { p.cs_escalate_hours = 2; hits.push("升级→cs_escalate_hours=2(默认)"); }
+  else hits.push("未命中→cs_escalate_hours=4(默认)");
+  if (/主动|投放|第一时间/.test(t)) { p.pr_response = "proactive"; hits.push("主动投放→pr_response=proactive"); }
+  else if (/监测|观望|不花钱/.test(t)) { p.pr_response = "passive"; hits.push("监测观望→pr_response=passive"); }
+  else hits.push("未命中→pr_response=passive(默认)");
+  if (/不加码|不跟|保守/.test(t)) { p.promo_push = 0; hits.push("不加码→promo_push=0"); }
+  else if (/加码|冲刺|火力全开/.test(t)) { p.promo_push = 2; hits.push("加码→promo_push=2"); }
+  else hits.push("未命中→promo_push=1(默认)");
+  if (/补货[^。；]*?(向|倾斜|偏向)[^。；]*?(大|旗舰)/.test(t)) { p.restock_bias = "big"; hits.push("补货向大→restock_bias=big"); }
+  else if (/补货[^。；]*?(向|倾斜|偏向)[^。；]*?(小|社区)/.test(t)) { p.restock_bias = "small"; hits.push("补货向小→restock_bias=small"); }
+  else hits.push("未命中→restock_bias=none(默认)");
+  return { params: p, hits };
+}
+const extractJSON = s => { const m = (s || "").match(/\{[\s\S]*\}/);
+  try { return m ? JSON.parse(m[0]) : null; } catch { return null; } };
+async function parsePolicyLLM(text) {
+  const sysp = `你是经营政策解析器。把一句话经营政策解析为 5 个结构化参数，只输出一个 JSON 对象（不输出任何其他文字）：
+{"supply_priority":"big|small|fair 之一（断供时应急池优先保大店/保小店/公平按需求分配）","cs_escalate_hours":1到8的整数（客服工单超多少小时升级）,"pr_response":"proactive|passive 之一（舆情主动投放/只监测）","promo_push":0|1|2 之一（促销不加码/跟随/加码）,"restock_bias":"big|small|none 之一（补货向大店/小店倾斜/不倾斜）"}
+未提及的参数取默认：fair / 4 / passive / 1 / none。政策原文可能只覆盖部分参数。`;
+  const out = await provider.complete([
+    { role: "system", content: sysp },
+    { role: "user", content: `政策原文：「${text}」（输出解析 JSON）` },
+  ], { json: true, max: 160, temp: 0.3 });
+  const j = extractJSON(out) || {};
+  const p = { ...POLICY_DEFAULT };
+  if (["big", "small", "fair"].includes(j.supply_priority)) p.supply_priority = j.supply_priority;
+  if (Number.isFinite(+j.cs_escalate_hours)) p.cs_escalate_hours = Math.max(1, Math.min(8, Math.round(+j.cs_escalate_hours)));
+  if (["proactive", "passive"].includes(j.pr_response)) p.pr_response = j.pr_response;
+  if ([0, 1, 2].includes(+j.promo_push)) p.promo_push = +j.promo_push;
+  if (["big", "small", "none"].includes(j.restock_bias)) p.restock_bias = j.restock_bias;
+  return p;
+}
+
+/* ============ L7 provider 装配（与引擎 café demo / 先例同一机制） ============ */
+let KERNEL_MOD = null, provider = null, providerReady = false;
+const savedCfg = JSON.parse(localStorage.getItem("aicafe.llm.v1") || "null");
+function syncStats() {
+  const el = document.getElementById("h-tok");
+  el.textContent = provider ? (provider.stats.tokens || 0) : 0;
+  renderBudget();
+}
+function updateProvChip() {
+  const name = document.getElementById("prov-name");
+  const dot = document.getElementById("dot");
+  if (providerReady) { name.textContent = (savedCfg.model || "llm") + "（引擎 L7 · AI 已植入）"; dot.classList.add("live"); }
+  else { name.textContent = "规则引擎（离线）"; dot.classList.remove("live"); }
+}
+async function boot() {
+  try { KERNEL_MOD = await import(KERNEL); } catch (e) {
+    document.getElementById("fallback").style.display = "flex"; return; }
+  if (savedCfg && savedCfg.key && savedCfg.kind !== "rule") {
+    provider = KERNEL_MOD.createProvider(savedCfg);
+    providerReady = !!(provider && provider.ready);
+  }
+  updateProvChip(); syncStats();
+  initUI(); await startScene();
+}
+
+/* ============ UI 基础 ============ */
+const $ = id => document.getElementById(id);
+const esc = s => (s || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fmtY = n => "¥" + Math.round(n).toLocaleString("en-US");
+function logHTML(html) { const d = document.createElement("div"); d.innerHTML = html; return d.firstElementChild; }
+function addLog(html) { const el = $("run-log"); const d = logHTML(html); el.appendChild(d);
+  while (el.children.length > 40) el.removeChild(el.firstChild); return d; }
+
+const POLICY_PRESETS = [
+  "断供时优先保大店，客服工单超4小时自动升级",
+  "小店是街坊的客厅：断供优先保小店，舆情要主动投放公关",
+  "一视同仁公平分配，客服工单超2小时自动升级区域经理，补货向大店倾斜",
+  "舆情只监测不花钱，断供优先保小店，促销不加码，补货向社区小店倾斜",
+];
+let curParams = { ...POLICY_DEFAULT }, curMode = "script";
+const PARAM_ZH = { supply_priority: "断供分配 supply_priority", cs_escalate_hours: "工单升级 cs_escalate_hours",
+  pr_response: "舆情响应 pr_response", promo_push: "促销力度 promo_push", restock_bias: "补货倾斜 restock_bias" };
+const PARAM_OPTS = {
+  supply_priority: [["big", "big 保大店"], ["small", "small 保小店"], ["fair", "fair 公平按需求"]],
+  pr_response: [["proactive", "proactive 主动投放"], ["passive", "passive 只监测"]],
+  promo_push: [[0, "0 不加码"], [1, "1 跟随"], [2, "2 加码"]],
+  restock_bias: [["big", "big 向大店"], ["small", "small 向小店"], ["none", "none 不倾斜"]],
+};
+function renderParamRows() {
+  let h = "";
+  for (const k of Object.keys(PARAM_ZH)) {
+    if (k === "cs_escalate_hours")
+      h += `<div class="prow"><label>${PARAM_ZH[k]}</label><input id="pm-${k}" type="number" min="1" max="8" value="${curParams[k]}" style="width:70px"> <span class="hint">小时(1-8)</span></div>`;
+    else h += `<div class="prow"><label>${PARAM_ZH[k]}</label><select id="pm-${k}">${
+      PARAM_OPTS[k].map(([v, l]) => `<option value="${v}" ${String(curParams[k]) === String(v) ? "selected" : ""}>${l}</option>`).join("")}</select></div>`;
+  }
+  $("param-rows").innerHTML = h;
+  for (const k of Object.keys(PARAM_ZH)) {
+    const el = $("pm-" + k);
+    el.onchange = () => { curParams[k] = k === "cs_escalate_hours" || k === "promo_push"
+      ? +el.value : el.value; };
+  }
+}
+function readParamsFromRows() { for (const k of Object.keys(PARAM_ZH)) {
+  const el = $("pm-" + k); if (!el) continue;
+  curParams[k] = (k === "cs_escalate_hours" || k === "promo_push") ? +el.value : el.value; } }
+
+/* ============ 手册台词库（_rule 参数化的应用层替代：kernel.js:209-231 写死咖啡馆台词，此处按决策值出话） ============ */
+const SAY_BANK = {
+  chenlan: { alloc_big: "断供当口，旗舰与大店是这条街的门面——应急池先保大店。",
+    alloc_small: "小店是街坊的客厅，断供先紧着社区店，大店扛得住。",
+    alloc_fair: "按需求量公平切应急池，谁也别想多占一口。",
+    aid_worst: "从公积金拨 300，先给现金流最差的那家续命。", hold: "今日无战事，按既定政策不动。" },
+  tieshan: { restock_aggressive: "覆盖率见底了，水位提到 60%，赶紧补。",
+    restock_normal: "按 45% 标准水位补货，稳字当头。", restock_conservative: "货架够满，压到 30% 水位，别占现金。" },
+  xiaoman: { focus_fifo: "各店平均清 2 单，先来后到。", focus_big: "积压过线——大店清 3 单，其余 1 单。",
+    focus_crisis: "舆情门店工单优先，清 4 单止损。" },
+  yutang: { pr_invest: "追加投放，把舆情伤害再压一半。", pr_monitor: "只监测不花钱，等它自己凉。" },
+  hekuan: { inject_cash: "向现金最差的门店注资 600，救急不救穷。", hold: "现金流还在安全线上，按兵不动。" },
+  hantuo: { request_supply: "旗舰大店覆盖率告急，为大店档位争 +2 补货权重。", standby: "大店库存尚可，这轮不争。" },
+  wenyu: { request_supply: "小店覆盖率见底，替社区店争 +2 权重。", standby: "小店还撑得住，不给大家添堵。" },
+};
+const agentById = id => AGENTS.agents[AGENT_IDS.indexOf(id)];
+const agentByName = nm => AGENTS.agents.find(a => a.name === nm);
+const BUDGET_OF = Object.fromEntries(AGENTS.agents.map(a => [a.name, a.budget || 4000]));
+let agentSpend = {};
+const initSpend = () => Object.fromEntries(AGENTS.agents.map(a => [a.name, 0]));
+function renderBudget() {
+  const el = $("budget-panel"); if (!el || !agentSpend) return;
+  el.innerHTML = AGENTS.agents.map(a => {
+    const used = agentSpend[a.name] || 0, pct = Math.min(100, used / BUDGET_OF[a.name] * 100);
+    return `<div class="brow"><span class="bn">${esc(a.name)}·${esc(a.role)}</span>
+      <span class="bar"><i style="width:${pct}%"></i></span><span style="width:96px;text-align:right">${used}/${BUDGET_OF[a.name]}</span></div>`;
+  }).join("") + `<div class="hint" style="margin-top:5px">provider.stats：calls=${provider ? provider.stats.calls : 0} errors=${provider ? provider.stats.errors : 0}（预算耗尽→该角色自动降级按手册办事）</div>`;
+}
+
+/* ============ 应用层三系统（公式全在 TWIN-CORE；本层只做 I/O：记忆/LLM/UI） ============ */
+const EV_CLIP = { promo: "Dance", supply_cut: "No", pr_crisis: "Death", weather: "Sitting", regulation: "Standing" };
+function seedMemories(mem) {
+  const init = {
+    "陈澜": "上次断供优先保了大店，小店 NPS 掉到 41 被总部点名",
+    "铁山": "上上季激进补货遇上淡季，库存周转多了 9 天",
+    "小满": "五一那波工单积压 3 天没清，差评翻倍",
+    "语堂": "去年舆情 48 小时才回应，掉粉两千",
+    "何宽": "注资救过一家街角店，两轮就回血了",
+    "韩拓": "断供那周旗舰缺货，丢了两个团购大单",
+    "温遇": "小店抱团团购挺过了上次冻雨",
+  };
+  for (const nm of Object.keys(init))
+    mem.record(nm, { turn: 0, day: 0, about: "world", text: init[nm], imp: 4 });
+}
+class EventDirectorSystem {
+  /* 对照/剧本模式：events.json 固定脚本逐日注入（可比性来源）；
+     压力模式：script 为预生成的即兴冲击流（在线 LLM 现编 / 离线种子冲击表）——两模式显式切换。 */
+  constructor(script, mem, hooks) { this.script = script; this.mem = mem; this.hooks = hooks || {}; }
+  async tick(world) {
+    world.turn++; world.day = world.turn;
+    const evts = eventsForDay(this.script, world.turn);
+    world.eventsToday = evts;
+    world.story.beats.push(...evts.map(e => e.text));
+    if (world.story.beats.length > 30) world.story.beats.splice(0, world.story.beats.length - 30);
+    const txt = (evts.map(e => e.text).join("；") || "平静的一天").slice(0, 28);
+    for (const a of AGENTS.agents)
+      this.mem.record(a.name, { turn: world.turn, day: world.day, about: "world", text: "世界事件：" + txt, imp: 4 });
+    if (this.hooks.onEvents) await this.hooks.onEvents(world.turn, evts, world);
+  }
+}
+class DecisionSystem {
+  /* 手册为默认（确定性核始终可结算），每日 1 个 LLM 名额按 AGENT_IDS 轮转覆盖；
+     预算耗尽/调用失败/解析非法→保持手册（kernel _rule 降级的应用层镜像）。 */
+  constructor(policy, mem, run, hooks) { this.policy = policy; this.mem = mem; this.run = run; this.hooks = hooks || {}; }
+  spendOf(name) { return this.run.agentSpend[name] || 0; }
+  async tick(world) {
+    const evts = world.eventsToday, day = world.turn;
+    const decs = {};
+    for (const id of AGENT_IDS) {
+      const decision = manualDecide(id, world, this.policy, day, evts);
+      decs[id] = { src: "manual", via: "手册", decision, say: (SAY_BANK[id] && SAY_BANK[id][decision]) || "" };
+    }
+    /* LLM 名额 */
+    const slotId = AGENT_IDS[(day - 1) % AGENT_IDS.length];
+    const slot = agentById(slotId);
+    let usedSlot = "手册（离线）";
+    if (providerReady && this.spendOf(slot.name) < BUDGET_OF[slot.name]) {
+      try {
+        const mems = this.mem.retrieve(slot.name, "world",
+          evts.map(e => e.text).join("") + " 补货 断供 舆情 工单 现金", world.turn, 2);
+        const open = world.stores.filter(s => !s.closed);
+        const covTxt = f => { const l = open.filter(f); const cap = l.reduce((x, s) => x + s.cap, 0) || 1;
+          return (l.reduce((x, s) => x + s.stock, 0) / cap).toFixed(2); };
+        const info = [
+          `第${day}/14日。今日注入事件：${evts.length ? evts.map(e => e.text).join("；") : "无"}`,
+          `全街覆盖率 ${covTxt(() => true)}；旗舰+大店 ${covTxt(s => s.tier === "旗舰" || s.tier === "大")}；小店 ${covTxt(s => s.tier === "小")}`,
+          `全街积压工单 ${open.reduce((x, s) => x + s.backlog, 0)}；街公积金 ${Math.round(world.fund)}`,
+          mems.length ? "相关记忆：" + mems.map(m => "- " + m.text).join(" ") : "",
+        ].filter(Boolean).join("\n");
+        const before = provider.stats.tokens || 0;
+        const out = await provider.complete([
+          { role: "system", content: slot.persona + "\n\n【今日情报】\n" + info +
+            "\n（按【决策契约·输出协议】严格只输出一个 JSON 对象，不输出任何其他文字。）" },
+          { role: "user", content: "（请给出你今日的决策 JSON）" },
+        ], { json: true, max: 120, temp: 0.7 });
+        const used = (provider.stats.tokens || 0) - before;
+        this.run.agentSpend[slot.name] = (this.run.agentSpend[slot.name] || 0) + used;
+        this.run.tokens += used; this.run.calls++;
+        const j = extractJSON(out);
+        if (j && DECISION_SETS[slotId].includes(j.decision)) {
+          decs[slotId] = { src: "llm", via: "LLM", decision: j.decision,
+            say: String(j.say || "").slice(0, 40), remember: String(j.remember || "").slice(0, 30) };
+          usedSlot = "LLM";
+          this.mem.record(slot.name, { turn: world.turn, day, about: "world",
+            text: (j.remember || ("决策：" + j.decision)).slice(0, 30), imp: 3 });
+          if (this.hooks.onLLMSlot) this.hooks.onLLMSlot(slot.name, j);
+        } else decs[slotId].via = "LLM 解析非法→手册";
+      } catch (e) { decs[slotId].via = "LLM 调用失败→手册"; }
+    } else if (providerReady) usedSlot = `预算耗尽→手册`;
+    world.decisions = decs; world.usedSlot = usedSlot; world.slotName = slot.name;
+    for (const id of AGENT_IDS) { /* 决策入全员记忆（跨臂记忆分叉的素材） */
+      const nm = AGENT_NAME_OF[id];
+      if (decs[id].src === "manual")
+        this.mem.record(nm, { turn: world.turn, day, about: "world",
+          text: ("决策:" + decs[id].decision).slice(0, 28), imp: 2 });
+    }
+    if (this.hooks.onDecide) await this.hooks.onDecide(world.turn, evts, decs, world);
+  }
+}
+class EconomySystem {
+  constructor(policy, run, hooks) { this.policy = policy; this.run = run; this.hooks = hooks || {}; }
+  async tick(world) {
+    const entry = settleDay(world, world.turn, world.eventsToday, world.decisions, this.policy);
+    entry.hash = dayHashOf(entry);
+    this.run.ledger.push(entry); this.run.dayHashes.push(entry.hash);
+    if (this.hooks.onDay) await this.hooks.onDay(world.turn, entry, world);
+  }
+}
+
+/* ============ 压力模式：离线种子冲击表 / 在线 LLM 现编（预生成整段 14 日脚本，保证可回放） ============ */
+const SHOCK_TABLE = [
+  { type: "promo", scope: ["all"], magnitude: 0.45, text: "平台闪购日，全街客流脉冲" },
+  { type: "supply_cut", scope: ["s01", "s02", "s03"], magnitude: 0.5, text: "冷链车抛锚，旗舰街区到货延迟" },
+  { type: "pr_crisis", scope: ["s11", "s12"], magnitude: 0.55, text: "探店博主差评视频，中店口碑波动" },
+  { type: "weather", scope: ["s05", "s06", "s07"], magnitude: 0.6, text: "雷暴警报，西区客流骤降" },
+  { type: "regulation", scope: ["all"], magnitude: 0.35, text: "卫生抽查加严，全街整改" },
+  { type: "promo", scope: ["s14", "s15", "s16"], magnitude: 0.5, text: "社区市集开市，小店客流上扬" },
+  { type: "supply_cut", scope: ["s08", "s09", "s10", "s11"], magnitude: 0.45, text: "纸箱厂停工，中店包装断档" },
+  { type: "weather", scope: ["s17", "s18", "s19", "s20"], magnitude: 0.4, text: "高温预警，社区店日间客流走低" },
+];
+async function materializeStressScript(seed, usedDays) {
+  const script = [];
+  const rng = mulberry32((seed ^ 0x9e3779b9) >>> 0);
+  for (let d = 1; d <= TWIN_CFG.days; d++) {
+    if (usedDays.includes(d)) { script.push(...eventsForDay(EVENTS.events, d)); continue; }
+    let ev = null;
+    if (providerReady) {
+      try {
+        const out = await provider.complete([
+          { role: "system", content: `你是 OriEra 世界引擎的 AI 导演，为一条 20 店商街生成一个明日经营冲击。只输出 JSON：{"type":"promo|supply_cut|pr_crisis|weather|regulation 之一","scope":["s01".."s20" 的 1~8 个 id，或 ["all"]],"magnitude":0到1的小数,"text":"≤24字一句话冲击"}。已安排的日子不要重复同类。` },
+          { role: "user", content: `第${d}日，此前冲击：${script.slice(-3).map(e => e.text).join("；") || "无"}` },
+        ], { json: true, max: 120, temp: 1.0 });
+        const j = extractJSON(out);
+        if (j && ["promo", "supply_cut", "pr_crisis", "weather", "regulation"].includes(j.type)) {
+          const ids = new Set(AGENTS.stores.map(s => s.id));
+          const scope = Array.isArray(j.scope)
+            ? j.scope.filter(x => x === "all" || ids.has(x)).slice(0, 9) : ["all"];
+          ev = { day: d, type: j.type, scope: scope.length ? scope : ["all"],
+            magnitude: Math.max(0, Math.min(1, +j.magnitude || 0.5)),
+            text: String(j.text || "导演加戏").slice(0, 24) + "〔导演〕" };
+        }
+      } catch (e) { /* 降级种子表 */ }
+    }
+    if (!ev) ev = { ...SHOCK_TABLE[Math.floor(rng() * SHOCK_TABLE.length)], day: d };
+    script.push(ev);
+  }
+  return script;
+}
+
+/* ============ 运行一条臂 ============ */
+let busy = false;
+function runName() { return "运行" + "ABCDEFGH"[runs.length % 8] + (runs.length >= 8 ? Math.floor(runs.length / 8) : ""); }
+async function runArm() {
+  if (busy) return;
+  readParamsFromRows();
+  const policyText = $("policy-text").value.trim() || "（默认政策：按手册办事）";
+  const seed = (+$("seed").value || TWIN_CFG.seedDefault) >>> 0;
+  const mode = curMode;
+  busy = true; $("btn-run").disabled = true;
+  $("run-log").innerHTML = ""; $("run-final").innerHTML = "";
+  $("run-progress").textContent = "准备中……";
+  switchTab("run");
+  const runId = "r" + Date.now().toString(36);
+  const mem = new KERNEL_MOD.MemoryStore("game.policy-twin.mem." + runId);
+  seedMemories(mem);
+  let script;
+  if (mode === "script") script = EVENTS.events.map(e => ({ ...e }));
+  else { addLog(`<div class="daycard ev"><div class="dh">🎬 压力模式：导演正在排 14 日冲击流……</div><div class="dv">${providerReady ? "在线 LLM 现编（不可对照，观赏模式）" : "离线种子冲击表"}</div></div>`);
+    script = await materializeStressScript(seed, EVENTS.events.map(e => e.day)); }
+  const run = { id: runId, name: runName(), ts: Date.now(), policyText, params: { ...curParams },
+    seed, mode, events14: script, ledger: [], dayHashes: [], tokens: 0, calls: 0,
+    agentSpend: initSpend(), replay: null, memExport: "" };
+  agentSpend = run.agentSpend;
+  const world = initWorld(run.params, run.seed);
+  const hooks = {
+    onEvents: async (day, evts) => {
+      $("h-day").textContent = day;
+      if (evts.length) addLog(`<div class="daycard ev"><div class="dh">📅 第 ${day} 日 · 注入 ${evts.length} 条事件</div><div class="dv">${
+        evts.map(e => `〔${e.type}×${e.magnitude}〕${esc(e.text)}`).join("<br>")}</div></div>`);
+      streetReact(evts, null);
+    },
+    onDecide: async (day, evts, decs) => {
+      const llmDecs = AGENT_IDS.map(id => ({ id, d: decs[id] })).filter(x => x.d.src === "llm");
+      if (llmDecs.length) addLog(`<div class="daycard"><div class="dh">🧠 第 ${day} 日 · LLM 名额：${esc(agentById(llmDecs[0].id).name)}</div><div class="dec">${
+        llmDecs.map(x => `<span class="src-llm">〔LLM〕</span>${esc(agentById(x.id).name)} → ${esc(x.d.decision)}「${esc(x.d.say)}」`).join("<br>")}</div></div>`);
+      else addLog(`<div class="daycard"><div class="dh">📋 第 ${day} 日 · 决策（手册）</div><div class="dec">${
+        AGENT_IDS.map(id => `<span class="src-manual">〔手册〕</span>${esc(agentById(id).name)}→${esc(decs[id].decision)}`).join(" · ")}</div></div>`);
+      if (llmDecs.length) streetReact(evts, agentById(llmDecs[0].id).name);
+      syncStats();
+    },
+    onDay: async (day, entry) => {
+      $("run-progress").textContent = `第 ${day}/14 日已结算 · 覆盖率 ${(entry.agg.cap ? entry.agg.stock / entry.agg.cap : 0).toFixed(2)} · 存活 ${entry.agg.open}/20`;
+      $("h-fund").textContent = Math.round(entry.agg.fund);
+      $("h-nps").textContent = entry.agg.nps.toFixed(1);
+      $("h-cash").textContent = Math.round(entry.agg.cash).toLocaleString("en-US");
+      $("h-open").textContent = entry.agg.open;
+      streetUpdate(entry);
+      const closed = entry.perStore.filter(s => s.closed && !streetClosedMarked.has(s.id));
+      closed.forEach(s => { streetClosedMarked.add(s.id);
+        addLog(`<div class="daycard" style="border-left-color:#e07a7a"><div class="dh">🏚️ 第 ${day} 日 · ${esc(s.id)} 现金 ${fmtY(s.cash)} < -400，关店出局</div></div>`); });
+    },
+  };
+  const sch = new KERNEL_MOD.Scheduler();  /* 导演注入 → 角色决策 → 确定性核结算，每个 world.turn 落一条账 */
+  sch.add(new EventDirectorSystem(script, mem, hooks));
+  sch.add(new DecisionSystem(run.params, mem, run, hooks));
+  sch.add(new EconomySystem(run.params, run, hooks));
+  const t0 = performance.now();
+  try {
+    for (let d = 1; d <= TWIN_CFG.days; d++) await sch.tick(world);
+  } catch (e) {
+    addLog(`<div class="daycard" style="border-left-color:#e07a7a"><div class="dh">运行中断：${esc(String(e && e.message || e))}</div></div>`);
+  }
+  run.ms = Math.round(performance.now() - t0);
+  run.memExport = mem.export();
+  run.finalAgg = run.ledger.length ? run.ledger[run.ledger.length - 1].agg : null;
+  run.finalHash = run.dayHashes.length ? fnv1a(run.dayHashes.join("|")) : "";
+  /* 复现自检：按账本记录重放（全输入重放 → 逐位重算 → 对哈希） */
+  if (run.ledger.length === TWIN_CFG.days) {
+    const recorded = {};
+    run.ledger.forEach(e => e.decisions.forEach(d => { recorded[e.day + ":" + d.agent] = d.decision; }));
+    const r2 = await runCoreArm(run.params, run.seed, run.events14, {
+      decide: (day, evts, w) => { const base = decideManualAll(w, run.params, day, evts);
+        for (const id of AGENT_IDS) { const k = day + ":" + id; if (k in recorded) base[id].decision = recorded[k]; }
+        return base; },
+    });
+    const badDay = r2.dayHashes.findIndex((h, i) => h !== run.dayHashes[i]);
+    run.replay = { ok: badDay === -1, firstBadDay: badDay === -1 ? null : badDay + 1, hash: r2.finalHash };
+  }
+  /* 可复现性：与既有同政策+同种子+同模式记录比对 */
+  const peer = runs.find(r => r.mode === run.mode && r.seed === run.seed &&
+    JSON.stringify(r.params) === JSON.stringify(run.params));
+  run.repro = peer ? { peerId: peer.id, peerName: peer.name, same: peer.finalHash === run.finalHash } : null;
+  if (run.ledger.length === TWIN_CFG.days) { runs.push(run); saveRuns(); }
+  const doneHtml = `<div class="banner ${run.replay && run.replay.ok ? "ok" : "warn"}">${
+    run.replay ? (run.replay.ok
+      ? `<b>✅ 复现自检通过</b>：按账本重放 14 日，逐日哈希逐位一致（final=${run.finalHash}）。`
+      : `<b>⚠️ 复现自检失败</b>：首个不一致日 = 第 ${run.replay.firstBadDay} 日——确定性核存在缺陷，请勿引用本账本。`)
+    : "（运行未完成，中断原因见上方日志；本次不入账本）"}<br>耗时 ${run.ms}ms · tokens ${run.tokens} · provider.calls ${run.calls}${run.ledger.length === TWIN_CFG.days ? " · 已存入账本〔" + run.name + "〕" : ""}</div>`;
+  addLog(doneHtml);
+  $("run-final").innerHTML = doneHtml;
+  $("run-progress").textContent = `完成：${run.name} · final=${run.finalHash} · ${run.replay && run.replay.ok ? "复现自检 ✓" : "见上方横幅"}`;
+  busy = false; $("btn-run").disabled = false;
+  renderLedger(); renderCodex();
+}
+
+/* ============ 账本（localStorage 事件溯源仓，cap 8） ============ */
+let runs = [];
+try { runs = JSON.parse(localStorage.getItem("game.policy-twin.runs.v1") || "[]"); } catch { runs = []; }
+function saveRuns() {
+  while (runs.length > 8) { const dropped = runs.shift();
+    localStorage.removeItem("game.policy-twin.mem." + dropped.id); }
+  try { localStorage.setItem("game.policy-twin.runs.v1", JSON.stringify(runs)); }
+  catch (e) { while (runs.length > 2) { const dropped = runs.shift();
+      localStorage.removeItem("game.policy-twin.mem." + dropped.id);
+      try { localStorage.setItem("game.policy-twin.runs.v1", JSON.stringify(runs)); } catch { break; } } }
+}
+const cmpSel = new Set();
+function renderLedger() {
+  const el = $("run-list");
+  if (!runs.length) { el.innerHTML = `<div class="hint">账本为空——先运行一条政策臂。</div>`; return; }
+  el.innerHTML = runs.map(r => {
+    const a = r.finalAgg || {};
+    const paramsBrief = Object.entries(r.params).filter(([k]) => k !== "cs_escalate_hours")
+      .map(([k, v]) => ({ supply_priority: "断供:" + v, pr_response: "舆情:" + v, promo_push: "促销:" + v, restock_bias: "补货:" + v }[k])).join(" ")
+      + ` 工单>${r.params.cs_escalate_hours}h升级`;
+    return `<div class="runcard ${cmpSel.has(r.id) ? "sel" : ""}" data-id="${r.id}">
+      <div class="rh"><input type="checkbox" data-ck="${r.id}" ${cmpSel.has(r.id) ? "checked" : ""}/> ${esc(r.name)} · ${r.mode === "script" ? "剧本" : "压力"} · seed ${r.seed}</div>
+      <div class="rb">「${esc(r.policyText.slice(0, 46))}${r.policyText.length > 46 ? "…" : ""}」<br>${esc(paramsBrief)}</div>
+      <div class="rs">终盘：存活 ${a.open}/20 · NPS ${a.nps != null ? a.nps.toFixed(1) : "-"} · 现金 ${a.cash != null ? fmtY(a.cash) : "-"} · 覆盖 ${(a.cap ? a.stock / a.cap : 0).toFixed(2)} · 公积金 ${fmtY(a.fund || 0)}<br>
+      final=<code>${r.finalHash}</code> ${r.replay ? (r.replay.ok ? "· 复现自检 ✓" : "· 复现自检 ✗") : ""} tokens=${r.tokens}${r.repro ? ` · 与${esc(r.repro.peerName)}同政策同种子：哈希${r.repro.same ? "一致 ✓（逐位可复现）" : "不一致 ✗"}` : ""}</div></div>`;
+  }).join("");
+  el.querySelectorAll("input[data-ck]").forEach(ck => ck.onchange = () => {
+    const id = ck.dataset.ck;
+    if (ck.checked) { cmpSel.add(id); if (cmpSel.size > 2) cmpSel.delete([...cmpSel][0]); }
+    else cmpSel.delete(id);
+    renderLedger();
+    $("btn-compare").disabled = cmpSel.size !== 2;
+  });
+}
+
+/* ============ 对照归因 ============ */
+function compareRuns(A, B) {
+  const decFlip = null, dayFlips = [];
+  let firstFlip = null;
+  for (const ea of A.ledger) {
+    const eb = B.ledger[ea.day - 1]; if (!eb) break;
+    for (let i = 0; i < ea.decisions.length; i++) {
+      const da = ea.decisions[i], db = eb.decisions[i];
+      if (da.decision !== db.decision) {
+        dayFlips.push({ day: ea.day, agent: da.agent, name: AGENT_NAME_OF[da.agent], src: da.src,
+          a: da.decision, b: db.decision });
+        if (!firstFlip) firstFlip = { day: ea.day, name: AGENT_NAME_OF[da.agent], a: da.decision, b: db.decision };
+      }
+    }
+  }
+  const firstState = A.dayHashes.findIndex((h, i) => h !== B.dayHashes[i]);
+  let divergeField = null;
+  if (firstState >= 0) {
+    const pa = A.ledger[firstState].perStore, pb = B.ledger[firstState].perStore;
+    outer: for (let i = 0; i < pa.length; i++) for (const f of ["stock", "cash", "nps", "backlog", "closed"])
+      if (JSON.stringify(pa[i][f]) !== JSON.stringify(pb[i][f])) {
+        divergeField = { day: firstState + 1, id: pa[i].id, field: f, a: pa[i][f], b: pb[i][f] }; break outer; }
+  }
+  const perDay = A.ledger.map((ea, i) => {
+    const eb = B.ledger[i]; const flips = dayFlips.filter(f => f.day === ea.day).length;
+    return { day: ea.day, dNps: round2(ea.agg.nps - eb.agg.nps), dCash: round2(ea.agg.cash - eb.agg.cash),
+      dOpen: ea.agg.open - eb.agg.open, flips };
+  });
+  const memFork = memDiff(A, B);
+  return { firstFlip, firstState: firstState >= 0 ? firstState + 1 : null, divergeField, dayFlips, perDay, memFork };
+}
+function memDiff(A, B) {
+  let ma = {}, mb = {};
+  try { ma = JSON.parse(A.memExport || "{}"); } catch {}
+  try { mb = JSON.parse(B.memExport || "{}"); } catch {}
+  const rows = [];
+  for (const a of AGENTS.agents) {
+    const la = ma[a.name] || [], lb = mb[a.name] || [];
+    let idx = -1, at = "", bt = "";
+    for (let i = 0; i < Math.max(la.length, lb.length); i++) {
+      const ta = la[i] ? la[i].text : "（无）", tb = lb[i] ? lb[i].text : "（无）";
+      if (ta !== tb) { idx = i + 1; at = ta; bt = tb; break; }
+    }
+    rows.push({ name: a.name, lenA: la.length, lenB: lb.length, idx, at, bt });
+  }
+  return rows;
+}
+const PARAM_LABEL = { supply_priority: "断供分配", cs_escalate_hours: "工单升级(h)", pr_response: "舆情响应",
+  promo_push: "促销力度", restock_bias: "补货倾斜" };
+let cmpDay = 14;
+function renderCompare() {
+  const el = $("page-compare");
+  const [ia, ib] = [...cmpSel].map(id => runs.findIndex(r => r.id === id));
+  if (ia < 0 || ib < 0) { el.innerHTML = `<div class="hint">先在「📚 账本」页勾选两条运行记录。</div>`; return; }
+  const A = runs[ia], B = runs[ib];
+  const C = compareRuns(A, B);
+  cmpDay = Math.min(cmpDay, TWIN_CFG.days);
+  const paramDiff = Object.keys(PARAM_ZH).filter(k => String(A.params[k]) !== String(B.params[k]));
+  const sameSeed = A.seed === B.seed, sameScript = JSON.stringify(A.events14) === JSON.stringify(B.events14);
+  const ea = A.ledger[cmpDay - 1], eb = B.ledger[cmpDay - 1];
+  if (!ea || !eb) { el.innerHTML = `<div class="hint">记录账本不完整，无法对照。</div>`; return; }
+  let h = "";
+  h += `<div class="banner info"><b>${esc(A.name)}</b>「${esc(A.policyText.slice(0, 30))}…」 ↔ <b>${esc(B.name)}</b>「${esc(B.policyText.slice(0, 30))}…」<br>
+    变量控制：种子 ${sameSeed ? "相同 ✓" : "不同 ✗"} · 事件流 ${sameScript ? "相同 ✓" : "不同 ✗"} · 参数差异 ${paramDiff.length ? paramDiff.map(k => `${PARAM_LABEL[k]}: ${esc(String(A.params[k]))}↔${esc(String(B.params[k]))}`).join("，") : "无（同政策）"}<br>
+    ${sameSeed && sameScript ? "唯一变量=政策参数，归因成立。" : "⚠️ 种子或事件流不同——这不是受控对照，分岔不能归因于政策。"}</div>`;
+  h += `<div class="banner ${C.firstState ? "warn" : "ok"}">
+    首个决策翻转：${C.firstFlip ? `<b>第 ${C.firstFlip.day} 日</b> · ${esc(C.firstFlip.name)}：${esc(C.firstFlip.a)} ↔ ${esc(C.firstFlip.b)}` : "无（两臂决策全程一致）"}<br>
+    首个确定性核分歧日：${C.firstState ? `<b>第 ${C.firstState} 日</b> · ${C.divergeField ? `${esc(C.divergeField.id)}.${esc(C.divergeField.field)}：${esc(String(C.divergeField.a))} ↔ ${esc(String(C.divergeField.b))}` : ""}` : "<b>无</b>（两臂逐位一致）"}
+    ${C.firstState ? `· <button class="ghost" id="btn-jump-div">⤓ 跳到分岔日</button>` : ""}</div>`;
+  h += `<div class="prow"><label>回放日</label><input type="range" id="day-slider" min="1" max="${TWIN_CFG.days}" value="${cmpDay}">
+    <b id="day-label" style="color:#e8d78a">第 ${cmpDay} 日</b></div>`;
+  h += `<div class="duel">
+    <div class="daycard ev"><div class="dh">A · 第 ${cmpDay} 日</div><div class="dv">${
+      ea.events.length ? ea.events.map(e => `〔${e.type}×${e.magnitude}〕${esc(e.text)}`).join("<br>") : "无事件"}<br>
+      NPS ${ea.agg.nps.toFixed(1)} · 现金 ${fmtY(ea.agg.cash)} · 存活 ${ea.agg.open} · 工单 ${ea.agg.tickets}</div>
+      <div class="dec">${ea.decisions.map(d => `<span class="${d.src === "llm" ? "src-llm" : "src-manual"}">${esc(AGENT_NAME_OF[d.agent])}:${esc(d.decision)}</span>`).join(" · ")}</div></div>
+    <div class="daycard ev"><div class="dh">B · 第 ${cmpDay} 日</div><div class="dv">${
+      eb.events.length ? eb.events.map(e => `〔${e.type}×${e.magnitude}〕${esc(e.text)}`).join("<br>") : "无事件"}<br>
+      NPS ${eb.agg.nps.toFixed(1)} · 现金 ${fmtY(eb.agg.cash)} · 存活 ${eb.agg.open} · 工单 ${eb.agg.tickets}</div>
+      <div class="dec">${eb.decisions.map(d => { const flip = ea.decisions.find(x => x.agent === d.agent);
+        const isFlip = flip && flip.decision !== d.decision;
+        return `<span class="${isFlip ? "flip" : d.src === "llm" ? "src-llm" : "src-manual"}">${esc(AGENT_NAME_OF[d.agent])}:${esc(d.decision)}${isFlip ? " ⤫" : ""}</span>`; }).join(" · ")}</div></div></div>`;
+  h += `<div class="mech"><b>逐店指标差（第 ${cmpDay} 日，A−B）</b><table class="diff"><tr><th>店</th><th>档</th><th>Δ库存</th><th>Δ现金</th><th>ΔNPS</th><th>Δ工单</th></tr>${
+    ea.perStore.map((sa, i) => { const sb = eb.perStore[i];
+      const d = f => round2(sa[f] - sb[f]);
+      const cls = v => v > 0 ? "pos" : v < 0 ? "neg" : "";
+      return `<tr${sa.closed || sb.closed ? ` style="opacity:.55"` : ""}><td>${sa.id}${sa.closed ? "🏚" : ""}${sb.closed ? "🏚" : ""}</td><td>${sa.tier}</td>
+        <td class="${cls(d("stock"))}">${d("stock")}</td><td class="${cls(d("cash"))}">${d("cash")}</td>
+        <td class="${cls(d("nps"))}">${d("nps")}</td><td class="${cls(-d("backlog"))}">${d("backlog")}</td></tr>`; }).join("")}</table></div>`;
+  h += `<div class="mech"><b>逐日指标差与决策翻转</b><table class="diff"><tr><th>日</th><th>ΔNPS</th><th>Δ现金</th><th>Δ存活</th><th>翻转数</th></tr>${
+    C.perDay.map(p => `<tr><td>${p.day}${C.firstState === p.day ? " ◀首分岔" : ""}</td>
+      <td class="${p.dNps > 0 ? "pos" : p.dNps < 0 ? "neg" : ""}">${p.dNps}</td>
+      <td class="${p.dCash > 0 ? "pos" : p.dCash < 0 ? "neg" : ""}">${Math.round(p.dCash)}</td>
+      <td>${p.dOpen || 0}</td><td>${p.flips || ""}</td></tr>`).join("")}</table></div>`;
+  h += `<div class="mech"><b>决策翻转清单（${C.dayFlips.length} 处）</b><div>${
+    C.dayFlips.length ? C.dayFlips.map(f => `第${f.day}日 ${esc(f.name)}〔${f.src === "llm" ? "LLM" : "手册"}〕：${esc(f.a)} ↔ ${esc(f.b)}`).join("<br>")
+      : "两臂决策全程一致——政策参数未触发任何决策面变化。"}</div>
+    ${C.dayFlips.some(f => f.src === "llm") ? `<div class="hint" style="margin-top:4px">含 LLM 来源翻转：在线 LLM 决策层为随机源（HttpChatProvider 无温度钉死、无响应缓存，CognitionSystem 内部亦直接调 Math.random），跨臂不可逐位归因——分岔以首个确定性核分歧日为准。</div>` : ""}</div>`;
+  h += `<div class="mech"><b>记忆分叉（MemoryStore.export diff）</b>${C.memFork.map(m =>
+    `<div style="margin-top:4px"><b style="color:#cdd6ec">${esc(m.name)}</b>：A ${m.lenA} 条 / B ${m.lenB} 条${
+      m.idx > 0 ? ` · 第 ${m.idx} 条起分叉<br><span class="hint">A「${esc(m.at)}」<br>B「${esc(m.bt)}」</span>` : " · 全程一致"}</div>`).join("")}</div>`;
+  h += `<div class="banner info"><b>可复现性声明</b>：离线（规则引擎）运行臂 A/B 全链路逐位可复现（复现自检 ✓）；在线臂的经济核在相同决策输入下仍逐位重算一致，但 LLM 决策层为随机源，跨臂不可逐位归因。本报告的因果定位以「首个确定性核分歧日」为准，变量控制：${sameSeed ? "同种子" : "异种子⚠"}、${sameScript ? "同事件脚本" : "异事件流⚠"}、唯一政策差异=${paramDiff.length ? paramDiff.map(k => PARAM_LABEL[k]).join("/") : "无"}。</div>`;
+  h += `<button class="act" id="btn-export-report" style="width:100%">📋 导出归因报告（Markdown）</button>`;
+  el.innerHTML = h;
+  const slider = $("day-slider");
+  slider.oninput = () => { cmpDay = +slider.value; renderCompare(); };
+  const jd = $("btn-jump-div");
+  if (jd) jd.onclick = () => { cmpDay = C.firstState; renderCompare(); };
+  $("btn-export-report").onclick = () => exportReport(A, B, C, paramDiff, sameSeed, sameScript);
+}
+function exportReport(A, B, C, paramDiff, sameSeed, sameScript) {
+  const L = [];
+  L.push(`# 政策反事实归因报告 · 平行街20号`);
+  L.push(`> ${GAME.tagline}`);
+  L.push(``, `## 两条运行臂`, `- **A ${A.name}**：${A.mode === "script" ? "剧本" : "压力"}模式 · seed ${A.seed} · 政策「${A.policyText}」`,
+    `- **B ${B.name}**：${B.mode === "script" ? "剧本" : "压力"}模式 · seed ${B.seed} · 政策「${B.policyText}」`);
+  L.push(``, `## 变量控制`, `- 种子：${sameSeed ? "相同 ✓" : "不同 ✗"}`, `- 事件流（events.json ${EVENTS.version}）：${sameScript ? "相同 ✓" : "不同 ✗"}`,
+    `- 政策参数差异：${paramDiff.length ? paramDiff.map(k => `${PARAM_LABEL[k]} = ${A.params[k]} ↔ ${B.params[k]}`).join("；") : "无"}`,
+    `- 结论：${sameSeed && sameScript && paramDiff.length ? "唯一变量=政策参数，归因成立。" : "不满足受控对照前提（同种子+同事件流+有政策差异），分岔不能归因于政策。"}`);
+  L.push(``, `## 首个分岔`, `- 首个决策翻转：${C.firstFlip ? `第 ${C.firstFlip.day} 日，${C.firstFlip.name}（${C.firstFlip.a} ↔ ${C.firstFlip.b}）` : "无"}`,
+    `- 首个确定性核分歧日：${C.firstState ? `第 ${C.firstState} 日${C.divergeField ? `，首处分歧字段 ${C.divergeField.id}.${C.divergeField.field}（A=${C.divergeField.a} ↔ B=${C.divergeField.b}）` : ""}` : "无（两臂逐位一致）"}`);
+  L.push(``, `## 逐日指标差（A−B）`, `| 日 | ΔNPS | Δ现金 | Δ存活 | 决策翻转数 |`, `|---|---|---|---|---|`,
+    ...C.perDay.map(p => `| ${p.day}${C.firstState === p.day ? " ◀首分岔" : ""} | ${p.dNps} | ${Math.round(p.dCash)} | ${p.dOpen} | ${p.flips} |`));
+  L.push(``, `## 决策翻转清单（${C.dayFlips.length} 处）`,
+    ...(C.dayFlips.length ? C.dayFlips.map(f => `- 第${f.day}日 ${f.name}〔${f.src === "llm" ? "LLM" : "手册"}〕：${f.a} ↔ ${f.b}`) : ["- 两臂决策全程一致。"]));
+  if (C.dayFlips.some(f => f.src === "llm"))
+    L.push(``, `> 注：含 LLM 来源翻转。在线 LLM 决策层为随机源（无温度钉死、无响应缓存），跨臂不可逐位归因。`);
+  L.push(``, `## 记忆分叉（MemoryStore.export diff）`, ...(C.memFork.map(m =>
+    `- ${m.name}：A ${m.lenA} 条 / B ${m.lenB} 条${m.idx > 0 ? `，第 ${m.idx} 条起分叉（A「${m.at}」 vs B「${m.bt}」）` : "，全程一致"}`)));
+  const ea = A.ledger[A.ledger.length - 1], eb = B.ledger[B.ledger.length - 1];
+  L.push(``, `## 终盘逐店差（第 ${TWIN_CFG.days} 日，A−B）`, `| 店 | 档 | Δ库存 | Δ现金 | ΔNPS | 状态 |`, `|---|---|---|---|---|---|`,
+    ...ea.perStore.map((sa, i) => { const sb = eb.perStore[i];
+      return `| ${sa.id} | ${sa.tier} | ${round2(sa.stock - sb.stock)} | ${round2(sa.cash - sb.cash)} | ${round2(sa.nps - sb.nps)} | ${sa.closed || sb.closed ? "含关店" : "营业"} |`; }));
+  L.push(``, `## 可复现性声明`,
+    `- 离线（规则引擎）臂：确定性核纯应用层 JS + 种子随机数，A/B 全链路逐位可复现（复现自检：按账本重放逐日哈希一致）。`,
+    `- 在线臂：经济核在相同决策输入下仍逐位重算一致；但 LLM 决策层为随机源（HttpChatProvider 无温度钉死、无响应缓存；kernel CognitionSystem 内部直接调 Math.random），跨臂不可逐位归因。`,
+    `- 因果定位以「首个确定性核分歧日」为准；报告变量控制：${sameSeed ? "同种子" : "异种子"}、${sameScript ? "同事件脚本" : "异事件流"}。`);
+  const blob = new Blob([L.join("\n")], { type: "text/markdown;charset=utf-8" });
+  const aEl = document.createElement("a");
+  aEl.href = URL.createObjectURL(blob);
+  aEl.download = `孪生-归因报告-${A.name}-vs-${B.name}.md`;
+  aEl.click(); URL.revokeObjectURL(aEl.href);
+}
+
+/* ============ Three.js 场景：平行街 ============ */
+const streetClosedMarked = new Set();
+let streetStores = [], robots = [], THREE_MOD = null;
+async function startScene() {
+  const THREE = await import("three");
+  THREE_MOD = THREE;
+  const { OrbitControls } = await import(VENDOR_BASE + "OrbitControls.js");
+  const { GLTFLoader } = await import(VENDOR_BASE + "GLTFLoader.js");
+  const sceneEl = $("scene");
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(sceneEl.clientWidth, sceneEl.clientHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  sceneEl.insertBefore(renderer.domElement, sceneEl.firstChild);
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0d1017);
+  scene.fog = new THREE.Fog(0x0d1017, 26, 62);
+  const camera = new THREE.PerspectiveCamera(50, sceneEl.clientWidth / sceneEl.clientHeight, 0.1, 200);
+  camera.position.set(0, 13, 24);
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.target.set(0, 0.5, 0);
+  controls.enableDamping = true; controls.maxPolarAngle = Math.PI / 2.05;
+  controls.minDistance = 8; controls.maxDistance = 40;
+  scene.add(new THREE.HemisphereLight(0x8fb5ff, 0x22283a, 1.1));
+  const sun = new THREE.DirectionalLight(0xffe9c4, 1.5);
+  sun.position.set(6, 12, 5); scene.add(sun);
+  const road = new THREE.Mesh(new THREE.BoxGeometry(33, 0.3, 10.5),
+    new THREE.MeshStandardMaterial({ color: 0x1a2438, roughness: .95 }));
+  road.position.y = -0.15; scene.add(road);
+  const line = new THREE.Mesh(new THREE.BoxGeometry(33, 0.02, 0.16),
+    new THREE.MeshBasicMaterial({ color: 0xe8b24e, transparent: true, opacity: .5 }));
+  line.position.y = 0.01; scene.add(line);
+  const TIER_HEX = { "旗舰": 0xe8b24e, "大": 0x7eb8ff, "中": 0x7effc3, "小": 0xc9a6ff };
+  AGENTS.stores.forEach((s, i) => {
+    const row = i < 10 ? -1 : 1, col = i % 10;
+    const mat = new THREE.MeshStandardMaterial({ color: TIER_HEX[s.tier], roughness: .8,
+      transparent: true, opacity: 1 });
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1, 2.0), mat);
+    mesh.position.set(-13.5 + col * 3, 0.5, row * 3.3);
+    mesh.userData = { store: s };
+    scene.add(mesh);
+    streetStores.push({ mesh, mat, tier: s.tier, cap: TIERS[s.tier].cap, targetH: 1,
+      targetColor: new THREE.Color(TIER_HEX[s.tier]), targetOp: 1 });
+  });
+  const palette = [0x7eb8ff, 0xffb37e, 0x9f8fff, 0x7effc3, 0xff8fb3, 0xffe37e, 0xff7e5a];
+  const gltf = await new GLTFLoader().loadAsync(VENDOR_BASE + "RobotExpressive.glb");
+  AGENTS.agents.forEach((a, i) => {
+    const root = gltf.scene.clone(true);
+    root.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); } });
+    root.scale.setScalar(0.72);
+    root.position.set(-9 + i * 3, 0, 0);
+    scene.add(root);
+    const cv = document.createElement("canvas"); cv.width = 256; cv.height = 72;
+    const cx = cv.getContext("2d");
+    cx.fillStyle = "rgba(13,16,23,.85)"; cx.fillRect(4, 6, 248, 56);
+    cx.fillStyle = "#" + palette[i % palette.length].toString(16).padStart(6, "0");
+    cx.font = "bold 30px sans-serif"; cx.textAlign = "center";
+    cx.fillText(a.name, 128, 46);
+    const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv),
+      depthTest: false, transparent: true }));
+    label.scale.set(2.0, 0.56, 1); label.position.set(root.position.x, 2.7, 0);
+    label.material.opacity = 0.75;
+    scene.add(label);
+    let mixer = null;
+    try { mixer = new THREE.AnimationMixer(root);
+      const idle = gltf.animations.find(x => /idle/i.test(x.name)) || gltf.animations[0];
+      if (idle) mixer.clipAction(idle).play(); } catch (e) {}
+    robots.push({ name: a.name, root, label, mixer, gltfAnims: gltf.animations });
+  });
+  const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
+  renderer.domElement.addEventListener("pointermove", e => {
+    const r = renderer.domElement.getBoundingClientRect();
+    ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ptr, camera);
+    const hits = ray.intersectObjects(streetStores.map(x => x.mesh), false);
+    const tip = $("store-tip");
+    if (hits.length) {
+      const sd = hits[0].object.userData.store;
+      const last = runs.length && runs[runs.length - 1].ledger.length === TWIN_CFG.days
+        ? runs[runs.length - 1].ledger[TWIN_CFG.days - 1].perStore.find(x => x.id === sd.id) : null;
+      tip.style.display = "block";
+      tip.innerHTML = last
+        ? `<b>${sd.id}</b>（${sd.tier}）· 终盘：库存 ${last.stock}/${TIERS[sd.tier].cap} · 现金 ${fmtY(last.cash)} · NPS ${last.nps} · 工单 ${last.backlog}${last.closed ? " · <b style='color:#e07a7a'>已关店</b>" : ""}`
+        : `<b>${sd.id}</b>（${sd.tier}）· 初始：库存 ${sd.stock} · 现金 ${fmtY(sd.cash)} · NPS ${sd.nps}<br><span style="color:#7c86a3">运行后显示实时账本值</span>`;
+    } else tip.style.display = "none";
+  });
+  const clock = new THREE.Clock();
+  (function animate() {
+    requestAnimationFrame(animate);
+    const dt = clock.getDelta();
+    streetStores.forEach(x => {
+      const cur = x.mesh.scale.y;
+      x.mesh.scale.y += (x.targetH - cur) * Math.min(1, dt * 3);
+      x.mesh.position.y = 0.5 * x.mesh.scale.y;
+      x.mat.color.lerp(x.targetColor, Math.min(1, dt * 3));
+      x.mat.opacity += (x.targetOp - x.mat.opacity) * Math.min(1, dt * 3);
+    });
+    robots.forEach((rb, j) => {
+      rb.label.position.y = 2.7 + Math.sin(clock.elapsedTime * 2 + j) * 0.05;
+      if (rb.mixer) rb.mixer.update(dt);
+    });
+    controls.update();
+    renderer.render(scene, camera);
+  })();
+  window.addEventListener("resize", () => {
+    camera.aspect = sceneEl.clientWidth / sceneEl.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(sceneEl.clientWidth, sceneEl.clientHeight);
+  });
+}
+function playRobot(name, clipName, once) {
+  const rb = robots.find(x => x.name === name); if (!rb) return;
+  const clip = rb.gltfAnims.find(c => c.name === clipName) ||
+    rb.gltfAnims.find(c => new RegExp(clipName, "i").test(c.name));
+  if (!clip || !rb.mixer) return;
+  const act = rb.mixer.clipAction(clip);
+  rb.mixer.stopAllAction();
+  act.setLoop(once ? THREE_MOD.LoopOnce : THREE_MOD.LoopRepeat, once ? 1 : Infinity);
+  act.clampWhenFinished = !!once;
+  act.reset().play();
+}
+function streetReact(evts, llmName) {
+  const kind = evts.length ? evts[0].type : null;
+  robots.forEach(rb => playRobot(rb.name, kind ? (EV_CLIP[kind] || "Idle") : "Idle", kind === "pr_crisis"));
+  if (llmName) playRobot(llmName, "ThumbsUp", true);
+}
+function streetUpdate(entry) {
+  const THREE = THREE_MOD; if (!THREE) return;  /* 场景未就绪时跳过动画（不阻断结算） */
+  const byId = {}; entry.perStore.forEach(s => byId[s.id] = s);
+  streetStores.forEach(x => {
+    const s = byId[x.mesh.userData.store.id]; if (!s) return;
+    x.targetH = Math.max(0.25, 0.3 + 1.9 * (s.stock / x.cap));
+    const npsF = Math.max(0, Math.min(1, (s.nps - 35) / 45));
+    x.targetColor = new THREE.Color(x.baseHex || (x.baseHex =
+      { "旗舰": 0xe8b24e, "大": 0x7eb8ff, "中": 0x7effc3, "小": 0xc9a6ff }[x.tier]));
+    if (npsF < 1) x.targetColor.lerp(new THREE.Color(0xe05a5a), 1 - npsF);
+    x.targetOp = s.closed ? 0.18 : 1;
+  });
+}
+
+/* ============ 玩法页 / Tab / 启动 ============ */
+function renderCodex() {
+  const el = $("page-codex");
+  let h = "<h4 style='color:#9fc3ff;font-size:13px;margin-bottom:8px'>核心循环</h4>";
+  GAME.core_loop.forEach(s => { h += `<div class="loop-step"><span>▫️</span><span>${esc(s)}</span></div>`; });
+  h += "<h4 style='color:#9fc3ff;font-size:13px;margin:10px 0 8px'>机制系统</h4>";
+  GAME.mechanics.forEach(m => { h += `<div class="mech"><b>${esc(m.name)}</b><div>${esc(m.detail)}</div></div>`; });
+  h += `<h4 style="color:#9fc3ff;font-size:13px;margin:10px 0 8px">经济循环</h4><table class="diff"><tr><th>资源</th><th>来源</th><th>去向</th></tr>${
+    GAME.economy.map(r => `<tr><td>${esc(r.name)}</td><td>${esc(r.source)}</td><td>${esc(r.sink)}</td></tr>`).join("")}</table>`;
+  h += `<h4 style="color:#9fc3ff;font-size:13px;margin:10px 0 8px">难度曲线</h4><div class="mech"><div>${esc(GAME.difficulty)}</div></div>`;
+  h += `<div class="mech"><b>事件脚本（本赛道核心资产）</b><div>${esc(EVENTS.premise)}</div>
+    <div style="margin-top:5px">${EVENTS.events.map(e => `D${e.day} ${e.type}×${e.magnitude}`).join(" · ")}</div></div>`;
+  h += `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+    <button class="ghost" id="btn-wipe">🗑 清空账本与记忆（重新开始）</button></div>
+    <p class="hint" style="margin-top:8px">${esc(TRACK.engine_hooks[4])}</p>`;
+  el.innerHTML = h;
+  $("btn-wipe").onclick = () => {
+    runs = []; cmpSel.clear();
+    const kill = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i);
+      if (k && k.startsWith("game.policy-twin.")) kill.push(k); }
+    kill.forEach(k => localStorage.removeItem(k));
+    agentSpend = initSpend(); syncStats(); renderLedger(); renderCodex();
+    $("page-compare").innerHTML = `<div class="hint">先在「📚 账本」页勾选两条运行记录。</div>`;
+  };
+}
+function switchTab(t) {
+  document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.t === t));
+  document.querySelectorAll(".tab-page").forEach(p => p.classList.remove("on"));
+  $("page-" + t).classList.add("on");
+}
+function initUI() {
+  $("policy-presets").innerHTML = POLICY_PRESETS.map((p, i) =>
+    `<button class="ghost" data-p="${i}">${esc(p.slice(0, 14))}…</button>`).join("");
+  document.querySelectorAll("#policy-presets button").forEach(b => b.onclick = () => {
+    $("policy-text").value = POLICY_PRESETS[+b.dataset.p]; doParse(); });
+  $("btn-parse").onclick = doParse;
+  renderParamRows();
+  $("mode-cmp").onclick = () => { curMode = "script";
+    $("mode-cmp").classList.add("on"); $("mode-stress").classList.remove("on"); };
+  $("mode-stress").onclick = () => { curMode = "stress";
+    $("mode-stress").classList.add("on"); $("mode-cmp").classList.remove("on"); };
+  $("btn-run").onclick = runArm;
+  $("btn-compare").onclick = () => { switchTab("compare"); renderCompare(); };
+  document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => switchTab(b.dataset.t));
+  renderLedger(); renderCodex();
+  $("policy-text").value = POLICY_PRESETS[0];
+  const saved = JSON.parse(localStorage.getItem("game.policy-twin.cfg.v1") || "null");
+  if (saved) { $("policy-text").value = saved.policyText || POLICY_PRESETS[0];
+    if (saved.params) { curParams = { ...POLICY_DEFAULT, ...saved.params }; renderParamRows(); }
+    if (saved.seed) $("seed").value = saved.seed; }
+  window.addEventListener("beforeunload", () => localStorage.setItem("game.policy-twin.cfg.v1",
+    JSON.stringify({ policyText: $("policy-text").value, params: curParams, seed: +$("seed").value })));
+}
+async function doParse() {
+  const text = $("policy-text").value.trim();
+  if (!text) return;
+  readParamsFromRows();
+  if (providerReady) {
+    $("parse-src").innerHTML = `<span class="thinking">LLM 语义解析中……</span>`;
+    try {
+      const before = provider.stats.tokens || 0;
+      const p = await parsePolicyLLM(text);
+      const used = (provider.stats.tokens || 0) - before;
+      curParams = p;
+      $("parse-src").innerHTML = `<span class="pbadge llm">LLM 解析 · ${used} tokens</span>`;
+    } catch (e) {
+      const r = parsePolicyKeywords(text); curParams = r.params;
+      $("parse-src").innerHTML = `<span class="pbadge kw">关键词表（LLM 失败降级）</span> ${esc(r.hits.join("；"))}`;
+    }
+  } else {
+    const r = parsePolicyKeywords(text); curParams = r.params;
+    $("parse-src").innerHTML = `<span class="pbadge kw">关键词表（离线）</span> ${esc(r.hits.join("；"))}`;
+  }
+  renderParamRows(); syncStats();
+}
+boot();
+</script>
+</body>
+</html>

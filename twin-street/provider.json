@@ -1,0 +1,6 @@
+{
+  "kind": "rule",
+  "model": "rule-v1",
+  "base": "",
+  "note": "默认 rule 离线行（PROVIDER_PRESETS.rule：label=离线规则引擎）——政策解析走关键词表、角色决策走各 persona 内【手册规则表】，0 token、A/B 两臂逐位可复现。切在线：OriEra Studio 模型中心保存并植入，或游戏页 F12 执行 localStorage.setItem('aicafe.llm.v1', JSON.stringify({kind:'zhipu',key:'你的Key',model:'glm-4-flash',base:'https://open.bigmodel.cn/api/paas/v4'})) 后刷新（八厂商预设见 engine/kernel.js PROVIDER_PRESETS）。本文件只是配置快照，运行时不读；API Key 一律不写入任何项目文件。"
+}

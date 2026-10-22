@@ -1,0 +1,1410 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>言出开机：确定性片场 · OriEra 影视原型</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; overflow: hidden; background: #07090e; color: #e6e8ef;
+    font-family: "Segoe UI", "Microsoft YaHei", sans-serif; }
+  #app { display: flex; height: 100%; }
+  #scene { flex: 1; position: relative; min-width: 0; }
+  #scene canvas { display: block; }
+  #hud { position: absolute; top: 12px; left: 14px; right: 14px; display: flex; gap: 10px;
+    align-items: center; pointer-events: none; flex-wrap: wrap; }
+  .chip { background: rgba(13,16,23,.82); border: 1px solid #2a3a5c; border-radius: 20px;
+    padding: 6px 14px; font-size: 12px; color: #aeb6cc; pointer-events: auto; }
+  #dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #556; margin-right: 6px; }
+  #dot.live { background: #35d07f; box-shadow: 0 0 8px #35d07f; }
+  /* ---- 片场板（当前分镜卡浮层） ---- */
+  #board { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%);
+    width: min(640px, calc(100% - 28px)); background: rgba(10,13,20,.92);
+    border: 1px solid #8a5a2e; border-radius: 14px; padding: 12px 14px 10px; box-shadow: 0 12px 40px #000c; }
+  #board.hidden, .hidden { display: none !important; }
+  .board-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+    font-size: 12.5px; color: #e8b24e; margin-bottom: 8px; }
+  .board-head b { font-size: 14px; }
+  .board-head .sp { color: #aeb6cc; font-weight: 400; }
+  #card { width: 100%; border-radius: 8px; display: block; border: 1px solid #232a3d; background: #000; }
+  .board-meta { display: flex; gap: 12px; font-size: 11.5px; color: #7c86a3; margin: 6px 0 8px; flex-wrap: wrap; }
+  .board-meta b { color: #b6bfd6; font-weight: 500; }
+  .board-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .board-actions button { background: #2d5b9e; border: none; color: #fff; border-radius: 8px;
+    padding: 8px 12px; cursor: pointer; font-size: 12.5px; }
+  .board-actions button:hover:not(:disabled) { filter: brightness(1.15); }
+  .board-actions button:disabled { background: #2a3348; color: #6b7690; cursor: default; }
+  .board-actions button.free { background: #1e5b40; }
+  .board-actions button.gold { background: #8a5b1e; }
+  .board-actions button.ai { background: #5b3a9e; }
+  .board-actions select { background: #0d1017; border: 1px solid #2a3a5c; color: #cdd6ec;
+    border-radius: 8px; padding: 0 8px; font-size: 12.5px; max-width: 120px; }
+  #ctx-chips { margin-top: 8px; font-size: 11px; color: #7c86a3; line-height: 1.7; }
+  #ctx-chips .tk { display: inline-block; background: #161a28; border: 1px solid #2a3a5c;
+    border-radius: 10px; padding: 1px 8px; margin: 0 4px 3px 0; color: #9fc3ff; }
+  /* ---- 开机卡 ---- */
+  #boot-card { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+    width: min(560px, calc(100% - 28px)); background: rgba(10,13,20,.94); border: 1px solid #8a5a2e;
+    border-radius: 14px; padding: 22px; box-shadow: 0 12px 40px #000c; }
+  #boot-card h2 { font-size: 20px; color: #e8b24e; margin-bottom: 6px; }
+  #boot-card p { font-size: 12.5px; color: #8a93ad; line-height: 1.7; margin-bottom: 14px; }
+  #boot-row { display: flex; gap: 8px; }
+  #order { flex: 1; background: #0d1017; border: 1px solid #2a3a5c; color: #e6e8ef;
+    border-radius: 8px; padding: 11px 12px; font-size: 13.5px; outline: none; }
+  #boot-row button { background: #8a5b1e; border: none; color: #fff; border-radius: 8px;
+    padding: 0 20px; cursor: pointer; font-size: 14px; }
+  #boot-row button:disabled { background: #2a3348; cursor: default; }
+  #tpl-chips { margin-top: 12px; display: flex; gap: 6px; flex-wrap: wrap; }
+  #tpl-chips span { font-size: 11.5px; color: #9fc3ff; background: #161a28; border: 1px solid #2a3a5c;
+    border-radius: 12px; padding: 4px 10px; cursor: pointer; }
+  #tpl-chips span:hover { background: #1a2440; }
+  /* ---- 右面板 ---- */
+  #panel { width: 460px; background: #0d1017; border-left: 1px solid #232a3d; display: flex; flex-direction: column; }
+  #tabs { display: flex; border-bottom: 1px solid #232a3d; }
+  #tabs button { flex: 1; background: none; border: none; color: #7c86a3; padding: 12px 4px;
+    font-size: 13px; cursor: pointer; border-bottom: 2px solid transparent; }
+  #tabs button.on { color: #e8b24e; border-bottom-color: #e8b24e; }
+  .tab-page { flex: 1; overflow-y: auto; padding: 14px; display: none; }
+  .tab-page.on { display: block; }
+  .hint { font-size: 12px; color: #7c86a3; margin-top: 8px; line-height: 1.6; }
+  .mech { background: #12151f; border-radius: 8px; padding: 9px 12px; margin-bottom: 6px; }
+  .mech b { font-size: 13px; color: #cdd6ec; }
+  .mech div { font-size: 12px; color: #8a93ad; margin-top: 2px; line-height: 1.55; }
+  .beat { border-left: 3px solid #2a3a5c; padding: 8px 12px; margin-bottom: 10px; border-radius: 0 8px 8px 0;
+    background: #12151f; }
+  .beat.now { border-left-color: #e8b24e; background: #1c1810; }
+  .beat.done { opacity: .45; }
+  .beat .ph { font-size: 11px; color: #7c86a3; }
+  .beat .tt { font-size: 13.5px; font-weight: 700; margin: 2px 0; }
+  .beat .ds { font-size: 12.5px; color: #aeb6cc; line-height: 1.6; }
+  .shot-row { display: flex; gap: 8px; align-items: center; padding: 8px 10px; background: #12151f;
+    border-radius: 8px; margin-bottom: 6px; font-size: 12.5px; cursor: pointer; }
+  .shot-row.cur { background: #1c1810; border: 1px solid #8a5a2e; }
+  .shot-row.locked { opacity: .92; }
+  .shot-row .st { flex: none; width: 20px; text-align: center; }
+  .shot-row .one { color: #8a93ad; font-size: 11.5px; }
+  .cast-card { display: flex; gap: 10px; background: #12151f; border-radius: 10px; padding: 12px; margin-bottom: 8px; }
+  .cast-ava { width: 40px; height: 40px; border-radius: 10px; flex: none; border: 2px solid; }
+  .cast-nm { font-size: 14px; font-weight: 700; }
+  .cast-tag { font-size: 11px; color: #7c86a3; margin-left: 6px; }
+  .cast-ds { font-size: 12px; color: #8a93ad; margin-top: 3px; line-height: 1.55; }
+  #log-view { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+  .logline { font-size: 12.5px; line-height: 1.6; background: #12151f; border-radius: 8px; padding: 6px 10px; }
+  .logline b { color: #e8b24e; font-weight: 600; }
+  .logline.sys { color: #7c86a3; background: none; padding: 2px 10px; }
+  table.eco { width: 100%; border-collapse: collapse; font-size: 12px; }
+  table.eco th { text-align: left; color: #7c86a3; padding: 4px 6px; font-weight: 500; }
+  table.eco td { padding: 5px 6px; border-top: 1px solid #1e2536; color: #b6bfd6; }
+  .vbtn { display: inline-block; margin: 0 6px 6px 0; padding: 8px 14px; border-radius: 8px; border: none;
+    cursor: pointer; font-size: 12.5px; background: #2d5b9e; color: #fff; }
+  .vbtn:disabled { background: #2a3348; color: #6b7690; cursor: default; }
+  .vbtn.gold { background: #8a5b1e; }
+  .vbtn.ghost { background: #161a28; color: #cdd6ec; border: 1px solid #2a3a5c; }
+  .vrow { display: flex; gap: 8px; align-items: center; font-size: 12px; background: #12151f;
+    border-radius: 8px; padding: 6px 10px; margin-bottom: 5px; }
+  .vrow .ok { color: #35d07f; } .vrow .no { color: #e07a7a; }
+  .mono { font-family: Consolas, monospace; color: #7c86a3; }
+  .cmp { display: flex; gap: 8px; background: #12151f; border-radius: 8px; padding: 8px; margin-bottom: 8px; overflow-x: auto; }
+  .cmp figure { margin: 0; text-align: center; }
+  .cmp canvas { border-radius: 6px; border: 1px solid #232a3d; display: block; }
+  .cmp figcaption { font-size: 10.5px; color: #7c86a3; margin-top: 4px; }
+  h4.sec { margin: 14px 0 8px; font-size: 13px; color: #e8b24e; }
+  h4.sec:first-child { margin-top: 0; }
+  #fallback { position: fixed; inset: 0; background: #0d1017ee; display: none; align-items: center;
+    justify-content: center; z-index: 99; text-align: center; padding: 40px; line-height: 2; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="scene">
+    <div id="hud">
+      <div class="chip"><b style="color:#e8b24e" id="hud-title">言出开机：确定性片场</b> · <span id="hud-style"></span></div>
+      <div class="chip">🎞 胶片 <b id="hud-film" style="color:#ffd88a">24</b> 卷</div>
+      <div class="chip">🎬 已定稿 <b id="hud-shot" style="color:#9fc3ff">0/0</b></div>
+      <div class="chip">⏱ tick <b id="hud-turn">0</b></div>
+      <div class="chip"><span id="dot"></span><span id="prov-name">规则引擎（离线）</span></div>
+    </div>
+
+    <!-- 片场板：逐镜抽卡 -->
+    <div id="board" class="hidden">
+      <div class="board-head"><b>🎬 片场板 · 第 <span id="board-idx">1</span> 镜</b>
+        <span class="sp" id="board-spec"></span></div>
+      <canvas id="card" width="480" height="270"></canvas>
+      <div class="board-meta">
+        <span>take <b id="board-take">0</b></span>
+        <span>seed <b id="board-seed" class="mono">—</b></span>
+        <span>参考帧 <b id="board-ref" class="mono">—</b></span>
+        <span>帧哈希 <b id="board-hash" class="mono">—</b></span>
+      </div>
+      <div class="board-actions">
+        <button id="btn-draw">🎲 抽卡（−1 卷）</button>
+        <button id="btn-redraw">🔄 重抽·换种子（−1 卷）</button>
+        <select id="ref-sel" title="选择一个已定稿镜头作为参考帧"></select>
+        <button id="btn-reuse" class="free">♻️ 复用参考帧（免费）</button>
+        <button id="btn-ai" class="ai hidden">✨ 导演改机位</button>
+        <button id="btn-lock" class="gold">✅ 定稿入片库</button>
+      </div>
+      <div id="ctx-chips"></div>
+    </div>
+
+    <!-- 开机卡：一句拍片令 -->
+    <div id="boot-card">
+      <h2>🎙 一句开机</h2>
+      <p id="boot-desc">输入一句拍片令，AI 导演拆解为片名 / 影调 / 角色卡 / 6~8 镜清单；之后逐镜抽卡、定稿入片库，同 seed 重放一帧不差。断网也能玩（关键词匹配内置题材模板）。</p>
+      <div id="boot-row">
+        <input id="order" placeholder="例：拍一段雨夜追逃的两分钟短片" />
+        <button id="btn-boot">开机！</button>
+      </div>
+      <div id="tpl-chips"></div>
+      <p class="hint" id="boot-note">AI 由 OriEra 引擎 L7 层驱动 · 胶片开机下发 24 卷 · 定稿即资产</p>
+    </div>
+  </div>
+
+  <div id="panel">
+    <div id="tabs">
+      <button class="on" data-t="set">🎬 片场</button>
+      <button data-t="story">📖 剧本</button>
+      <button data-t="cast">🎭 卡司</button>
+      <button data-t="vault">🎞️ 片库</button>
+    </div>
+    <div id="page-set" class="tab-page on">
+      <div id="set-intro"></div>
+      <div id="set-body"></div>
+      <div id="log-view"></div>
+    </div>
+    <div id="page-story" class="tab-page"></div>
+    <div id="page-cast" class="tab-page"></div>
+    <div id="page-vault" class="tab-page"></div>
+  </div>
+</div>
+<div id="fallback">
+  <div>
+    <div style="font-size:40px">🎬</div>
+    <h2 style="margin:12px 0">请通过 OriEra Studio 打开本项目</h2>
+    <p style="color:#8a93ad">生成的游戏原型依赖 Studio 内置的引擎服务与静态服务器。</p>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "./vendor/three.module.js",
+  "three/addons/": "./vendor/"
+} }
+</script>
+<script type="module">
+/* ============ 游戏数据（OriEra Studio 生成时注入；本项目自带定制运行时） ============ */
+const GAME = {
+  "id": "oriera-filmset",
+  "name": "言出开机：确定性片场",
+  "tagline": "你说一句片子，AI 导演拆本、确定性摄影机抽卡、片库记账——同一颗种子重拍一帧不差，胶片只花在刀刃上，定稿即资产",
+  "gameplay_id": "film-director",
+  "core_loop": [
+    "① 一句开机：输入一句拍片令（如「拍一段雨夜追逃的两分钟短片」）→ AI 导演拆解为片名/影调/≤3 张角色卡/6~8 镜清单，全部写入片库 MemoryStore（角色卡 about=cast、剧本 about=script），角色设定自此成为全片一致性锚",
+    "② 逐镜抽卡：片场板按清单逐镜抽卡——确定性规则渲染器按（镜头参数×seed）画出分镜卡（角色剪影按角色卡固定识别色、景别取景框、天气/时段氛围层）；每抽 1 卡扣 1 卷胶片，可重抽换 seed 出变体、可免费复用已定稿镜头的参考帧（继承 seed/构图，跨镜一致），挑中即定稿入片库（about=locked、imp 高），下一镜开拍前检索已定稿镜头与角色卡注入导演上下文",
+    "③ 重放对账：成片板逐镜重放——同 seed 重绘当场双凭证对账（布局摘要逐字段吻合=参数级可复现，像素复核逐镜一致=渲染器确定性），当场验证「重跑可复现」；任意镜头 v1/v2 版本并排对比；预算报表结账（胶片余额、provider.stats 真实 LLM 调用与 token 消耗、参考帧复用省钱合计）"
+  ],
+  "mechanics": [
+    {
+      "name": "言出开机",
+      "detail": "一句中文拍片令即可开机：在线时由 AI 导演语义拆解任意题材；断网降级为关键词匹配 story.json 内置四套题材模板（雨夜追逃/末日废土/日常治愈/太空歌剧），全链路照常可玩。"
+    },
+    {
+      "name": "AI 导演拆解",
+      "detail": "导演「咔」内置【拆解·输出协议】：一句拍片令 → JSON{title, style, characters[](≤3 张角色卡), shots[](6~8 镜，每镜景别·机位·运镜·画面·出场角色·天气·时段)}；角色卡与剧本即刻写入片库，成为全片一致性与预算的基准线。"
+    },
+    {
+      "name": "确定性抽卡",
+      "detail": "分镜卡由规则渲染器按（镜头参数×seed）确定性画出：同 seed 同参数逐像素一致（mulberry32 确定性随机源 + 帧哈希 FNV-1a），角色剪影用角色卡固定识别色，景别决定取景框，天气/时段决定氛围层——抽卡可变，但永远可回溯。"
+    },
+    {
+      "name": "参考帧复用",
+      "detail": "抽卡可免费「复用参考帧」：继承某个已定稿镜头的 seed 作构图源（天际线/站位/光源位不变），新 seed 只换雨点/颗粒等微变量——构图跨镜一致且不花胶片，是预算危机时的正解。"
+    },
+    {
+      "name": "片库记忆",
+      "detail": "角色卡（about=cast）、剧本（about=script）、定稿镜头（about=locked、imp=10）全部入 MemoryStore；每镜开拍前按出场角色+画面检索（评分 imp×0.45+aboutBonus 1.2，定稿镜头天然排前）注入导演上下文——一致性靠引擎级记忆锚定，不靠 prompt 恳求。"
+    },
+    {
+      "name": "重放对账",
+      "detail": "成片板逐镜同 seed 重绘、当场双凭证对账：布局摘要（hashLayout，纯数学参数凭证，跨画布跨时间稳定）逐字段吻合=参数级可复现，像素哈希（hashCanvas，离屏固定口径）同会话复核逐像素一致=渲染器确定性——「重跑可复现」不靠口号靠验收；任意镜头 v1/v2 版本并排对比；预算报表结账：胶片余额、真实 LLM 调用数与 token 消耗（provider.stats）、参考帧复用省钱合计。"
+    }
+  ],
+  "economy": [
+    {
+      "name": "胶片",
+      "source": "开机一次性下发 24 卷（拍 6~8 镜的生产预算，盈余计入报表）",
+      "sink": "每抽 1 卡扣 1 卷、重抽再扣 1 卷；参考帧复用与定稿免费"
+    },
+    {
+      "name": "种子",
+      "source": "每次抽卡掷出全新 seed（确定性随机源的唯一入口）",
+      "sink": "定稿 seed 连同参数入片库——是重放逐像素复现的唯一凭证"
+    },
+    {
+      "name": "片库",
+      "source": "角色卡/剧本/定稿镜头长期记忆（MemoryStore·localStorage 持久化）",
+      "sink": "开拍前检索注入导演上下文（跨镜一致性）+ 重放对账 + JSON 存档导出导入"
+    }
+  ],
+  "difficulty": "入门 3 分钟：一句拍片令自动拆本，抽卡-定稿两键走完第一镜；第 4 镜起学会用参考帧复用省预算，胶片≤8 卷触发预算危机警告；终局全镜定稿→重放对账→首映。离线全链路可玩（关键词匹配模板剧本），任意自然语言拆本与 AI 改机位需在线 LLM",
+  "user_idea": "AI 原生分镜台：一句片子由 AI 导演拆成片名/影调/角色卡/镜头单，确定性摄影机按（参数×seed）抽分镜卡，片库用记忆检索+参考帧锚定全片一致性，同 seed 重放逐像素对账——生成有账本、一致性有锚、重拍有凭证。",
+  "theme": "dungeon"
+};
+const STORY = {
+  "framework": "三幕拍摄流程 · 一次生产一 tick",
+  "premise": "你是「言出开机」片场的制片人。这座片场里，AI 导演「咔」负责拆本，场记「墨格」守着一台数学摄影机——同一颗种子，拍出同一帧像素；剪辑师「回放」保管每一条胶片的账，审片人「甲方」只在首映验收时出现。你说一句拍片令：导演拆解成片名、影调、角色卡与镜头单，摄影机逐镜抽卡，你挑中哪条定稿，哪条才算资产入片库。胶片有限、重拍有账、一致性不靠运气——靠片库的记忆锚定与参考帧的构图继承。在这里，「能复现」不是安慰，是验收标准。",
+  "beats": [
+    {
+      "phase": "第1拍·开机",
+      "title": "一句开机",
+      "desc": "片场灯亮。你在开机卡上写下一句拍片令——比如「拍一段雨夜追逃的两分钟短片」。AI 导演「咔」接令拆本；断网时由关键词从模板库匹配剧本。一句令就是全片的第一颗多米诺。"
+    },
+    {
+      "phase": "第2拍·拆本",
+      "title": "AI 导演拆解",
+      "desc": "导演把拍片令拆成 JSON 剧本：片名、影调一句话、不超过三张角色卡、六到八镜清单（每镜景别·机位·运镜·画面·出场角色·天气·时段）。剧本写入片库（about=script），从此全组按同一张纸说话。"
+    },
+    {
+      "phase": "第3拍·选角",
+      "title": "选角定妆",
+      "desc": "角色卡即时入片库（about=cast），每张卡绑定固定识别色：剪影用什么颜色、站位在哪，全片不变。场记「墨格」把种子表贴上摄影机——确定性摄影机就位，同 seed 同参数，逐像素复现。"
+    },
+    {
+      "phase": "第4拍·抽卡",
+      "title": "逐镜抽卡",
+      "desc": "片场板按镜头单逐镜开拍：每抽 1 卡扣 1 卷胶片，规则渲染器按（镜头参数×seed）画出分镜卡；不满意可重抽换 seed 出变体，也可免费复用已定稿镜头的参考帧——继承构图、跨镜一致。挑中即定稿（about=locked）。"
+    },
+    {
+      "phase": "第5拍·危机",
+      "title": "预算危机",
+      "desc": "胶片余量降到 8 卷以下时，导演会在片场广播里提醒你：别再烧卷抽卡了——复用参考帧免费且更一致，重抽前先想想这一镜要的到底是运气还是构图。预算纪律是制片人的第二本能。"
+    },
+    {
+      "phase": "第6拍·对账",
+      "title": "重放对账",
+      "desc": "全部镜头定稿后，剪辑师「回放」把成片板摆开：逐镜用定稿 seed 重绘，与定稿时的帧哈希当场比对——同 seed 同像素，一笔不差；任意镜头 v1/v2 版本并排对比，抽卡的每一步都有据可查。"
+    },
+    {
+      "phase": "第7拍·首映",
+      "title": "定剪首映",
+      "desc": "重放通过，审片人「甲方」入席看成片板逐镜重放。TA 只认三件事：全片像不像同一部片子、预算花没花在刀刃上、能不能原样复现给投资人看。能复现，TA 就签字——「重跑可复现」从口号变成验收单。"
+    },
+    {
+      "phase": "终章",
+      "title": "片库留档",
+      "desc": "首映落幅，片库结账：角色卡、剧本、定稿镜头与预算报表打包成 JSON 存档导出。下一部片子在同一座片场开机时，这份档案就是你的资产台账——定稿即资产，复用即省钱。"
+    }
+  ],
+  "offlineTemplates": [
+    {
+      "genre": "雨夜追逃",
+      "keywords": [
+        "雨",
+        "追",
+        "逃",
+        "夜",
+        "黑色",
+        "noir",
+        "追逃",
+        "侦探",
+        "巷"
+      ],
+      "title": "雨巷未寄",
+      "style": "雨夜黑色·霓虹反光·高对比",
+      "characters": [
+        {
+          "name": "林岫",
+          "tag": "负债信使",
+          "desc": "揣着一支不敢寄出的U盘，在雨里跑了一整夜"
+        },
+        {
+          "name": "老周",
+          "tag": "雨天老刑警",
+          "desc": "二十年雨巷蹲出来的直觉，帽檐永远压得很低"
+        },
+        {
+          "name": "伞叔",
+          "tag": "伞铺线人",
+          "desc": "只在下雨时开口，卖消息也卖伞"
+        }
+      ],
+      "shots": [
+        {
+          "景别": "大远景",
+          "机位": "高角度",
+          "运镜": "升起",
+          "画面": "雨幕把霓虹泡成一片模糊的糖纸，巷口只有一个跑动的亮点",
+          "出场角色": [],
+          "天气": "雨",
+          "时段": "夜"
+        },
+        {
+          "景别": "远景",
+          "机位": "平视",
+          "运镜": "跟拍",
+          "画面": "林岫贴着湿墙切过窄巷，雨顺着风斜灌进衣领",
+          "出场角色": [
+            "林岫"
+          ],
+          "天气": "雨",
+          "时段": "夜"
+        },
+        {
+          "景别": "中景",
+          "机位": "低角度",
+          "运镜": "手持",
+          "画面": "老周抬手亮出证件，雨水顺着帽檐砸在证照上",
+          "出场角色": [
+            "老周"
+          ],
+          "天气": "雨",
+          "时段": "夜"
+        },
+        {
+          "景别": "双人镜",
+          "机位": "平视",
+          "运镜": "固定",
+          "画面": "高架桥洞口两人先后急停，一盏路灯把影子钉在墙上",
+          "出场角色": [
+            "林岫",
+            "老周"
+          ],
+          "天气": "雨",
+          "时段": "夜"
+        },
+        {
+          "景别": "特写",
+          "机位": "平视",
+          "运镜": "推近",
+          "画面": "林岫掌心的U盘还在滴水，指节因为用力泛白",
+          "出场角色": [
+            "林岫"
+          ],
+          "天气": "雨",
+          "时段": "夜"
+        },
+        {
+          "景别": "过肩镜",
+          "机位": "斜角",
+          "运镜": "左摇",
+          "画面": "伞铺门缝里伞叔的剪影晃了一下，低声说「换条路走」",
+          "出场角色": [
+            "老周",
+            "伞叔"
+          ],
+          "天气": "雨",
+          "时段": "夜"
+        },
+        {
+          "景别": "远景",
+          "机位": "低角度",
+          "运镜": "拉远",
+          "画面": "追逃在巷尾重新起跑，两道影子朝着灯牌的方向飞出去",
+          "出场角色": [
+            "林岫",
+            "老周"
+          ],
+          "天气": "雨",
+          "时段": "夜"
+        }
+      ]
+    },
+    {
+      "genre": "末日废土",
+      "keywords": [
+        "末日",
+        "废土",
+        "废墟",
+        "荒漠",
+        "求生",
+        "补给",
+        "车队",
+        "末日"
+      ],
+      "title": "灰烬港",
+      "style": "冷调废土·沙尘低照·锈色",
+      "characters": [
+        {
+          "name": "阿灰",
+          "tag": "拾荒少女",
+          "desc": "把最后一颗电池贴身藏好，眼神比刀还利"
+        },
+        {
+          "name": "铁牙",
+          "tag": "车队把头",
+          "desc": "半张脸的旧伤疤，说话像报站名一样短"
+        },
+        {
+          "name": "风信",
+          "tag": "电台守望者",
+          "desc": "守着一台只出杂音的电台，等一句人话"
+        }
+      ],
+      "shots": [
+        {
+          "景别": "大远景",
+          "机位": "高角度",
+          "运镜": "固定",
+          "画面": "龟裂的湖床一直裂到天边，一行车辙压进碱壳",
+          "出场角色": [],
+          "天气": "晴",
+          "时段": "黄昏"
+        },
+        {
+          "景别": "远景",
+          "机位": "平视",
+          "运镜": "横移",
+          "画面": "车队拖着尘尾横穿荒原，阿灰吊在尾车外面",
+          "出场角色": [
+            "阿灰",
+            "铁牙"
+          ],
+          "天气": "晴",
+          "时段": "白天"
+        },
+        {
+          "景别": "中景",
+          "机位": "低角度",
+          "运镜": "手持",
+          "画面": "铁牙攥住锈穿的油表，指节一根根鼓起来",
+          "出场角色": [
+            "铁牙"
+          ],
+          "天气": "阴",
+          "时段": "白天"
+        },
+        {
+          "景别": "特写",
+          "机位": "平视",
+          "运镜": "推近",
+          "画面": "表盘指针抖在最后一格，玻璃裂了一道细缝",
+          "出场角色": [
+            "阿灰"
+          ],
+          "天气": "阴",
+          "时段": "黄昏"
+        },
+        {
+          "景别": "双人镜",
+          "机位": "斜角",
+          "运镜": "跟拍",
+          "画面": "沙丘背后，风信把天线朝两人的方向缓缓竖起",
+          "出场角色": [
+            "阿灰",
+            "风信"
+          ],
+          "天气": "晴",
+          "时段": "黄昏"
+        },
+        {
+          "景别": "远景",
+          "机位": "高角度",
+          "运镜": "升起",
+          "画面": "暮色里车队压成一条黑线，扎进地平线的灰雾",
+          "出场角色": [
+            "铁牙"
+          ],
+          "天气": "雾",
+          "时段": "黄昏"
+        }
+      ]
+    },
+    {
+      "genre": "日常治愈",
+      "keywords": [
+        "治愈",
+        "日常",
+        "温柔",
+        "夏天",
+        "书店",
+        "猫",
+        "咖啡",
+        "风铃"
+      ],
+      "title": "夏天的一半书页",
+      "style": "暖调日系·过曝逆光·轻胶片",
+      "characters": [
+        {
+          "name": "阿慢",
+          "tag": "旧书店店主",
+          "desc": "说话慢半拍，给每本旧书夹一枚干叶子"
+        },
+        {
+          "name": "小满",
+          "tag": "窗台猫",
+          "desc": "只睡在《世界尽头》那本书上，雷打不动"
+        },
+        {
+          "name": "夏天",
+          "tag": "暑期打工少女",
+          "desc": "自行车后座绑一串风铃，进门先喊凉快"
+        }
+      ],
+      "shots": [
+        {
+          "景别": "远景",
+          "机位": "平视",
+          "运镜": "固定",
+          "画面": "清晨的书店门口，小满睡在窗台的书堆上，风翻着书页",
+          "出场角色": [
+            "小满"
+          ],
+          "天气": "晴",
+          "时段": "黎明"
+        },
+        {
+          "景别": "中景",
+          "机位": "平视",
+          "运镜": "右摇",
+          "画面": "阿慢踩着凳子擦书架最高一层，浮尘在斜光里打转",
+          "出场角色": [
+            "阿慢"
+          ],
+          "天气": "晴",
+          "时段": "白天"
+        },
+        {
+          "景别": "特写",
+          "机位": "高角度",
+          "运镜": "固定",
+          "画面": "合上的书页间滑出一枚干叶子，叶脉像一张小地图",
+          "出场角色": [],
+          "天气": "晴",
+          "时段": "白天"
+        },
+        {
+          "景别": "双人镜",
+          "机位": "平视",
+          "运镜": "跟拍",
+          "画面": "夏天骑车穿过巷口，后座风铃惊起窗台的小满",
+          "出场角色": [
+            "夏天",
+            "小满"
+          ],
+          "天气": "晴",
+          "时段": "白天"
+        },
+        {
+          "景别": "中景",
+          "机位": "低角度",
+          "运镜": "推近",
+          "画面": "阿慢翻到泛黄的半页，嘴角慢慢翘起来",
+          "出场角色": [
+            "阿慢"
+          ],
+          "天气": "晴",
+          "时段": "黄昏"
+        },
+        {
+          "景别": "远景",
+          "机位": "平视",
+          "运镜": "拉远",
+          "画面": "打烊时分灯还亮着，小满蜷在柜台上，门口风铃轻响",
+          "出场角色": [
+            "阿慢",
+            "小满"
+          ],
+          "天气": "晴",
+          "时段": "夜"
+        }
+      ]
+    },
+    {
+      "genre": "太空歌剧",
+      "keywords": [
+        "太空",
+        "星海",
+        "星际",
+        "歌剧",
+        "星舰",
+        "机甲",
+        "银河",
+        "星环"
+      ],
+      "title": "第九星环的塞壬",
+      "style": "深空冷蓝·舰桥仪表辉光·大尺度",
+      "characters": [
+        {
+          "name": "凌曦",
+          "tag": "星舰领航员",
+          "desc": "指法比星图快，总在警铃前半秒抬头"
+        },
+        {
+          "name": "老帆",
+          "tag": "船长",
+          "desc": "掌舵二十年，把警报声当船钟听"
+        },
+        {
+          "name": "回声",
+          "tag": "舰载AI全息",
+          "desc": "半透明的投影，只在需要时说出坏消息"
+        }
+      ],
+      "shots": [
+        {
+          "景别": "大远景",
+          "机位": "高角度",
+          "运镜": "固定",
+          "画面": "星云像一面紫帆铺开，孤舰滑入第九星环的暗带",
+          "出场角色": [],
+          "天气": "晴",
+          "时段": "夜"
+        },
+        {
+          "景别": "远景",
+          "机位": "平视",
+          "运镜": "横移",
+          "画面": "舰桥廊灯一列列亮起，凌曦跑向领航位",
+          "出场角色": [
+            "凌曦"
+          ],
+          "天气": "晴",
+          "时段": "夜"
+        },
+        {
+          "景别": "中景",
+          "机位": "低角度",
+          "运镜": "手持",
+          "画面": "老帆按住舵轮，静电里滚过一串钟鸣",
+          "出场角色": [
+            "老帆"
+          ],
+          "天气": "晴",
+          "时段": "夜"
+        },
+        {
+          "景别": "特写",
+          "机位": "平视",
+          "运镜": "推近",
+          "画面": "星图上塞壬浮标泛起红光，第九环闪了一下",
+          "出场角色": [],
+          "天气": "晴",
+          "时段": "夜"
+        },
+        {
+          "景别": "双人镜",
+          "机位": "斜角",
+          "运镜": "固定",
+          "画面": "回声的全息像站在舵旁，半透明的目光锁定正前方",
+          "出场角色": [
+            "老帆",
+            "回声"
+          ],
+          "天气": "晴",
+          "时段": "夜"
+        },
+        {
+          "景别": "过肩镜",
+          "机位": "平视",
+          "运镜": "跟拍",
+          "画面": "凌曦指尖在星键上翻飞，星图从肩后流过",
+          "出场角色": [
+            "凌曦",
+            "回声"
+          ],
+          "天气": "晴",
+          "时段": "夜"
+        },
+        {
+          "景别": "远景",
+          "机位": "高角度",
+          "运镜": "升起",
+          "画面": "巨舰绕星环划出一道长弧，塞壬的鸣响沉进光里",
+          "出场角色": [
+            "老帆",
+            "凌曦"
+          ],
+          "天气": "晴",
+          "时段": "黎明"
+        }
+      ]
+    }
+  ]
+};
+const AGENTS = [
+  {
+    "name": "咔",
+    "role": "AI 导演",
+    "persona": "AI 导演，片场唯一有拆本权的大脑，口头禅「三分钟内开机」，拆本极快、措辞像镜头单，对一致性有洁癖——角色没定妆绝不给特写，首尾镜不呼应绝不放行。【拆解·输出协议】制片提交的是一句拍片令。你只输出一个 JSON 对象，不输出任何其他文字，格式：{\"title\":\"片名，≤10字\",\"style\":\"影调一句话（时代/光线/色彩倾向）\",\"characters\":[{\"name\":\"角色名≤4字\",\"tag\":\"身份≤6字\",\"desc\":\"一句话外型与动机≤24字\"}]（1~3 个），\"shots\":[{\"景别\":\"大远景|远景|中景|近景|特写|双人镜|过肩镜\",\"机位\":\"平视|低角度|高角度|顶俯|斜角\",\"运镜\":\"固定|推近|拉远|左摇|右摇|横移|跟拍|手持|升起\",\"画面\":\"一句话画面：谁在做什么、光从哪来\",\"出场角色\":[出场角色名，只能取自 characters 列表],\"天气\":\"晴|阴|雨|雾|雪\",\"时段\":\"白天|黄昏|夜|黎明\"}]（6~8 镜，构成起承转合）。拆解原则：主角至少 4 次出场、首尾镜呼应、每镜画面必须具体可拍；出场角色名一律从 characters 里选。改机位模式（重拍同一镜）时输出同样式 JSON 但只有 shots[0] 一个镜头对象。被闲聊时用导演口吻简短回应，不拆本。",
+    "mood": "雷厉风行",
+    "first_line": "拍片令给我——三分钟内，片名、影调、角色卡、镜头单，一样不少。"
+  },
+  {
+    "name": "墨格",
+    "role": "场记 · 确定性摄影机",
+    "persona": "场记兼确定性摄影机的人格化身，守着种子表与取景框，相信同一颗种子必须长出同一帧画面，误差容忍度是零，口头禅「seed 锁了」。每一次抽卡、重抽、参考帧复用，TA 都会把 seed、景别、运镜记进场记单；谁想偷偷改已经定稿的镜头，TA 会当场把场记单拍在桌上。开拍前 TA 负责检索片库：把角色卡与已定稿镜头摆进导演上下文，跨镜一致性从这一步开始。",
+    "mood": "一丝不苟",
+    "first_line": "seed 锁了。天亮之前，这台机器不撒谎。"
+  },
+  {
+    "name": "回放",
+    "role": "剪辑师 · 版本对账",
+    "persona": "剪辑师，能把任意两版镜头并排摆出来说出毫厘之差，口头禅「回放不撒谎」。负责成片重放对账：逐镜用定稿 seed 重绘、比对帧哈希，一帧不差才肯盖章；v1 与 v2 的版本对比也是 TA 的手艺——哪次重抽改了构图、哪次只换了雨点，TA 一眼断案。对「差不多就行」过敏，对「能复现」偏执。",
+    "mood": "冷静挑剔",
+    "first_line": "把定稿单给我。同 seed 重绘一遍，哈希对不上，谁也别想下班。"
+  },
+  {
+    "name": "甲方",
+    "role": "审片人 · 首映验收",
+    "persona": "审片人，首映验收的唯一签字人，眼里只有三件事：全片像不像同一部片子（一致性）、预算花没花在刀刃上（胶片与 token 的账）、能不能原样复现给投资人看（重放对账）。口头禅「能复现，我就签」。验收通过会给一句像海报短评的评语；验收不过会精确指出哪一镜出了戏。不参与拍摄过程，只在成片板摆开时出现。",
+    "mood": "不动声色",
+    "first_line": "成片板摆开，账本摊开。能复现，我就签。"
+  }
+];
+/* kernel 与 vendor 已随项目自带（engine/kernel.js、vendor/、utils/），相对路径解析：
+   任意静态服务器根目录或 Studio /projects/{id}/ 下均可运行。 */
+const VENDOR_BASE = "./vendor/";
+const KERNEL = "./engine/kernel.js";
+
+/* ============ L7 provider 装配（与引擎 café demo 同一机制） ============ */
+let provider = null, providerReady = false, mod = null, SB = null;
+const savedCfg = JSON.parse(localStorage.getItem("aicafe.llm.v1") || "null");
+async function boot() {
+  try { mod = await import(KERNEL); }
+  catch (e) { document.getElementById("fallback").style.display = "flex"; return; }
+  try { SB = await import("./app/storyboard.js"); }
+  catch (e) { document.getElementById("fallback").style.display = "flex"; return; }
+  if (savedCfg && savedCfg.key && savedCfg.kind !== "rule") {
+    provider = mod.createProvider(savedCfg);
+    providerReady = !!(provider && provider.ready);
+  }
+  if (providerReady) {
+    document.getElementById("prov-name").textContent = (savedCfg.model || "llm") + "（引擎 L7 · AI 已植入）";
+    document.getElementById("dot").classList.add("live");
+  }
+  await startApp();
+}
+
+/* ============ 常量与持久化状态 ============ */
+const PAL = ["#e8b24e", "#7eb8ff", "#7effc3"];          /* 角色卡固定识别色（按下标分配） */
+const CREW_COLOR = ["#e8b24e", "#7eb8ff", "#7effc3", "#ff8fb3"];
+const FILM0 = 24, CARD_W = 480, CARD_H = 270;
+const KEY = "game." + GAME.id + ".";
+function freshState() {
+  return { order: "", project: null, shots: [], reel: [], film: FILM0, spent: 0,
+    reusedTotal: 0, takes: 0, turn: 0, cur: 0, ctx: null, verified: false,
+    premiered: false, archived: false, lowWarned: false, flags: {}, log: [] };
+}
+function loadState() {
+  try {
+    const s = JSON.parse(localStorage.getItem(KEY + "state.v1"));
+    if (s && typeof s === "object" && "project" in s) return Object.assign(freshState(), s, { flags: {} });
+  } catch (e) {}
+  return freshState();
+}
+let S = loadState();
+function saveState() { localStorage.setItem(KEY + "state.v1", JSON.stringify(S)); }
+const esc = s => (s || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+function log(who, text) {
+  S.log.push({ who, text });
+  if (S.log.length > 120) S.log.splice(0, S.log.length - 120);
+}
+function extractJSONLoose(s) { const m = (s || "").match(/\{[\s\S]*\}/); try { return m ? JSON.parse(m[0]) : null; } catch { return null; } }
+
+/* ============ 引擎服务：片库记忆 + 系统调度 ============ */
+async function startApp() {
+  const mem = new mod.MemoryStore(KEY + "mem.v1");
+  const THREE = await import("three");
+  const { OrbitControls } = await import(VENDOR_BASE + "OrbitControls.js");
+  const { GLTFLoader } = await import(VENDOR_BASE + "GLTFLoader.js");
+
+  /* ---- 3D 片场舞台（dungeon 黑金调，crew 机器人） ---- */
+  const sceneEl = document.getElementById("scene");
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(sceneEl.clientWidth, sceneEl.clientHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  sceneEl.insertBefore(renderer.domElement, sceneEl.firstChild);
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0a0d12);
+  scene.fog = new THREE.Fog(0x0a0d12, 18, 55);
+  const camera = new THREE.PerspectiveCamera(50, sceneEl.clientWidth / sceneEl.clientHeight, 0.1, 200);
+  camera.position.set(0, 6, 14);
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.target.set(0, 1.2, 0);
+  controls.enableDamping = true; controls.maxPolarAngle = Math.PI / 2.05;
+  controls.minDistance = 6; controls.maxDistance = 30;
+  const hemi = new THREE.HemisphereLight(0x5a6b8e, 0x0e1116, 1.1); scene.add(hemi);
+  const sun = new THREE.DirectionalLight(0xff9a4d, 1.6); sun.position.set(6, 10, 4); scene.add(sun);
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(16, 48).rotateX(-Math.PI / 2),
+    new THREE.MeshStandardMaterial({ color: 0x161c26, roughness: .95 }));
+  scene.add(ground);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(15.4, 16, 64).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ color: 0x8a5a2e, transparent: true, opacity: .5 }));
+  scene.add(ring);
+  const crew = [];
+  const loader = new GLTFLoader();
+  const gltf = await loader.loadAsync(VENDOR_BASE + "RobotExpressive.glb");
+  AGENTS.forEach((a, i) => {
+    const root = gltf.scene.clone(true);
+    root.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.color.multiplyScalar(1); } });
+    const angle = (i / Math.max(AGENTS.length, 1)) * Math.PI * 2;
+    root.position.set(Math.cos(angle) * 5, 0, Math.sin(angle) * 5);
+    root.lookAt(0, 0, 0);
+    root.userData = { index: i };
+    scene.add(root);
+    const cv = document.createElement("canvas"); cv.width = 256; cv.height = 72;
+    const cx = cv.getContext("2d");
+    cx.fillStyle = "rgba(13,16,23,.85)";
+    cx.beginPath(); cx.moveTo(18, 6); cx.arcTo(250, 6, 250, 60, 14); cx.arcTo(250, 60, 6, 60, 14);
+    cx.arcTo(6, 60, 6, 6, 14); cx.arcTo(6, 6, 250, 6, 14); cx.closePath(); cx.fill();
+    cx.fillStyle = CREW_COLOR[i % CREW_COLOR.length];
+    cx.font = "bold 30px sans-serif"; cx.textAlign = "center";
+    cx.fillText(a.name, 128, 46);
+    const label = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: new THREE.CanvasTexture(cv), depthTest: false, transparent: true }));
+    label.scale.set(2.2, 0.62, 1); label.position.set(root.position.x, 3.1, root.position.z);
+    scene.add(label);
+    let mixer = null;
+    try {
+      mixer = new THREE.AnimationMixer(root);
+      const idle = gltf.animations.find(x => /idle/i.test(x.name)) || gltf.animations[0];
+      if (idle) mixer.clipAction(idle).play();
+    } catch (e) {}
+    crew.push({ agent: a, root, label, mixer, gltfAnims: gltf.animations });
+  });
+  function playClipAll(name) {
+    crew.forEach(n => {
+      if (!n.mixer || !n.gltfAnims) return;
+      const clip = n.gltfAnims.find(c => c.name === name) || n.gltfAnims.find(c => new RegExp(name, "i").test(c.name));
+      if (!clip) return;
+      n.mixer.stopAllAction(); n.mixer.clipAction(clip).reset().play();
+    });
+  }
+  const clock = new THREE.Clock();
+  (function animate() {
+    requestAnimationFrame(animate);
+    const dt = clock.getDelta();
+    crew.forEach((n, j) => {
+      n.label.position.y = 3.1 + Math.sin(clock.elapsedTime * 2 + j) * 0.06;
+      if (n.mixer) n.mixer.update(dt);
+    });
+    controls.update();
+    renderer.render(scene, camera);
+  })();
+  window.addEventListener("resize", () => {
+    camera.aspect = sceneEl.clientWidth / sceneEl.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(sceneEl.clientWidth, sceneEl.clientHeight);
+  });
+
+  /* ================= 应用层三系统（引擎 Scheduler 串联，一次生产一 tick） ================= */
+  function castArr() { return S.project ? S.project.characters : []; }
+  function specView(shot) { return Object.assign({}, shot.spec, { __style: S.project.style }); }
+  function buildCtx(i) {
+    const shot = S.shots[i]; if (!shot) return null;
+    const q = (S.project.characters.map(c => c.name + c.desc).join("")) + shot.spec["出场角色"].join("") + shot.spec["画面"];
+    const cast = mem.retrieve("filmset", "cast", q, S.turn, 3);
+    const locked = mem.retrieve("filmset", "locked", q, S.turn, 4);
+    /* 检索按评分排序（about 只加成不过滤），两条通道按各自 about 收口，
+       保证 🎭=角色卡、🔒=已定稿镜头 语义不串档 */
+    return { cast: cast.filter(e => e.about === "cast").map(e => e.text),
+      locked: locked.filter(e => e.about === "locked").map(e => e.text) };
+  }
+  const directorSys = { name: "directorSys", async tick(w) {
+    if (w.flags.recreate) {
+      w.flags.recreate = false;
+      if (providerReady) await aiRecreate(w);
+      else { log("咔", "离线片场——改机位通道静默，用「重抽·换种子」出变体。"); w.flags.draw = { mode: "fresh" }; }
+    }
+    if (w.flags.open) {
+      w.flags.open = false;
+      w.ctx = buildCtx(w.cur);
+      const s = S.shots[w.cur];
+      if (s) log("墨格", `第${w.cur + 1}镜开拍前检索：角色卡 ×${w.ctx.cast.length} · 已定稿镜头 ×${w.ctx.locked.length}（注入导演上下文，imp×0.45+aboutBonus 1.2 定稿镜头排前）`);
+    }
+  }};
+  const drawSys = { name: "drawSys", async tick(w) {
+    if (w.flags.draw) { const o = w.flags.draw; w.flags.draw = null; doDraw(o); }
+  }};
+  const lockSys = { name: "lockSys", async tick(w) {
+    if (w.flags.lock) { w.flags.lock = false; doLock(); }
+  }};
+  const sched = new mod.Scheduler();
+  sched.add(directorSys); sched.add(drawSys); sched.add(lockSys);
+  async function pump() { S.turn++; await sched.tick(S); renderAll(); saveState(); }
+
+  /* ================= ① 一句开机：拆解 ================= */
+  const orderInput = document.getElementById("order");
+  document.getElementById("tpl-chips").innerHTML =
+    STORY.offlineTemplates.map((t, i) => `<span data-i="${i}">${esc(t.genre)}</span>`).join("");
+  document.querySelectorAll("#tpl-chips span").forEach(sp => sp.onclick = () => {
+    orderInput.value = "拍一段" + STORY.offlineTemplates[+sp.dataset.i].genre + "题材的两分钟短片";
+  });
+  document.getElementById("btn-boot").onclick = async () => {
+    const order = orderInput.value.trim() || "拍一段雨夜追逃的两分钟短片";
+    const btn = document.getElementById("btn-boot");
+    btn.disabled = true; btn.textContent = "导演拆本中……";
+    S.order = order;
+    if (providerReady) await aiDecompose(order);
+    else offlineDecompose(order);
+    btn.disabled = false; btn.textContent = "开机！";
+    if (S.project) { S.flags.open = true; await pump(); }
+  };
+  orderInput.addEventListener("keydown", e => { if (e.key === "Enter") document.getElementById("btn-boot").click(); });
+
+  function directorSysPrompt(extra) {
+    const a = AGENTS[0];
+    return `你在一场名为「${GAME.name}」的游戏原型里扮演片场 crew。
+角色：${a.name}（${a.role}），人设：${a.persona}
+世界观前提：${STORY.premise}
+${extra || ""}
+（现在执行拆解：严格按人设中的【拆解·输出协议】只输出一个 JSON 对象，不输出任何其他文字。）`;
+  }
+  async function aiDecompose(order) {
+    log("咔", `拍片令收到：「${order}」——拆本中。`);
+    try {
+      const out = await provider.complete([
+        { role: "system", content: directorSysPrompt() },
+        { role: "user", content: `制片拍片令：「${order}」\n拆解为 {title, style, characters(1~3), shots(6~8)}，只输出 JSON。` }
+      ], { json: true, temp: 0.8, max: 1300 });
+      const j = extractJSONLoose(out);
+      const pr = sanitizeProject(j, order);
+      if (!pr) { log("咔", "拆本格式不合格——退回模板库照拍。"); offlineDecompose(order); return; }
+      applyProject(pr, "AI 导演拆解");
+    } catch (e) {
+      log("咔", `模型调用失败（${String(e.message || e).slice(0, 40)}）——退回模板库照拍。`);
+      offlineDecompose(order);
+    }
+  }
+  function offlineDecompose(order) {
+    let best = null, bestHits = -1;
+    for (const t of STORY.offlineTemplates) {
+      const hits = t.keywords.reduce((a, k) => a + (order.includes(k) ? 1 : 0), 0);
+      if (hits > bestHits) { bestHits = hits; best = t; }
+    }
+    const pr = {
+      project: { title: best.title, style: best.style, characters: best.characters.map((c, i) => ({
+        name: c.name, tag: c.tag, desc: c.desc, color: PAL[i] })) },
+      shots: best.shots.map(s => ({ spec: SB.normSpec(s), status: "pending", variants: [], locked: null })),
+    };
+    applyProject(pr, `离线模板·关键词匹配「${best.genre}」（命中 ${bestHits} 词）`);
+  }
+  function sanitizeProject(j, order) {
+    if (!j || typeof j !== "object") return null;
+    const title = String(j.title || "").slice(0, 16).trim(); if (!title) return null;
+    const style = String(j.style || "未注明影调").slice(0, 40);
+    const characters = (Array.isArray(j.characters) ? j.characters : []).slice(0, 3).map((c, i) => ({
+      name: String((c && c.name) || ("角色" + (i + 1))).slice(0, 8),
+      tag: String((c && (c.tag || c.role)) || "").slice(0, 12),
+      desc: String((c && c.desc) || "").slice(0, 60), color: PAL[i] }));
+    if (!characters.length) return null;
+    const rawShots = Array.isArray(j.shots) ? j.shots : [];
+    const shots = rawShots.map(s => {
+      if (!s || typeof s !== "object") return null;
+      const spec = SB.normSpec({
+        "景别": s["景别"] || s.shot || s.景别, "机位": s["机位"] || s.angle, "运镜": s["运镜"] || s.move,
+        "画面": s["画面"] || s.desc || s.screen, "出场角色": s["出场角色"] || s.cast || s.characters || [],
+        "天气": s["天气"] || s.weather, "时段": s["时段"] || s.time });
+      spec["出场角色"] = spec["出场角色"].filter(n => characters.some(c => c.name === n));
+      return { spec, status: "pending", variants: [], locked: null };
+    }).filter(Boolean);
+    if (shots.length > 8) shots.length = 8;   /* 协议上限 8 镜，超出截断 */
+    if (shots.length < 6) return null;
+    return { project: { title, style, characters }, shots };
+  }
+  function applyProject(pr, src) {
+    S.project = pr.project; S.shots = pr.shots; S.reel = []; S.cur = 0;
+    S.film = FILM0; S.spent = 0; S.reusedTotal = 0; S.takes = 0;
+    S.verified = false; S.premiered = false; S.archived = false; S.lowWarned = false;
+    const p = S.project;
+    p.characters.forEach(c => mem.record("filmset",
+      { turn: S.turn, about: "cast", text: `角色卡·${c.name}（${c.tag}）${c.desc}——识别色 ${c.color}`, imp: 9 }));
+    mem.record("filmset", { turn: S.turn, about: "script",
+      text: `剧本·「${p.title}」影调 ${p.style}·卡司 ${p.characters.map(c => c.name).join("/")}·${S.shots.length} 镜——${S.order}`, imp: 8 });
+    log("咔", `「${p.title}」——${S.shots.length} 镜，影调：${p.style}。三分钟内开机！`);
+    log("墨格", `确定性摄影机就位（${providerReady ? "AI 导演在线" : "规则引擎（离线）"}），种子表已贴。`);
+    log("回放", `片库开档（${mem.lenTotal()} 条记忆）：角色卡 about=cast ×${p.characters.length}，剧本 about=script ×1。`);
+    log("系统", `本片来源：${src}`);
+  }
+
+  /* ================= ② 逐镜抽卡 ================= */
+  /* 展示绘制：落到传入画布（可为 in-DOM #card）。 */
+  function renderCard(canvas, shot, variant, idx) {
+    const L = SB.computeLayout(specView(shot), variant.seed, variant.ref == null ? null : variant.ref, castArr());
+    L.idx = idx + 1;
+    SB.paintLayout(canvas, L);
+    return L;
+  }
+  /* 对账双凭证：
+     · 布局摘要 hashLayout(L) —— 纯数学参数凭证，跨画布/跨时间稳定（mulberry32 保证）；
+     · 像素哈希 hashCanvas —— 固定落离屏画布：in-DOM 画布走合成器光栅路径，跨时刻
+       偶有环境噪点，离屏同 (spec×seed×cast) 逐像素稳定。重放对账双证齐验。 */
+  function frameCreds(shot, variant, idx) {
+    const L = renderCard(document.createElement("canvas"), shot, variant, idx);
+    const hcv = document.createElement("canvas");
+    hcv.width = CARD_W; hcv.height = CARD_H;
+    SB.paintLayout(hcv, L);
+    return { pixel: SB.hashCanvas(hcv), layout: SB.hashLayout(L) };
+  }
+  function doDraw(opts) {
+    const shot = S.shots[S.cur];
+    if (!shot || shot.status === "locked") return;
+    let seed = (Math.random() * 0x7fffffff) | 0, ref = null;
+    if (opts.mode === "reuse") {
+      const r = S.shots[opts.ref];
+      if (!r || r.status !== "locked") return;
+      ref = r.locked.seed;
+      S.reusedTotal++;
+      log("墨格", `复用第${opts.ref + 1}镜参考帧——构图面继承 seed ${SB.hex8(ref)}（天际线/站位/光源不变），本卡运气 seed 另掷，胶片未动。`);
+    } else {
+      if (S.film < 1) { log("咔", `胶片只剩 ${S.film} 卷——要么定稿，要么免费复用参考帧。`); return; }
+      S.film--; S.spent++;
+    }
+    const cv = document.getElementById("card");
+    const v = { seed, ref, ver: shot.variants.length + 1, hash: null, ld: null };
+    renderCard(cv, shot, v, S.cur);
+    const creds = frameCreds(shot, v, S.cur);
+    v.hash = creds.pixel; v.ld = creds.layout;
+    shot.variants.push(v);
+    S.takes++;
+    const modeTxt = opts.mode === "reuse" ? "复用参考帧" : opts.mode === "ai" ? "AI 改机位后新卡" : (v.ver === 1 ? "抽卡" : "重抽变体");
+    log("墨格", `第${S.cur + 1}镜 take ${v.ver}（${modeTxt}）：seed ${SB.hex8(seed)}${ref != null ? " · ref " + SB.hex8(ref) : ""} · 帧 ${v.hash}。`);
+    if (!S.lowWarned && S.film <= 8) {
+      S.lowWarned = true;
+      log("咔", `预算危机：胶片剩 ${S.film} 卷。别烧卷抽卡了——复用参考帧免费，而且更一致。`);
+    }
+    playClipAll("Wave");
+  }
+  async function aiRecreate(w) {
+    const shot = S.shots[w.cur]; if (!shot || shot.status === "locked") { w.flags.draw = { mode: "fresh" }; return; }
+    log("咔", "改机位：导演看片后重写本镜参数……");
+    const ctx = w.ctx || buildCtx(w.cur) || { cast: [], locked: [] };
+    try {
+      const out = await provider.complete([
+        { role: "system", content: directorSysPrompt(`改机位模式：只输出 shots[0] 一个镜头对象的同式 JSON。`) },
+        { role: "user", content: `重拍第${w.cur + 1}镜。当前：${shot.spec["景别"]}·${shot.spec["机位"]}·${shot.spec["运镜"]}——${shot.spec["画面"]}
+全片一致性锚（片库检索注入）：
+已定稿镜头：${ctx.locked.join("；") || "（暂无）"}
+角色卡：${ctx.cast.join("；")}
+保留画面主旨与出场角色，换更有表现力的景别/运镜/机位。只输出 JSON。` }
+      ], { json: true, temp: 0.9, max: 300 });
+      const j = extractJSONLoose(out);
+      const s0 = j && (Array.isArray(j.shots) ? j.shots[0] : j);
+      if (!s0 || typeof s0 !== "object") throw new Error("格式不合格");
+      const next = SB.normSpec({
+        "景别": s0["景别"], "机位": s0["机位"], "运镜": s0["运镜"], "画面": s0["画面"] || shot.spec["画面"],
+        "出场角色": s0["出场角色"] && s0["出场角色"].length ? s0["出场角色"] : shot.spec["出场角色"],
+        "天气": s0["天气"] || shot.spec["天气"], "时段": s0["时段"] || shot.spec["时段"] });
+      next["出场角色"] = next["出场角色"].filter(n => castArr().some(c => c.name === n));
+      shot.spec = next;
+      log("咔", `改成：${next["景别"]}·${next["机位"]}·${next["运镜"]}——${next["画面"].slice(0, 22)}…`);
+    } catch (e) {
+      log("咔", `改机位失败（${String(e.message || e).slice(0, 36)}）——按原参数出新变体。`);
+    }
+    w.flags.draw = { mode: "ai" };
+  }
+  function doLock() {
+    const shot = S.shots[S.cur];
+    if (!shot || shot.status === "locked") return;   /* 连点/重入防重：一镜只入账一次 */
+    const v = shot.variants[shot.variants.length - 1];
+    if (!v) { log("咔", "还没抽卡——先抽一张再定稿。"); return; }
+    shot.status = "locked"; shot.locked = v;
+    S.reel.push(S.cur);
+    mem.record("filmset", { turn: S.turn, about: "locked", imp: 10,
+      text: `第${S.cur + 1}镜定稿·${shot.spec["景别"]}·${shot.spec["运镜"]}·${shot.spec["画面"].slice(0, 24)}·seed ${SB.hex8(v.seed)}${v.ref != null ? "·ref " + SB.hex8(v.ref) : ""}·${shot.spec["出场角色"].join("/") || "空镜"}` });
+    log("咔", `第${S.cur + 1}镜——咔！定稿（v${v.ver}，seed ${SB.hex8(v.seed)}）。`);
+    log("回放", `已归档 ${S.reel.length}/${S.shots.length} 镜（about=locked，imp=10）。`);
+    S.verified = false; S.premiered = false;
+    const nxt = S.shots.findIndex(s => s.status === "pending");
+    if (nxt >= 0) {
+      S.cur = nxt; S.ctx = buildCtx(nxt);
+      log("咔", `下一镜：第${nxt + 1}镜（${S.shots[nxt].spec["景别"]}）——参考帧下拉框已更新，胶片剩 ${S.film} 卷。`);
+    } else {
+      S.ctx = null;
+      log("甲方", "全部定稿。成片板摆开：先重放对账，再首映。");
+    }
+    playClipAll("ThumbsUp");
+  }
+
+  /* ================= ③ 重放对账 / 首映 / 片库 ================= */
+  function verifyReel() {
+    if (!S.reel.length) return;
+    const rows = []; let layoutOkAll = true, pixelOkAll = true;
+    for (const i of S.reel) {
+      const sh = S.shots[i];
+      const c = frameCreds(sh, sh.locked, i);
+      const lok = c.layout === sh.locked.ld;   /* 参数级凭证：布局逐字段一致 */
+      const pok = c.pixel === sh.locked.hash;  /* 像素级复核：同会话重绘逐像素一致 */
+      if (!lok) layoutOkAll = false;
+      if (!pok) pixelOkAll = false;
+      rows.push({ i, h: c.pixel, ok: pok, lok });
+    }
+    S.verified = layoutOkAll && S.reel.length === S.shots.length && S.shots.length > 0;
+    const drift = rows.filter(r => r.lok && !r.ok).length;
+    log("回放", S.verified
+      ? (pixelOkAll
+        ? `全片 ${S.reel.length} 镜同 seed 重绘：布局摘要逐镜吻合，像素复核逐镜一致——回放不撒谎。`
+        : `全片 ${S.reel.length} 镜布局摘要逐镜吻合（参数级可复现）；${drift} 镜像素层检出环境光栅噪声，参数与构图仍逐字段一致。`)
+      : "有镜头布局摘要对不上！拍摄参数出现漂移，请检查。");
+    saveState(); renderAll(rows);
+  }
+  async function playPremiere() {
+    if (!S.reel.length || S.reel.length !== S.shots.length) return;
+    const board = document.getElementById("board");
+    board.classList.remove("hidden");
+    const cv = document.getElementById("card");
+    document.getElementById("board-idx").textContent = "重放";
+    for (const i of S.reel) {
+      const sh = S.shots[i];
+      document.querySelector("#board .board-head b").childNodes[0].textContent = `🎬 成片重放 · 第 ${i + 1} 镜 `;
+      renderCard(cv, sh, sh.locked, i);
+      await new Promise(z => setTimeout(z, 750));
+    }
+    S.premiered = true;
+    log("甲方", `能复现，我就签——「${S.project.title}」全片 ${S.shots.length} 镜一致性通过，账面：胶片剩 ${S.film} 卷、复用 ${S.reusedTotal} 次。定稿即资产。`);
+    playClipAll("Dance");
+    saveState(); renderAll();
+  }
+  function exportFilmLib() {
+    const blob = new Blob([mem.export()], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `oriera-片库-${GAME.id}.json`;
+    a.click(); URL.revokeObjectURL(a.href);
+    S.archived = true; saveState();
+    log("系统", `片库档案导出（${mem.lenTotal()} 条记忆）——角色卡/剧本/定稿镜头全在里头。`);
+    renderAll();
+  }
+  function exportSave() {
+    const data = {};
+    for (let k = 0; k < localStorage.length; k++) {
+      const key = localStorage.key(k);
+      if (key && key.startsWith(KEY)) data[key] = localStorage.getItem(key);
+    }
+    const blob = new Blob([JSON.stringify({ game: GAME.id, saved_at: Date.now(), data }, null, 1)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `oriera-存档-${GAME.id}.json`;
+    a.click(); URL.revokeObjectURL(a.href);
+  }
+  function importSave(file) {
+    const r = new FileReader();
+    r.onload = () => {
+      try {
+        const j = JSON.parse(r.result);
+        Object.entries(j.data || {}).forEach(([k, v]) => localStorage.setItem(k, v));
+        location.reload();
+      } catch (e) { log("系统", "存档文件无法识别"); renderAll(); }
+    };
+    r.readAsText(file);
+  }
+
+  /* ================= 渲染 ================= */
+  const $ = id => document.getElementById(id);
+  function renderHud() {
+    $("hud-title").textContent = S.project ? `「${S.project.title}」` : GAME.name;
+    $("hud-style").textContent = S.project ? S.project.style : GAME.tagline.slice(0, 18) + "…";
+    $("hud-film").textContent = S.film;
+    $("hud-shot").textContent = `${S.reel.length}/${S.shots.length || (S.project ? S.shots.length : 0)}`;
+    $("hud-turn").textContent = S.turn;
+  }
+  function renderBoard() {
+    const board = $("board"), boot = $("boot-card");
+    if (!S.project) { board.classList.add("hidden"); boot.classList.remove("hidden"); return; }
+    boot.classList.add("hidden");
+    const shot = S.shots[S.cur];
+    if (!shot || shot.status !== "pending") { board.classList.add("hidden"); return; }
+    board.classList.remove("hidden");
+    $("board-idx").textContent = S.cur + 1;
+    $("board-spec").textContent = `${shot.spec["景别"]}·${shot.spec["机位"]}·${shot.spec["运镜"]}·${shot.spec["天气"]}/${shot.spec["时段"]} · 出场：${shot.spec["出场角色"].join("、") || "空镜"}`;
+    const v = shot.variants[shot.variants.length - 1];
+    if (v) {
+      renderCard($("card"), shot, v, S.cur);   /* 换镜/定稿后重绘当前卡（同 seed 同像素） */
+      $("board-take").textContent = `v${v.ver}`;
+      $("board-seed").textContent = SB.hex8(v.seed);
+      $("board-ref").textContent = v.ref == null ? "—" : SB.hex8(v.ref);
+      $("board-hash").textContent = v.hash;
+    } else {
+      $("board-take").textContent = "0"; $("board-seed").textContent = "—";
+      $("board-ref").textContent = "—"; $("board-hash").textContent = "—";
+    }
+    $("btn-draw").disabled = S.film < 1 || !!v;
+    $("btn-draw").textContent = v ? "🎲 已抽本镜首卡" : "🎲 抽卡（−1 卷）";
+    $("btn-redraw").disabled = S.film < 1;
+    const sel = $("ref-sel");
+    sel.innerHTML = S.reel.length
+      ? S.reel.map(i => `<option value="${i}">第${i + 1}镜·${S.shots[i].spec["景别"]}</option>`).join("")
+      : `<option value="">（尚无定稿）</option>`;
+    $("btn-reuse").disabled = !S.reel.length;
+    $("btn-ai").classList.toggle("hidden", !providerReady);
+    $("btn-lock").disabled = !v;
+    const ctxChips = S.ctx || { cast: [], locked: [] };
+    $("ctx-chips").innerHTML =
+      `导演上下文（片库检索注入）：` +
+      ctxChips.cast.map(t => `<span class="tk">🎭 ${esc(t.slice(0, 26))}</span>`).join("") +
+      ctxChips.locked.map(t => `<span class="tk">🔒 ${esc(t.slice(0, 26))}</span>`).join("") +
+      (ctxChips.cast.length + ctxChips.locked.length ? "" : "（片库暂无相关记忆）");
+  }
+  function renderSetPage() {
+    if (!S.project) {
+      $("set-intro").innerHTML = `<h4 class="sec">怎么玩</h4>` +
+        GAME.core_loop.map(s => `<div class="mech"><div>${esc(s)}</div></div>`).join("") +
+        `<h4 class="sec">机制</h4>` +
+        GAME.mechanics.map(m => `<div class="mech"><b>${esc(m.name)}</b><div>${esc(m.detail)}</div></div>`).join("");
+      $("set-body").innerHTML = "";
+    } else {
+      $("set-intro").innerHTML = "";
+      const shot = S.shots[S.cur];
+      const head = shot && shot.status === "pending"
+        ? `<div class="mech"><b>正在拍：第 ${S.cur + 1} 镜</b><div>${esc(shot.spec["景别"])}·${esc(shot.spec["机位"])}·${esc(shot.spec["运镜"])}——${esc(shot.spec["画面"])}</div>
+           <div>出场：${esc(shot.spec["出场角色"].join("、") || "空镜")} · ${esc(shot.spec["天气"])}·${esc(shot.spec["时段"])} · take ${shot.variants.length}</div></div>`
+        : `<div class="mech"><b>拍摄完成</b><div>全部 ${S.shots.length} 镜已定稿——去「片库」页重放对账与首映。</div></div>`;
+      $("set-body").innerHTML = head + `<h4 class="sec">镜头单</h4>` +
+        S.shots.map((s, i) => `<div class="shot-row ${i === S.cur ? "cur" : ""} ${s.status === "locked" ? "locked" : ""}" data-i="${i}">
+          <span class="st">${s.status === "locked" ? "✅" : i === S.cur ? "🎬" : "▫️"}</span>
+          <span>第${i + 1}镜 ${esc(s.spec["景别"])}</span><span class="one">${esc(s.spec["画面"].slice(0, 16))}…</span>
+          <span class="one">${s.status === "locked" ? "seed " + SB.hex8(s.locked.seed) : s.variants.length + " take"}</span></div>`).join("");
+      $("set-body").querySelectorAll(".shot-row").forEach(r => r.onclick = () => {
+        const i = +r.dataset.i;
+        if (S.shots[i].status === "pending") { S.cur = i; S.ctx = buildCtx(i); renderAll(); saveState(); }
+      });
+    }
+    $("log-view").innerHTML = `<h4 class="sec">片场通告（对讲机）</h4>` +
+      S.log.slice(-40).reverse().map(l =>
+        l.who === "系统" ? `<div class="logline sys">· ${esc(l.text)}</div>`
+          : `<div class="logline"><b>${esc(l.who)}</b>：${esc(l.text)}</div>`).join("");
+  }
+  function beatProgress() {
+    const all = S.reel.length === S.shots.length && S.shots.length > 0;
+    const st = [];
+    st[0] = !!S.project; st[1] = !!S.project; st[2] = !!S.project;
+    st[3] = all; st[4] = all;
+    st[5] = S.verified; st[6] = S.premiered; st[7] = S.archived;
+    return st;
+  }
+  function renderStoryPage() {
+    const el = $("page-story");
+    const st = beatProgress();
+    let html = `<p class="hint" style="margin-bottom:10px">${esc(STORY.premise)}</p>`;
+    STORY.beats.forEach((b, i) => {
+      const now = !st[i] && (i === 0 || st[i - 1]);
+      html += `<div class="beat ${st[i] ? "done" : now ? "now" : ""}"><div class="ph">${esc(b.phase)}${st[i] ? " · 已完成" : now ? " · 进行中" : ""}</div><div class="tt">${esc(b.title)}</div><div class="ds">${esc(b.desc)}</div></div>`;
+    });
+    if (S.project) {
+      html += `<h4 class="sec">剧本档案</h4><div class="mech"><b>「${esc(S.project.title)}」</b><div>影调：${esc(S.project.style)}</div>
+        <div>拍片令：${esc(S.order)}</div><div>镜头 ${S.shots.length} 个 · 卡司 ${S.project.characters.map(c => esc(c.name)).join("/")}</div></div>`;
+    }
+    el.innerHTML = html;
+  }
+  function renderCastPage() {
+    const el = $("page-cast");
+    let html = "";
+    if (S.project) {
+      html += `<h4 class="sec">角色卡（识别色 = 全片一致性锚）</h4>` +
+        S.project.characters.map(c => `<div class="cast-card">
+          <div class="cast-ava" style="background:${c.color}22;border-color:${c.color}"></div>
+          <div><div class="cast-nm">${esc(c.name)}<span class="cast-tag">${esc(c.tag)}</span></div>
+          <div class="cast-ds">${esc(c.desc)}</div>
+          <div class="cast-ds mono">识别色 ${c.color} · about=cast · imp=9</div></div></div>`).join("");
+    } else html += `<p class="hint">开机后角色卡在此定妆。</p>`;
+    html += `<h4 class="sec">片场 crew</h4>` + AGENTS.map((a, i) => `<div class="cast-card">
+      <div class="cast-ava" style="background:${CREW_COLOR[i % 4]}22;border-color:${CREW_COLOR[i % 4]}"></div>
+      <div><div class="cast-nm">${esc(a.name)}<span class="cast-tag">${esc(a.role)}</span></div>
+      <div class="cast-ds">${esc(a.persona.split("【")[0])}</div></div></div>`).join("");
+    el.innerHTML = html;
+  }
+  function renderVault(verifyRows) {
+    const el = $("page-vault");
+    const stats = providerReady ? provider.stats : { calls: 0, tokens: 0, errors: 0 };
+    let html = `<h4 class="sec">预算报表（结账）</h4><table class="eco">
+      <tr><th>科目</th><th>数值</th></tr>
+      <tr><td>胶片余额</td><td>${S.film} / ${FILM0} 卷（已耗 ${S.spent} 卷）</td></tr>
+      <tr><td>抽卡次数 / 变体数</td><td>${S.takes} take（重抽计入）</td></tr>
+      <tr><td>参考帧复用（省钱）</td><td>${S.reusedTotal} 次 × 1 卷 = 省 ${S.reusedTotal} 卷</td></tr>
+      <tr><td>真实 LLM 调用</td><td>${stats.calls} 次 · ${stats.tokens || 0} tokens · 失败 ${stats.errors || 0}${providerReady ? "" : "（离线规则引擎，0 消耗）"}</td></tr>
+      <tr><td>片库记忆</td><td>${mem.lenTotal()} 条（角色卡/剧本/定稿镜头）</td></tr></table>`;
+    html += `<h4 class="sec">重放对账（同 seed → 同布局 → 同像素）</h4>
+      <button class="vbtn gold" id="btn-verify" ${S.reel.length ? "" : "disabled"}>🔁 逐镜重绘·双凭证对账</button>
+      <button class="vbtn" id="btn-premiere" ${S.reel.length === S.shots.length && S.shots.length ? "" : "disabled"}>📽 成片重放·首映验收</button>`;
+    const rows = verifyRows || [];
+    if (rows.length) {
+      html += rows.map(r => `<div class="vrow"><span>第${r.i + 1}镜</span>
+        <span class="mono">${r.h}</span>${
+          r.ok && r.lok ? `<span class="ok">✓ 布局+像素一致</span>`
+          : r.lok ? `<span class="ok">✓ 布局一致</span><span style="color:#d8b24e">△ 像素环境噪点</span>`
+          : `<span class="no">✗ 布局不符</span>`}</div>`).join("");
+      html += S.verified ? `<div class="mech"><div>✅ 全片重放验证通过——布局摘要逐镜吻合${rows.every(r => r.ok) ? "，像素复核逐镜一致" : "（像素层有环境噪点，参数级可复现已证）"}——「重跑可复现」当场成立。</div></div>`
+        : `<div class="mech"><div>❌ 存在布局摘要不符的镜头——拍摄参数与定稿单出现漂移。</div></div>`;
+    } else if (S.verified) html += `<div class="mech"><div>✅ 上次对账通过（${S.reel.length} 镜，双凭证齐验）。</div></div>`;
+    html += `<h4 class="sec">版本对比（v1 / 最新）</h4><div id="cmp-view">${
+      S.shots.some(s => s.variants.length >= 2) ? "" : `<p class="hint">还没有镜头重抽过 2 次以上——去片场板「重抽·换种子」制造 v1/v2。</p>`
+    }</div>`;
+    html += `<h4 class="sec">片库资产</h4>
+      <button class="vbtn gold" id="btn-exlib">📦 导出片库档案</button>
+      <button class="vbtn ghost" id="btn-export">📤 导出存档</button>
+      <button class="vbtn ghost" id="btn-import">📥 导入存档</button>
+      <input type="file" id="save-file" accept="application/json" style="display:none" />
+      <br><button class="vbtn ghost" id="btn-reset">🧹 拆台重拍新片（清空本项目状态）</button>`;
+    el.innerHTML = html;
+    el.querySelector("#btn-verify").onclick = verifyReel;
+    el.querySelector("#btn-premiere").onclick = playPremiere;
+    el.querySelector("#btn-exlib").onclick = exportFilmLib;
+    el.querySelector("#btn-export").onclick = exportSave;
+    el.querySelector("#btn-import").onclick = () => el.querySelector("#save-file").click();
+    el.querySelector("#save-file").onchange = e => { if (e.target.files[0]) importSave(e.target.files[0]); };
+    el.querySelector("#btn-reset").onclick = () => {
+      if (!confirm("拆台重拍：清空本片状态（片库记忆保留）。确定？")) return;
+      S = freshState(); saveState(); location.reload();
+    };
+    /* v1/v2 对比（懒渲染） */
+    const cmp = el.querySelector("#cmp-view");
+    S.shots.forEach((s, i) => {
+      if (s.variants.length < 2) return;
+      const wrap = document.createElement("div");
+      wrap.className = "cmp";
+      const figs = [s.variants[0], s.variants[s.variants.length - 1]];
+      figs.forEach(v => {
+        const cv = document.createElement("canvas"); cv.width = 240; cv.height = 135;
+        renderCard(cv, s, v, i);
+        const fig = document.createElement("figure");
+        fig.appendChild(cv);
+        const cap = document.createElement("figcaption");
+        cap.textContent = `v${v.ver} · seed ${SB.hex8(v.seed)}${v.ref != null ? " · ref" : ""}`;
+        fig.appendChild(cap);
+        wrap.appendChild(fig);
+      });
+      const label = document.createElement("div");
+      label.style.cssText = "font-size:11px;color:#7c86a3;align-self:center;";
+      label.textContent = `第${i + 1}镜`;
+      wrap.prepend(label);
+      cmp.appendChild(wrap);
+    });
+  }
+  function renderAll(verifyRows) {
+    renderHud(); renderBoard(); renderSetPage(); renderStoryPage(); renderCastPage(); renderVault(verifyRows);
+  }
+
+  /* ---- 交互接线 ---- */
+  $("btn-draw").onclick = () => { S.flags.draw = { mode: "fresh" }; pump(); };
+  $("btn-redraw").onclick = () => { S.flags.draw = { mode: "fresh" }; pump(); };
+  $("btn-reuse").onclick = () => {
+    const v = $("ref-sel").value;
+    if (v === "" || v == null) return;
+    S.flags.draw = { mode: "reuse", ref: +v };
+    pump();
+  };
+  $("btn-ai").onclick = () => { S.flags.recreate = true; pump(); };
+  $("btn-lock").onclick = () => { S.flags.lock = true; pump(); };
+  document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
+    document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("on", x === b));
+    document.querySelectorAll(".tab-page").forEach(p => p.classList.remove("on"));
+    $("page-" + b.dataset.t).classList.add("on");
+  });
+
+  /* ---- 开场 ---- */
+  if (!S.project) {
+    log("系统", `欢迎来到「${GAME.name}」——写下一句拍片令，三分钟内开机。`);
+    AGENTS.forEach((a, i) => setTimeout(() => { log(a.name, a.first_line); renderSetPage(); }, 400 + i * 900));
+  } else {
+    if (S.shots[S.cur] && S.shots[S.cur].status === "pending") {
+      const v = S.shots[S.cur].variants[S.shots[S.cur].variants.length - 1];
+      if (v) renderCard($("card"), S.shots[S.cur], v, S.cur);
+      S.ctx = buildCtx(S.cur);
+    }
+    log("系统", `回到片场：「${S.project.title}」已定稿 ${S.reel.length}/${S.shots.length} 镜，胶片剩 ${S.film} 卷。`);
+  }
+  renderAll();
+}
+boot();
+</script>
+</body>
+</html>

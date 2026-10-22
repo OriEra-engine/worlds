@@ -1,0 +1,38 @@
+{
+  "note": "离线导演算子表：预算分拨规则 + 四算子价目 + 失败复测优先级。在线时模型在同名算子内选型并给自然语言理由，扣分与落地走本表——预算是硬约束。",
+  "budget": { "initial_points": 100, "max_rounds": 4 },
+  "ops": [
+    {
+      "name": "shift",
+      "label": "换位",
+      "cost": 10,
+      "apply": "shift_objects",
+      "desc": "非目的地物体整体随机挪位（种子派生、确定性），测布局泛化"
+    },
+    {
+      "name": "distract",
+      "label": "加干扰物",
+      "cost": 15,
+      "apply": "add_distractor",
+      "desc": "在目标→目的地的路径走廊里新放一只木箱，测动态避障"
+    },
+    {
+      "name": "tighten",
+      "label": "收紧容差",
+      "cost": 8,
+      "apply": "tolerance_x0.6",
+      "desc": "到位半径 ×0.6（下限 0.15），测推杆精度"
+    },
+    {
+      "name": "slip",
+      "label": "打滑",
+      "cost": 12,
+      "apply": "slip+1",
+      "desc": "接触面打滑角噪声上调一级（上限 L2），测低摩擦鲁棒"
+    }
+  ],
+  "priority": {
+    "on_fail": ["tighten", "slip", "shift", "distract"],
+    "on_pass": ["shift", "distract", "slip", "tighten"]
+  }
+}

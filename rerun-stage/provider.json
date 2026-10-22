@@ -1,0 +1,6 @@
+{
+  "kind": "rule",
+  "model": "rule-v1",
+  "base": "",
+  "note": "模型接入配置快照（默认 rule 离线行，不含 Key）。createProvider({kind:'rule'}) 返回 null（kernel.js:287-290），全链路自动降级离线：任务库关键词出题 / 算子表确定性派生 / 种子模拟复演 / 记忆检索全部照常。切在线：Studio「模型中心→保存并植入」，或浏览器 F12 执行 localStorage.setItem('aicafe.llm.v1', JSON.stringify({kind:\"deepseek\", key:\"你的Key\", model:\"deepseek-chat\", base:\"https://api.deepseek.com\"})) 后刷新，状态点变绿即在线。Key 永远不写进任何项目文件。"
+}

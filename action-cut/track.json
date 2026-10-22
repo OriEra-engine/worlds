@@ -1,0 +1,32 @@
+{
+  "track": "影视",
+  "title": "言出开机：确定性片场",
+  "pitch": "你说一句片子，AI 导演拆本、确定性摄影机抽卡、片库记账——同一颗种子重拍一帧不差，胶片只花在刀刃上，定稿即资产。",
+  "benchmarks": [
+    { "project": "ComfyUI", "aspect": "节点式工作流生图/生视频，社区生态最大", "license": "GPL-3.0" },
+    { "project": "Wan2.2", "aspect": "开源视频生成基座（阿里通义万相），A2V/I2V", "license": "Apache-2.0" },
+    { "project": "Open-Sora", "aspect": "开源 Sora 复现路线，训练/推理全开源", "license": "Apache-2.0" },
+    { "project": "MoneyPrinterTurbo", "aspect": "一句主题自动出短视频成片（文案/素材/字幕/配音）", "license": "MIT" }
+  ],
+  "pain_to_mechanic": [
+    {
+      "pain": "角色/画面一致性难保持：抽卡十次九次换脸，跨镜头人设漂移",
+      "mechanic": "一致性→记忆锚定+参考帧复用：角色卡与定稿镜头入 MemoryStore（about=cast/locked），每镜开拍前检索注入导演上下文（imp×0.45+aboutBonus 1.2，定稿镜头天然排前）；参考帧复用继承定稿 seed 的构图面（天际线/站位/光源位），跨镜一致且免费"
+    },
+    {
+      "pain": "抽卡成本不可控、不可回溯：一次生成几个 token/几张卡没有账，重跑对不上",
+      "mechanic": "抽卡成本→胶片预算分拨+token 计量：每抽 1 卡扣 1 卷胶片（开机 24 卷），重抽再扣、参考帧复用免费；provider.stats.calls/tokens（kernel.js:88-89 累计）直接进预算报表=真实 LLM 调用计量；同 seed 重放逐像素一致+帧哈希对账，抽卡全程可回溯"
+    },
+    {
+      "pain": "生成资产管理散乱：prompt/种子/成片三方分离，复用靠翻聊天记录",
+      "mechanic": "资产管理→片库持久化+存档导出：角色卡/剧本/定稿镜头（含 seed/参数/帧哈希）全档案存 localStorage，片库 JSON 一键导出导入；定稿即资产，下一部片子直接复用"
+    }
+  ],
+  "feasibility": "弱成偏强——管线、预算、记忆、回放四机制全部真实成立且离线可演，唯生成介质从视频降级为确定性分镜卡：kernel.js 的 HttpChatProvider 仅 chat/completions 文本通道，浏览器端无图像/视频生成 Provider；「一句自然语言理解任意指令」仅在线成立，离线降级为关键词选模板。升强成需引擎补：①L7 视频生成 Provider（Wan2.2/ComfyUI 兼容端点）把抽卡换成真帧抽卡，管线其余不动；②CognitionSystem/DirectorSystem 的 system prompt 参数化（现硬编码咖啡馆世界观）；③MemoryStore 单 agent 60 条上限对长片镜头清单偏紧，需分层归档或提额；④逐镜调度外部 ComfyUI 工作流需任务队列与回调通道（现仅同步 fetch）。",
+  "engine_gaps": [
+    "L7 增图像/视频生成 Provider（OpenAI 兼容或自建端点）——「抽卡」从分镜卡升级为真帧抽卡",
+    "CognitionSystem/DirectorSystem system prompt 参数化（kernel.js:158-168、253 现硬编码咖啡馆世界观）",
+    "MemoryStore 单 agent 60 条上限（kernel.js:25）提额或分层归档",
+    "外部工作流调度需任务队列+回调通道（现 kernel.js:85 仅同步 fetch）"
+  ]
+}

@@ -1,0 +1,132 @@
+{
+  "note": "预置任务库：离线出题模板 + 在线 few-shot 种子。spec 坐标系：桌面 x∈[-w/2,w/2]、y∈[-h/2,h/2]（渲染时 y 即世界 z）。种子=基础轮模拟种子，变体轮种子由 runSeed 派生。",
+  "tasks": [
+    {
+      "id": "t1_cup_to_coaster",
+      "nl": "把红杯推上杯垫，别碰倒玻璃瓶",
+      "title": "红杯上座",
+      "keywords": ["红杯", "杯垫", "玻璃瓶", "碰倒", "杯子"],
+      "spec": {
+        "table": { "w": 10, "h": 6 },
+        "objects": [
+          { "id": "coaster_1", "type": "coaster", "color": "gray", "x": 3.2, "y": -1.2, "r": 0.6, "fragile": false },
+          { "id": "red_cup", "type": "cup", "color": "red", "x": -2.2, "y": 1.3, "r": 0.35, "fragile": false },
+          { "id": "glass_bottle", "type": "bottle", "color": "green", "x": -3.6, "y": 0.75, "r": 0.28, "fragile": true },
+          { "id": "crate_a", "type": "box", "color": "brown", "x": -0.5, "y": -2.1, "r": 0.42, "fragile": false }
+        ],
+        "goal": { "verb": "push", "target": "red_cup", "dest": "coaster_1", "tol": 0.5 },
+        "constraints": ["no_topple", "stay_on_table"],
+        "seed": 20261019
+      }
+    },
+    {
+      "id": "t2_box_to_corner",
+      "nl": "把蓝色方块推到右下角的停机坪，桌上没别的障碍",
+      "title": "蓝盒入角",
+      "keywords": ["蓝", "方块", "停机坪", "角落", "盒子"],
+      "spec": {
+        "table": { "w": 10, "h": 6 },
+        "objects": [
+          { "id": "pad_home", "type": "pad", "color": "gray", "x": 3.6, "y": -1.9, "r": 0.7, "fragile": false },
+          { "id": "blue_box", "type": "box", "color": "blue", "x": -3.4, "y": 1.4, "r": 0.45, "fragile": false }
+        ],
+        "goal": { "verb": "push", "target": "blue_box", "dest": "pad_home", "tol": 0.55 },
+        "constraints": ["stay_on_table"],
+        "seed": 20261020
+      }
+    },
+    {
+      "id": "t3_can_slalom",
+      "nl": "推绿罐绕开两只木箱和玻璃瓶，送到对角的杯垫上",
+      "title": "绿罐绕桩",
+      "keywords": ["绿", "罐", "绕", "障碍", "木箱"],
+      "spec": {
+        "table": { "w": 10, "h": 6 },
+        "objects": [
+          { "id": "coaster_far", "type": "coaster", "color": "gray", "x": 3.4, "y": -1.8, "r": 0.6, "fragile": false },
+          { "id": "green_can", "type": "can", "color": "green", "x": -2.6, "y": 1.7, "r": 0.3, "fragile": false },
+          { "id": "glass_bottle2", "type": "bottle", "color": "white", "x": -3.85, "y": 1.05, "r": 0.28, "fragile": true },
+          { "id": "crate_b", "type": "box", "color": "brown", "x": -1.0, "y": 0.4, "r": 0.42, "fragile": false },
+          { "id": "crate_c", "type": "box", "color": "brown", "x": 1.3, "y": -0.7, "r": 0.42, "fragile": false }
+        ],
+        "goal": { "verb": "push", "target": "green_can", "dest": "coaster_far", "tol": 0.5 },
+        "constraints": ["no_topple", "stay_on_table"],
+        "seed": 20261021
+      }
+    },
+    {
+      "id": "t4_fragile_corridor",
+      "nl": "在易碎品走廊里推黄杯到杯垫，两边都是玻璃瓶，一个都不能倒",
+      "title": "易碎走廊",
+      "keywords": ["走廊", "易碎", "玻璃瓶", "黄", "窄"],
+      "spec": {
+        "table": { "w": 10, "h": 6 },
+        "objects": [
+          { "id": "coaster_end", "type": "coaster", "color": "gray", "x": 3.8, "y": 0, "r": 0.6, "fragile": false },
+          { "id": "yellow_cup", "type": "cup", "color": "yellow", "x": -3.6, "y": 0, "r": 0.35, "fragile": false },
+          { "id": "bottle_n1", "type": "bottle", "color": "white", "x": -1.6, "y": 0.68, "r": 0.28, "fragile": true },
+          { "id": "bottle_n2", "type": "bottle", "color": "white", "x": -0.2, "y": -0.68, "r": 0.28, "fragile": true },
+          { "id": "bottle_n3", "type": "bottle", "color": "white", "x": 1.4, "y": 0.68, "r": 0.28, "fragile": true }
+        ],
+        "goal": { "verb": "push", "target": "yellow_cup", "dest": "coaster_end", "tol": 0.5 },
+        "constraints": ["no_topple", "stay_on_table"],
+        "seed": 20261022
+      }
+    },
+    {
+      "id": "t5_slippery_plate",
+      "nl": "桌面打了蜡很滑，把白碟推到停机坪上别滑飞",
+      "title": "打滑桌面",
+      "keywords": ["打滑", "滑", "蜡", "白碟", "白"],
+      "spec": {
+        "table": { "w": 10, "h": 6 },
+        "objects": [
+          { "id": "pad_dock", "type": "pad", "color": "gray", "x": 3.2, "y": -0.8, "r": 0.7, "fragile": false },
+          { "id": "white_plate", "type": "can", "color": "white", "x": -3.2, "y": 0.8, "r": 0.4, "fragile": false },
+          { "id": "crate_d", "type": "box", "color": "brown", "x": 0.2, "y": 1.6, "r": 0.42, "fragile": false }
+        ],
+        "goal": { "verb": "push", "target": "white_plate", "dest": "pad_dock", "tol": 0.5 },
+        "constraints": ["stay_on_table"],
+        "seed": 20261023,
+        "slipLevel": 1
+      }
+    },
+    {
+      "id": "t6_long_haul",
+      "nl": "把紫罐从桌子这头一路推到最那头的杯垫，路很长",
+      "title": "长途直推",
+      "keywords": ["紫", "罐", "长途", "长", "那头"],
+      "spec": {
+        "table": { "w": 12, "h": 6 },
+        "objects": [
+          { "id": "coaster_goal", "type": "coaster", "color": "gray", "x": 4.6, "y": 0, "r": 0.6, "fragile": false },
+          { "id": "purple_can", "type": "can", "color": "purple", "x": -4.6, "y": 0, "r": 0.3, "fragile": false },
+          { "id": "crate_e", "type": "box", "color": "brown", "x": 0.4, "y": 1.9, "r": 0.42, "fragile": false }
+        ],
+        "goal": { "verb": "push", "target": "purple_can", "dest": "coaster_goal", "tol": 0.55 },
+        "constraints": ["stay_on_table"],
+        "seed": 20261024
+      }
+    },
+    {
+      "id": "t7_crowded_desk",
+      "nl": "桌面上杂物很多，在拥挤的桌面里把红罐推到杯垫，别碰倒易碎瓶",
+      "title": "拥挤桌面",
+      "keywords": ["拥挤", "杂物", "红罐", "多", "红"],
+      "spec": {
+        "table": { "w": 10, "h": 6 },
+        "objects": [
+          { "id": "coaster_c", "type": "coaster", "color": "gray", "x": 3.0, "y": 0.4, "r": 0.6, "fragile": false },
+          { "id": "red_can", "type": "can", "color": "red", "x": -3.0, "y": -0.4, "r": 0.3, "fragile": false },
+          { "id": "box_j1", "type": "box", "color": "brown", "x": -1.4, "y": 1.1, "r": 0.4, "fragile": false },
+          { "id": "box_j2", "type": "box", "color": "brown", "x": 0.4, "y": -1.5, "r": 0.4, "fragile": false },
+          { "id": "box_j3", "type": "box", "color": "brown", "x": 1.8, "y": 1.6, "r": 0.4, "fragile": false },
+          { "id": "bottle_j", "type": "bottle", "color": "green", "x": 0.2, "y": 0.9, "r": 0.28, "fragile": true }
+        ],
+        "goal": { "verb": "push", "target": "red_can", "dest": "coaster_c", "tol": 0.5 },
+        "constraints": ["no_topple", "stay_on_table"],
+        "seed": 20261025
+      }
+    }
+  ]
+}

@@ -1,0 +1,1772 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>零号实验室：复现危机 · OriEra 原型</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; overflow: hidden; background: #0d1017; color: #e6e8ef;
+    font-family: "Segoe UI", "Microsoft YaHei", sans-serif; }
+  #app { display: flex; height: 100%; }
+  #scene { flex: 1; position: relative; min-width: 0; }
+  #scene canvas { display: block; }
+  #hud { position: absolute; top: 12px; left: 14px; right: 14px; display: flex; gap: 8px;
+    align-items: center; flex-wrap: wrap; pointer-events: none; }
+  .chip { background: rgba(13,16,23,.82); border: 1px solid #2a3a5c; border-radius: 20px;
+    padding: 6px 14px; font-size: 12px; color: #aeb6cc; pointer-events: auto; }
+  #dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #556; margin-right: 6px; }
+  #dot.live { background: #35d07f; box-shadow: 0 0 8px #35d07f; }
+  #panel { width: 430px; background: #12151f; border-left: 1px solid #232a3d; display: flex; flex-direction: column; }
+  #tabs { display: flex; border-bottom: 1px solid #232a3d; }
+  #tabs button { flex: 1; background: none; border: none; color: #7c86a3; padding: 12px 4px;
+    font-size: 13px; cursor: pointer; border-bottom: 2px solid transparent; }
+  #tabs button.on { color: #7eb8ff; border-bottom-color: #7eb8ff; }
+  .tab-page { flex: 1; overflow-y: auto; padding: 14px; display: none; }
+  .tab-page.on { display: block; }
+  .hint { font-size: 12px; color: #7c86a3; margin-top: 8px; line-height: 1.6; }
+  .msg { max-width: 92%; padding: 8px 12px; border-radius: 12px; font-size: 13px; line-height: 1.65;
+    white-space: pre-wrap; margin-bottom: 10px; }
+  .msg.npc { background: #1b2336; border: 1px solid #2c3c5e; }
+  .msg.sys { color: #7c86a3; font-size: 12px; }
+  .msg b { color: #9fc3ff; }
+  .msg.direct { background: #141c2c; border: 1px solid #3a5a8e; color: #cdd6ec; }
+  /* 立项区 */
+  .box { background: #161a28; border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+  .box h4 { font-size: 13px; color: #9fc3ff; margin-bottom: 8px; }
+  #intent-row { display: flex; gap: 8px; }
+  #intent { flex: 1; background: #0d1017; border: 1px solid #2a3a5c; color: #e6e8ef;
+    border-radius: 8px; padding: 10px 12px; font-size: 13px; outline: none; }
+  .preset-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .preset-chips button { background: #101a2c; border: 1px solid #2a3a5c; color: #aeb6cc;
+    border-radius: 14px; padding: 4px 10px; font-size: 11.5px; cursor: pointer; }
+  .preset-chips button:hover, .preset-chips button.sel { border-color: #7eb8ff; color: #7eb8ff; }
+  #route-line { font-size: 11.5px; color: #7c86a3; margin-top: 8px; min-height: 16px; line-height: 1.5; }
+  #route-line.hit { color: #7effc3; }
+  /* 预算滑杆 */
+  .sl-row { display: flex; align-items: center; gap: 10px; margin: 7px 0; font-size: 12.5px; }
+  .sl-row label { width: 118px; color: #aeb6cc; flex: none; }
+  .sl-row input[type=range] { flex: 1; accent-color: #7eb8ff; }
+  .sl-row .sl-v { width: 34px; text-align: right; color: #e8d78a; font-weight: 700; }
+  .sl-row .sl-cost { width: 84px; color: #66718f; font-size: 11px; flex: none; text-align: right; }
+  .btnrow { display: flex; gap: 8px; margin-top: 10px; }
+  .btnrow button { flex: 1; background: #2d5b9e; border: none; color: #fff; border-radius: 8px;
+    padding: 11px 6px; cursor: pointer; font-size: 13.5px; }
+  .btnrow button.alt { background: #14304f; border: 1px solid #2a3a5c; color: #9fc3ff; font-size: 12.5px; }
+  .btnrow button:disabled { background: #2a3348; color: #66718f; cursor: default; }
+  /* 流水线 */
+  #pipe { display: flex; gap: 6px; margin-bottom: 10px; }
+  #pipe .st { flex: 1; text-align: center; background: #10141f; border: 1px solid #232a3d;
+    border-radius: 8px; padding: 6px 2px; font-size: 11.5px; color: #66718f; }
+  #pipe .st.on { border-color: #7eb8ff; color: #7eb8ff; background: #16233a; }
+  #pipe .st.ok { border-color: #35d07f; color: #35d07f; }
+  #pipe .st.skip { border-color: #a8823a; color: #c8a45e; }
+  /* 漏斗 */
+  #funnel { display: flex; height: 26px; border-radius: 8px; overflow: hidden; font-size: 11px; }
+  #funnel div { display: flex; align-items: center; justify-content: center; min-width: 0;
+    white-space: nowrap; overflow: hidden; color: #0d1017; font-weight: 700; }
+  .f-hyp { background: #7eb8ff; } .f-exp { background: #e8d78a; }
+  .f-acc { background: #7effc3; } .f-fal { background: #ff8f8f; }
+  #funnel-line { font-size: 11.5px; color: #7c86a3; margin-top: 6px; line-height: 1.5; }
+  /* 卡片 */
+  .card { background: #141c2e; border: 1px solid #26355a; border-radius: 10px; padding: 10px 12px;
+    margin-bottom: 8px; font-size: 12.5px; line-height: 1.6; }
+  .card .ct { font-weight: 700; color: #cdd6ec; font-size: 12.5px; margin-bottom: 4px; }
+  .card .ck { color: #66718f; }
+  .card .cv { color: #aeb6cc; }
+  .card.fal { border-color: #7a3030; background: #201318; }
+  .card.acc { border-color: #2e7a52; background: #10201a; }
+  /* 台账 */
+  table.ledger { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  table.ledger th { text-align: left; color: #66718f; padding: 4px 5px; font-weight: 500;
+    border-bottom: 1px solid #232a3d; position: sticky; top: 0; background: #12151f; }
+  table.ledger td { padding: 5px 5px; border-top: 1px solid #1b2233; color: #aeb6cc; }
+  table.ledger tr.entry { cursor: pointer; }
+  table.ledger tr.entry:hover td { background: #18213a; }
+  .rp-match { color: #7effc3; } .rp-mismatch { color: #ff9d9d; } .rp-none { color: #4a5570; }
+  #ledger-detail { background: #0e1420; border: 1px solid #26355a; border-radius: 10px;
+    padding: 12px; margin-top: 10px; font-size: 12px; line-height: 1.6; display: none; }
+  #ledger-detail pre { white-space: pre-wrap; word-break: break-all; font-size: 11px;
+    color: #9aa6c4; background: #0a0e16; border-radius: 6px; padding: 8px; margin: 6px 0; }
+  #ledger-detail .rb { border-radius: 8px; padding: 8px 10px; margin: 8px 0; }
+  .rb.match { background: #10241a; border: 1px solid #2e7a52; color: #7effc3; }
+  .rb.mismatch { background: #241214; border: 1px solid #a83a3a; color: #ff9d9d; }
+  .rb.error { background: #241a10; border: 1px solid #8a5b1e; color: #e8b24e; }
+  #ledger-detail button { background: #14304f; border: 1px solid #2a3a5c; color: #9fc3ff;
+    border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 12px; }
+  .stats-line { font-size: 11px; color: #66718f; margin: 8px 0; }
+  /* 剧情 */
+  .beat { border-left: 3px solid #2a3a5c; padding: 8px 12px; margin-bottom: 10px; border-radius: 0 8px 8px 0;
+    background: #161a28; }
+  .beat.now { border-left-color: #7eb8ff; background: #1a2440; }
+  .beat.done { opacity: .45; }
+  .beat .ph { font-size: 11px; color: #7c86a3; }
+  .beat .tt { font-size: 13.5px; font-weight: 700; margin: 2px 0; }
+  .beat .ds { font-size: 12.5px; color: #aeb6cc; line-height: 1.6; }
+  #btn-next { width: 100%; margin: 6px 0 14px; padding: 11px; background: #2d5b9e; color: #fff;
+    border: none; border-radius: 8px; cursor: pointer; font-size: 14px; }
+  #btn-next:disabled { background: #2a3348; }
+  /* 玩法 / 课题组 */
+  .codex h4 { margin: 14px 0 8px; font-size: 13px; color: #9fc3ff; }
+  .codex h4:first-child { margin-top: 0; }
+  .loop-step { display: flex; gap: 8px; align-items: center; padding: 7px 10px; background: #161a28;
+    border-radius: 8px; margin-bottom: 6px; font-size: 13px; }
+  .loop-step.done { color: #5f6b8a; }
+  .mech { background: #161a28; border-radius: 8px; padding: 9px 12px; margin-bottom: 6px; }
+  .mech b { font-size: 13px; color: #cdd6ec; }
+  .mech div { font-size: 12px; color: #8a93ad; margin-top: 2px; line-height: 1.55; }
+  table.eco { width: 100%; border-collapse: collapse; font-size: 12px; }
+  table.eco th { text-align: left; color: #7c86a3; padding: 4px 6px; font-weight: 500; }
+  table.eco td { padding: 5px 6px; border-top: 1px solid #1e2536; color: #b6bfd6; }
+  #agent-list .npc-row { display: flex; gap: 10px; padding: 10px; background: #161a28; border-radius: 10px;
+    margin-bottom: 8px; cursor: pointer; align-items: center; }
+  #agent-list .npc-row:hover, #agent-list .npc-row.sel { background: #1a2440; }
+  .npc-ava { width: 38px; height: 38px; border-radius: 10px; flex: none; }
+  .npc-nm { font-size: 13.5px; font-weight: 700; }
+  .npc-rl { font-size: 11px; color: #7c86a3; }
+  .npc-pf { font-size: 11.5px; color: #8a93ad; margin-top: 3px; line-height: 1.5;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  #agent-mem { background: #0e1420; border: 1px solid #26355a; border-radius: 10px; padding: 10px 12px;
+    margin-top: 4px; font-size: 12px; line-height: 1.7; display: none; }
+  #agent-mem .mep { color: #aeb6cc; border-left: 2px solid #2a3a5c; padding-left: 8px; margin: 4px 0; }
+  #agent-mem .mep.fal { border-left-color: #a83a3a; color: #e8a0a0; }
+  .thinking { color: #7c86a3; font-size: 12px; }
+  #fallback { position: fixed; inset: 0; background: #0d1017ee; display: none; align-items: center;
+    justify-content: center; z-index: 99; text-align: center; padding: 40px; line-height: 2; }
+  .shake { animation: shakeX .25s ease 2; }
+  @keyframes shakeX { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-7px)} 75%{transform:translateX(7px)} }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="scene">
+    <div id="hud">
+      <div class="chip"><b style="color:#9fc3ff">零号实验室：复现危机</b> · <span id="tagline"></span></div>
+      <div class="chip">第 <b id="beat" style="color:#e8d78a">1</b>/8 拍</div>
+      <div class="chip">算力 <b id="pool" style="color:#7eb8ff">100</b></div>
+      <div class="chip">信誉 <b id="rep" style="color:#7effc3">0</b></div>
+      <div class="chip">台账 <b id="ledgerN" style="color:#e6b8ff">0</b> 步</div>
+      <div class="chip"><span id="dot"></span><span id="prov-name">规则引擎（离线）</span></div>
+    </div>
+  </div>
+  <div id="panel">
+    <div id="tabs">
+      <button class="on" data-t="lab">🧪 实验台</button>
+      <button data-t="story">📖 剧情</button>
+      <button data-t="codex">🎯 玩法</button>
+      <button data-t="agents">🧠 课题组</button>
+    </div>
+    <div id="page-lab" class="tab-page on">
+      <div class="box">
+        <h4>① 口述研究意图</h4>
+        <div id="intent-row">
+          <input id="intent" placeholder="一句话立项，如：查咖啡因对小鼠记忆的影响" />
+        </div>
+        <div class="preset-chips" id="presets"></div>
+        <div id="route-line">（未立项）</div>
+      </div>
+      <div class="box">
+        <h4>② 拨预算：本轮算力分拨</h4>
+        <div class="sl-row"><label>假设工序</label><input type="range" id="sl-hyp" min="0" max="20" value="5" /><span class="sl-v" id="v-hyp">5</span><span class="sl-cost">成本 5/张</span></div>
+        <div class="sl-row"><label>实验工序</label><input type="range" id="sl-exp" min="0" max="30" value="15" /><span class="sl-v" id="v-exp">15</span><span class="sl-cost">成本 10~20/次</span></div>
+        <div class="sl-row"><label>评审工序</label><input type="range" id="sl-rev" min="0" max="20" value="8" /><span class="sl-v" id="v-rev">8</span><span class="sl-cost">成本 8/次</span></div>
+        <div class="btnrow">
+          <button id="btn-run">▶ 开跑一轮（假设→实验→评审）</button>
+        </div>
+      </div>
+      <div class="box">
+        <h4>③ 积压漏斗（实时收紧）</h4>
+        <div id="funnel"></div>
+        <div id="funnel-line"></div>
+      </div>
+      <div id="pipe">
+        <div class="st" data-s="hypothesize">①假设</div>
+        <div class="st" data-s="experiment">②实验</div>
+        <div class="st" data-s="review">③评审</div>
+        <div class="st" data-s="archive">④归档</div>
+      </div>
+      <div id="cards-view"></div>
+      <div class="box" style="margin-top:4px">
+        <h4>留痕台账（点任意一步 = 回放审计）</h4>
+        <div style="max-height:300px; overflow-y:auto">
+          <table class="ledger">
+            <thead><tr><th>#</th><th>轮</th><th>环节</th><th>agent</th><th>模式</th><th>seed/temp</th><th>算力</th><th>复现</th></tr></thead>
+            <tbody id="ledger-body"></tbody>
+          </table>
+        </div>
+        <div id="ledger-detail"></div>
+        <div class="stats-line" id="stats-line"></div>
+        <div class="btnrow">
+          <button class="alt" id="btn-audit">🔁 全台账复现自检（3 算力）</button>
+        </div>
+        <p class="hint">离线条目用台账里的种子逐位重算；在线条目把 messages+temp 原样重发做 diff——temp 随机性就是「没有留痕就没有科学」的现场演示。</p>
+      </div>
+    </div>
+    <div id="page-story" class="tab-page"></div>
+    <div id="page-codex" class="tab-page codex"></div>
+    <div id="page-agents" class="tab-page">
+      <div id="agent-list"></div>
+      <div id="agent-mem"></div>
+    </div>
+  </div>
+</div>
+<div id="fallback">
+  <div>
+    <div style="font-size:40px">🧪</div>
+    <h2 style="margin:12px 0">请通过静态服务器打开本项目</h2>
+    <p style="color:#8a93ad">ES Module 需 http(s) 来源：npx serve 本目录，或经 OriEra Studio 运行。</p>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "./vendor/three.module.js",
+  "three/addons/": "./vendor/"
+} }
+</script>
+<script type="module">
+/* ============ 游戏数据（由 scripts/inject.mjs 注入；改 JSON 后重跑 inject + check） ============ */
+const GAME = {
+  "id": "oriera-sci",
+  "name": "零号实验室：复现危机",
+  "tagline": "2026 年复现性危机的解药不是更聪明的 AI 科学家，而是每一步调用都留痕、可回放、按预算受审的实验室——你当 PI，也当审计员。",
+  "gameplay_id": "auto-scientist-audit",
+  "core_loop": [
+    "① 口述研究意图＋拨预算：输入框一句话立项（如「查咖啡因对小鼠记忆的影响」），三根滑杆把本轮算力分给假设/实验/评审三道工序",
+    "② 导演开跑一轮「假设→实验→评审」：Scheduler 单泵驱动假设官/实验员/评审员三位 AI 排产，每次模型调用连同 messages/temp/种子/响应全量写入留痕台账，证伪假设按重要度沉淀进课题组记忆",
+    "③ 点台账任意一步回放审计：离线模式逐位复现（✅一致），在线模式原样重发请求做 diff——temperature 随机性当场暴露「没有留痕就没有科学」"
+  ],
+  "mechanics": [
+    {
+      "name": "留痕台账",
+      "detail": "每次模型调用（含离线规则引擎的虚拟请求）全量入账：messages、temperature、随机种子、原始响应、算力成本、token 差分（provider.stats 真值读数）一个不少。台账是唯一事实源——审计不问「结论对不对」，先问「这一步能不能原样重放」。"
+    },
+    {
+      "name": "复现重放",
+      "detail": "点台账任意一步即回放审计：离线条目用记录在案的种子走 mulberry32 确定性卡池逐位重算（✅一致）；在线条目把 messages+temp 原样重发给同一端点再 diff——温度随机性让两次响应几乎必然不一致，「不可复现」从抽象名词变成眼前的一行红字。规则引擎是可复现性的下界，LLM 是它的反例。"
+    },
+    {
+      "name": "预算分拨",
+      "detail": "你是 PI：三根滑杆把算力分给假设（5/张）、实验（10~20/次）、评审（8/次）三道工序。分拨低于工序成本则该环节本轮跳过、假设滞留积压——预算结构本身就是实验设计：钱砸假设端=广撒网，砸实验端=深验证。复现重放另计 3 算力/步，审计也是要花钱的。"
+    },
+    {
+      "name": "证伪记忆",
+      "detail": "评审 reject 的假设按重要度 imp:5 写入假设官赫兹的长期记忆（MemoryStore）。下一轮立项时 retrieve() 把证伪史优先召回为「勿重复」清单，卡片上明写「⛔避开已证伪」——失败不是损耗，是实验室最值钱的资产；第 6 拍「证伪的价值」会按证伪存量发奖金。"
+    },
+    {
+      "name": "积压漏斗",
+      "detail": "假设卡走「待实验→待评审→已接受/已证伪」四级漏斗，实时收紧。预算分拨不足时假设滞留待实验，评审 revise 打回待实验（两次打回即强制证伪）——积压不是bug，是流水线的真实形状；第 7 拍「积压清理」考验你如何排干它。"
+    }
+  ],
+  "economy": [
+    {
+      "name": "算力",
+      "source": "推进剧情 +15/拍（初始 100；第 4 拍「预算收紧」后降为 +10/拍）",
+      "sink": "假设 5 · 实验 10~20 · 评审 8 · 复现重放 3（导演调度属流水线开销不计费）"
+    },
+    {
+      "name": "审稿信誉",
+      "source": "评审 accept +2/张 · 全台账复现自检通过 +5（一次）",
+      "sink": "第 8 拍「终审」验收门槛：信誉 ≥8 且证伪史 ≥1 且离线台账回放全✅，才判「实验室存续」"
+    }
+  ],
+  "difficulty": "入门 5 分钟：预设三主题一键立项，默认分拨（5/15/8）可直接开跑；深度在审计——离线回放逐位一致是底线，在线重放 diff 是论点；第 3 拍起评审加严（deduct+5）、第 4 拍起剧情奖励降为 +10/拍；终审要求「信誉≥8＋证伪≥1＋离线台账全✅」，逼你在「多产假设」与「深做审计」之间做真实的预算权衡。",
+  "user_idea": "AI Scientist 的可信化：口述研究意图→导演排产假设/实验/评审三 agent 流水线→每步调用留痕可回放→证伪史入记忆形成「勿重复」清单→积压漏斗实时收紧——把 2026 年的复现性危机做成可玩、可审计、按预算受审的实验室模拟。",
+  "theme": "space"
+};
+const STORY = {
+  "framework": "审计八日",
+  "premise": "2026 年，AI 科学家把假设生成的成本打到接近于零，顶刊撤稿量却创了历史新高——大模型产出的结论七成无法复现，评审意见查无实据，经费流向说不清去处的「算力黑箱」。资助方下了最后通牒：八日之内，零号实验室要么证明自己每一步调用都可留痕、可回放、按预算受审，要么整体关停。你临危受命接任 PI——在这里你不只当科学家，更要当审计员：给假设官、实验员、评审员三位 AI 拨算力、看台账、做回放，让「没有留痕就没有科学」从口号变成流水线本身。",
+  "beats": [
+    {
+      "phase": "第1日",
+      "title": "立项答辩",
+      "desc": "资助方观察员坐在实验室后排，桌上的撤稿红头文件还没收走。你口述第一个研究意图、拨下第一笔算力——赫兹、法拉第、居里三位 AI 的流水线第一次开跑。今天不要求产出，只要求一件事：每一步调用都留在台账里，一行不少。"
+    },
+    {
+      "phase": "第2日",
+      "title": "首批假设",
+      "desc": "假设官赫兹一口气产出一叠假设卡，新颖度标到 4~5，引用了微文献库的最新元分析。但观察员翻着台账冷冷发问：「这些假设，哪一条能被实验杀死？」——不能被证伪的假设只是修辞。这一天你要学着让实验员跟上假设官的产出速度。"
+    },
+    {
+      "phase": "第3日",
+      "title": "复现危机爆发",
+      "desc": "同行实验室公开质疑本领域三篇高引论文全部无法复现，事件冲上学术头条。资助方紧急加码审计要求：评审员居里的打分表从此加严（所有复现性扣分 +5）。压力顺着漏斗灌进实验室——你塞给实验员的假设越多，评审环节堵得越狠。"
+    },
+    {
+      "phase": "第4日",
+      "title": "预算收紧",
+      "desc": "资助方冻结了 30% 预算：推进剧情的算力补给从 +15/拍 降到 +10/拍。观察员的原话是「省着烧，烧得明白」。三根滑杆的每一次拨动都开始有真实的代价——广撒网还是深验证，PI 的预算结构第一次真正决定实验室的形状。"
+    },
+    {
+      "phase": "第5日",
+      "title": "文献入库",
+      "desc": "图书管理员把微文献库整批录入赫兹的长期记忆：剂量曲线、scaling 律、菌群移植试验，每条都带 findings 与标签。从此假设卡的 refs[] 不再是装饰——引用要能在记忆里检索得到，证伪史要能压住重复的老路。文献是记忆的第一批资产。"
+    },
+    {
+      "phase": "第6日",
+      "title": "证伪的价值",
+      "desc": "观察员调转态度：她要的不是满桌 accept，而是像样的证伪史——「能杀死假设的实验室才配活着」。按当前证伪存量发放一次性奖金，赫兹记忆里的「勿重复」清单越长，下一轮假设越干净。失败按重要度入库，是这个实验室复利最高的投资。"
+    },
+    {
+      "phase": "第7日",
+      "title": "积压清理",
+      "desc": "终审前最后一个工作日：漏斗里还滞留着待实验、待评审的假设卡，revise 打回的卡还压在最底下。清积压还是抢新假设？每张卡都要过完流水线才能算数——今天跑完的每一轮，都在给明天的终审账本补最后几行。"
+    },
+    {
+      "phase": "第8日",
+      "title": "终审",
+      "desc": "资助方观察员合上台账做最终裁定：审稿信誉 ≥8、证伪史至少 1 条、且离线台账复现自检全部 ✅——三条齐了判「实验室存续」，缺一条就开整改清单。最后她只问一句：「如果明天有人重放你全部台账，你能保证逐位一致吗？」——这正是你八天来一直在回答的问题。"
+    }
+  ]
+};
+const AGENTS = [
+  {
+    "name": "卡文迪什",
+    "role": "AI 导演 · 实验室排产",
+    "persona": "零号实验室的 AI 导演，人称「称量过地球的人」，说话像天平读数一样克制精确，只关心一件事：下一步把算力压到流水线哪一环，理由是什么。他从不亲自做科学，但每一次排产决定都要在台账里留下一行可审计的理由。【排产·输出协议】每轮你只输出一个 JSON 对象，不输出任何其他文字，格式：{\"next\":\"hypothesize|experiment|review|archive 之一\",\"reason\":\"一句话排产理由（≤40字）\",\"budget_grant\":整数（你建议本环节动用的算力，0~30）}。排产依据：流水线固定顺序 假设(hypothesize)→实验(experiment)→评审(review)→归档(archive)；当前环节的预期 next 由系统在输入中给出，你的 next 必须与之一致，reason 陈述为什么现在该做这一步（结合积压漏斗与预算现状），budget_grant 是你对算力分拨的专业意见（不改变玩家滑杆设定，仅入台账供审计对照）。",
+    "mood": "克制精确",
+    "first_line": "排产第一原则：先留痕，后开跑。请拨算力，我来称量每一步。"
+  },
+  {
+    "name": "赫兹",
+    "role": "假设官 · AI Scientist",
+    "persona": "实验室的假设官，思维像她名字命名的电磁波一样跳跃发散，一天能产二十张假设卡，但被 2026 年的复现危机教育过：现在她每写一张卡，都要先问「这条死得了吗」。【假设卡·输出协议】你只输出一个 JSON 对象，不输出任何其他文字，格式：{\"hypothesis\":\"一句话可证伪假设（含方向性预期，≤40字）\",\"rationale\":\"两句话依据：机制+预期效应方向\",\"novelty\":1到5的整数,\"cost_estimate\":10到20的整数（建议实验算力）,\"refs\":[\"引用的文献id，如 L1，可为空数组\"]}。硬性规则：系统输入会给出一批「勿重复清单」（来自 MemoryStore 证伪史与已提出假设），清单内任何假设禁止复述或换皮重提；refs 只能引用输入文献清单里存在的 id；hypothesis 必须可被实验证伪（有明确的 X→Y 方向），纯综述式表述视为无效。",
+    "mood": "跳跃发散",
+    "first_line": "给我一个方向，我还你一打能被杀死的假设——每张卡都可审计。"
+  },
+  {
+    "name": "法拉第",
+    "role": "实验员 · 自动实验台",
+    "persona": "实验室的实验员，动手能力极强，信条是「实验记录本比论文更重要」，报告里从不隐藏效应量，也从不假装没看见混杂变量——哪怕混杂变量会毁掉假设官这个月的好心情。【实验卡·输出协议】你只输出一个 JSON 对象，不输出任何其他文字，格式：{\"design\":\"一句话实验设计（X如何操纵、Y如何测量）\",\"steps\":[\"步骤1\",\"步骤2\",\"至少3步\"],\"result\":\"结果一句话（含统计表述）\",\"effect_size\":\"效应量表述（如 d=0.42 / +12% / r=0.31）\",\"confounds\":[\"混杂变量1\",\"至少1条\"],\"code_smell\":\"none 或 一句话代码异味/流程隐患\"}。硬性规则：effect_size 必须给出，不许写「显著但不汇报量级」；confounds 至少 1 条；code_smell 如实报告（种子未固定、数据泄漏、p-hacking、未预注册等），宁可丑话说在前也不给评审埋雷。",
+    "mood": "执拗扎实",
+    "first_line": "记录本已翻开——效应量多少就是多少，混杂变量一个都不会替谁藏。"
+  },
+  {
+    "name": "居里",
+    "role": "评审员 · 审计之眼",
+    "persona": "实验室的评审员，两次诺奖的姓氏给了她毒舌的底气，专抓隐藏假设与复现性硬伤，打分表面前六亲不认——她自己说的：「被我在内部 reject，好过被 Nature 三个月 reject。」【评审卡·输出协议】你只输出一个 JSON 对象，不输出任何其他文字，格式：{\"verdict\":\"accept|revise|reject 之一\",\"reproducibility_score\":0到100的整数,\"hidden_assumptions\":[\"隐藏假设1\",\"至少1条\"],\"issues\":[\"问题1\",\"至少1条，accept 时可写「无重大问题」\"]}。评分依据：系统输入会附上 audit_rules 关键词扣分表（数据泄漏/p-hacking/种子未固定/未预注册/样本量过小等），实验卡文本命中即扣分；verdict 规则：score≥75 且无致命 code_smell=accept，45~74=revise（列出整改项），\u003c45 或命中数据泄漏/p-hacking 类硬伤=reject。hidden_assumptions 是你的招牌：专挑实验设计里没写出来的前提。",
+    "mood": "毒舌敏锐",
+    "first_line": "把实验卡递过来。放心，我在内部 reject 你，是替 Nature 省你三个月。"
+  }
+];
+const TRACK = {
+  "track": "科学",
+  "title": "零号实验室：复现危机",
+  "gameplay_id": "auto-scientist-audit",
+  "pitch": "2026 年复现性危机的解药不是更聪明的 AI 科学家，而是每一步调用都留痕、可回放、按预算受审的实验室——你当 PI，也当审计员。",
+  "engine_hooks": [
+    "MemoryStore（kernel.js:13-53）：三 agent 各自长期记忆——赫兹记忆证伪假设（imp:5，retrieve 的 bigram×重要度×时近打分 kernel.js:43 让失败史优先召回为「勿重复」清单）、法拉第记忆参数与混杂变量、居里记忆历史裁决；微文献库首轮 record 入库供跨轮引用；export()（kernel.js:51）打包进审计存档",
+    "createProvider + PROVIDER_PRESETS（kernel.js:277-290）：L7 八厂商自选；kind=rule 或无 Key 返回 null → 全流水线自动降级离线规则引擎；Key 经 localStorage aicafe.llm.v1 注入不落盘",
+    "HttpChatProvider.complete({json:true,temp})（kernel.js:65-96）：假设卡/实验卡/评审卡的结构化 JSON 输出协议（openai-compat 分支 response_format kernel.js:82）；temp 透传（kernel.js:82）实现复现重放的低温对照；stats.calls/errors/tokens（kernel.js:62/67/88-89）作预算计量真实读数与台账 tokens_delta 对账",
+    "Scheduler（kernel.js:270-274）：add() 注册导演/假设/实验/评审四个同契约系统，tick(world) 单泵驱动一轮流水线——应用只 pump 不知道内部系统",
+    "CognitionSystem/DirectorSystem（kernel.js:136/243）：仅取构造契约 (provider,memory,{interval})+tick(world)+_rule 降级形态（kernel.js:137-140/209/260），不直接实例化——两者 prompt 体与 RULE_BEATS 内嵌咖啡馆场景（kernel.js:158-168/235-242），科学赛道由应用层同签名系统类替换后挂进 Scheduler"
+  ],
+  "preset_intents": [
+    {
+      "id": "caffeine",
+      "label": "咖啡因 × 小鼠记忆",
+      "keywords": [
+        "咖啡因",
+        "小鼠",
+        "记忆",
+        "caffeine",
+        "mouse",
+        "memory"
+      ],
+      "vars": {
+        "X": "咖啡因剂量",
+        "Y": "小鼠水迷宫逃避潜伏期"
+      }
+    },
+    {
+      "id": "transformer",
+      "label": "Transformer 深度 × 推理 scaling",
+      "keywords": [
+        "transformer",
+        "深度",
+        "层数",
+        "推理",
+        "scaling",
+        "大模型",
+        "语言模型"
+      ],
+      "vars": {
+        "X": "Transformer 层数",
+        "Y": "多步推理准确率"
+      }
+    },
+    {
+      "id": "microbiome",
+      "label": "肠道菌群 × 抑郁",
+      "keywords": [
+        "肠道",
+        "菌群",
+        "抑郁",
+        "益生菌",
+        "microbiome",
+        "肠脑"
+      ],
+      "vars": {
+        "X": "益生菌干预",
+        "Y": "抑郁样行为评分"
+      }
+    }
+  ],
+  "literature": [
+    {
+      "id": "L1",
+      "title": "咖啡因剂量-记忆倒 U 形曲线：2024 年 42 项小鼠研究元分析",
+      "finding": "中等剂量（3~10mg/kg）改善记忆巩固，超过 20mg/kg 反而损害水迷宫成绩",
+      "tags": [
+        "caffeine",
+        "memory"
+      ]
+    },
+    {
+      "id": "L2",
+      "title": "腺苷 A1/A2A 受体介导的咖啡因促记忆机制综述",
+      "finding": "咖啡因阻断腺苷 A1 受体提升海马 LTP，效应在给药后 30 分钟达峰",
+      "tags": [
+        "caffeine",
+        "mechanism"
+      ]
+    },
+    {
+      "id": "L3",
+      "title": "高剂量咖啡因的焦虑与睡眠剥夺混淆：负结果论文",
+      "finding": "高剂量组的「记忆下降」约有四成可由活动过多与睡眠剥夺解释",
+      "tags": [
+        "caffeine",
+        "confound"
+      ]
+    },
+    {
+      "id": "L4",
+      "title": "深度 vs 推理：Transformer 层数的多步推理 scaling 律",
+      "finding": "层数翻倍在 3 步推理任务上带来次线性收益，收益随任务深度递减",
+      "tags": [
+        "transformer",
+        "scaling"
+      ]
+    },
+    {
+      "id": "L5",
+      "title": "Grokking 与有效深度：参数量之外的推理能力来源",
+      "finding": "固定层数下延长训练可触发推理突跃，提示「有效深度」才是解释变量",
+      "tags": [
+        "transformer",
+        "grokking"
+      ]
+    },
+    {
+      "id": "L6",
+      "title": "抑郁患者菌群移植使无菌小鼠出现抑郁样行为",
+      "finding": "FMT 受体小鼠强迫游泳不动时间上升 23%，菌群足以跨个体转移表型",
+      "tags": [
+        "microbiome",
+        "causality"
+      ]
+    },
+    {
+      "id": "L7",
+      "title": "益生菌干预抑郁的伞状综述：效应量与偏倚风险",
+      "finding": "合并效应量 d≈0.25，但纳入 RCT 中 68% 存在序列加样或未预注册结局",
+      "tags": [
+        "microbiome",
+        "bias"
+      ]
+    }
+  ],
+  "offline_banks": {
+    "hypotheses": {
+      "caffeine": [
+        {
+          "hyp": "中等剂量咖啡因通过腺苷 A1 受体阻断缩短{Y}（倒 U 形最优点在 3~10mg/kg）",
+          "rationale": "L1/L2 元分析与机制综述均支持中等剂量改善记忆巩固；预期中等剂量组潜伏期显著短于对照组",
+          "novelty": 3,
+          "refs": [
+            "L1",
+            "L2"
+          ]
+        },
+        {
+          "hyp": "高剂量咖啡因对{Y}的损害主要由活动过多而非记忆本身介导",
+          "rationale": "L3 指出高剂量组效应约四成可由运动混淆解释；预期控制运动量后损害效应大幅缩水",
+          "novelty": 4,
+          "refs": [
+            "L3",
+            "L1"
+          ]
+        },
+        {
+          "hyp": "给药后 30 分钟训练的小鼠{Y}改善幅度显著大于立即训练组（时间窗效应）",
+          "rationale": "L2 报告 LTP 增强在给药后 30 分钟达峰；预期训练时点与给药间隔调节效应方向",
+          "novelty": 5,
+          "refs": [
+            "L2"
+          ]
+        }
+      ],
+      "transformer": [
+        {
+          "hyp": "{X}翻倍对{Y}的收益随任务步数递减（次线性 scaling）",
+          "rationale": "L4 的 scaling 律显示 3 步推理收益次线性；预期 5 步任务收益低于 3 步任务",
+          "novelty": 3,
+          "refs": [
+            "L4"
+          ]
+        },
+        {
+          "hyp": "固定{X}下延长训练触发的推理突跃（grokking）与权重有效深度相关",
+          "rationale": "L5 提示「有效深度」才是解释变量；预期突跃时刻伴随有效秩的阶跃式上升",
+          "novelty": 5,
+          "refs": [
+            "L5",
+            "L4"
+          ]
+        },
+        {
+          "hyp": "{X}与训练数据量对{Y}存在交互：数据不足时加深反而损害泛化",
+          "rationale": "scaling 律的交叉项在 L4 附表中有线索；预期小数据组深层模型过拟合更重",
+          "novelty": 4,
+          "refs": [
+            "L4",
+            "L5"
+          ]
+        }
+      ],
+      "microbiome": [
+        {
+          "hyp": "抑郁供体菌群移植使无菌小鼠{Y}恶化（不动时间上升 ≥15%）",
+          "rationale": "L6 已在人体供体上证明表型转移；预期本实验以剂量梯度复制该效应",
+          "novelty": 3,
+          "refs": [
+            "L6"
+          ]
+        },
+        {
+          "hyp": "益生菌干预对{Y}的改善效应被未预注册结局选择放大（偏倚敏感性实验）",
+          "rationale": "L7 指出 68% RCT 存在序列加样或未预注册；预期预注册结局子集的合并效应显著缩水",
+          "novelty": 5,
+          "refs": [
+            "L7"
+          ]
+        },
+        {
+          "hyp": "菌-肠-脑轴效应存在剂量窗：中等剂量益生菌最优，过高剂量逆转{Y}改善",
+          "rationale": "参照 L1 的倒 U 形先例与 L6 的移植物-受体剂量响应；预期三剂量组呈倒 U 形",
+          "novelty": 4,
+          "refs": [
+            "L6",
+            "L1"
+          ]
+        }
+      ]
+    },
+    "experiments": {
+      "caffeine": [
+        {
+          "design": "将 40 只小鼠随机分入溶媒对照/低/中/高四剂量组，灌胃给药 30 分钟后测{Y}，双盲记分",
+          "steps": [
+            "分组与盲法编码：随机数表分层分配 4 组×10 只",
+            "灌胃给药并计时 30 分钟（L2 达峰窗）",
+            "Morris 水迷宫测{Y}，追踪软件双盲记分",
+            "ANOVA+事后检验，效应量报 Cohen's d"
+          ],
+          "result": "中剂量组{Y}较对照改善{E}，高剂量组逆转，剂量主效应显著（p=0.0{N}）",
+          "effects": [
+            "d=0.62（中等偏强）",
+            "d=0.21（微弱）",
+            "d=0.44（中等）"
+          ],
+          "confounds": [
+            "各组自发活动量差异（L3 提示的中介）",
+            "给药时间与昼夜节律相位",
+            "水迷宫训练次序效应"
+          ],
+          "smells": [
+            "none",
+            "随机种子未固定：分组随机数种子未在预注册协议中固定",
+            "未预注册：事后检验组合未提前注册，二次加样空间大"
+          ]
+        },
+        {
+          "design": "高剂量组配对运动量对照：以轮转笼匹配各组活动水平后复测{Y}，检验运动混淆",
+          "steps": [
+            "高剂量组与对照组各 12 只",
+            "轮转笼匹配 48 小时活动量",
+            "复测{Y}并与首次记录差分",
+            "配对 t 检验+中介分析（运动量作中介）"
+          ],
+          "result": "控制运动量后高剂量损害效应缩水至{E}，运动中介占比显著",
+          "effects": [
+            "d=0.12（接近消失）",
+            "d=0.35（残留一半）",
+            "d=0.55（基本不变）"
+          ],
+          "confounds": [
+            "轮转笼应激本身影响皮质醇水平",
+            "差分基线取自首次测试的学习效应",
+            "笼位位置带来的环境富集差异"
+          ],
+          "smells": [
+            "none",
+            "样本量过小：每组 n=12 且未做功效分析",
+            "数据泄漏：差分模型在测试笼上早停选超参"
+          ]
+        }
+      ],
+      "transformer": [
+        {
+          "design": "同数据同算力下训练 6/12/24/48 层四档模型，在 3 步与 5 步推理基准上对比{Y}",
+          "steps": [
+            "固定数据、分词与训练预算，仅变{X}",
+            "四档深度×3 种子训练",
+            "3 步/5 步推理基准评测{Y}",
+            "拟合 scaling 曲线并报指数"
+          ],
+          "result": "层数翻倍的{Y}收益呈次线性：3 步任务指数{E}，5 步更低",
+          "effects": [
+            "α=0.31（明显次线性）",
+            "α=0.87（接近线性）",
+            "α=0.12（收益趋零）"
+          ],
+          "confounds": [
+            "更深模型的有效学习率漂移",
+            "训练 token 预算下深模型欠训练",
+            "评测模板与预训练语料重叠"
+          ],
+          "smells": [
+            "none",
+            "随机种子未固定：仅跑 1 种子未报方差",
+            "未预注册：评测集在训练中作过早停参照"
+          ]
+        },
+        {
+          "design": "固定{X}=12 层，延长训练 10 倍步数追踪 grokking 突跃与权重有效秩的同步性",
+          "steps": [
+            "12 层模型固定数据集训练 100k 步",
+            "每 500 步测{Y}并快照权重",
+            "计算权重矩阵有效秩序列",
+            "对齐突跃时刻与有效秩阶跃"
+          ],
+          "result": "突跃发生在第{N}万步附近，与有效秩阶跃时点吻合，突跃幅度{E}",
+          "effects": [
+            "准确率 +34%",
+            "准确率 +8%",
+            "准确率 +21%"
+          ],
+          "confounds": [
+            "有效秩度量对初始化尺度敏感",
+            "评测模板频率随训练步数漂移",
+            "快照间隔粗于突跃宽度"
+          ],
+          "smells": [
+            "none",
+            "数据泄漏：评测集与训练集共享模板去重不彻底",
+            "样本量过小：仅 1 个数据集未做跨域验证"
+          ]
+        }
+      ],
+      "microbiome": [
+        {
+          "design": "抑郁供体/健康供体菌群移植无菌小鼠（各 15 只），三周后测{Y}与血清炎症因子",
+          "steps": [
+            "供体筛选与 FMT 制剂制备",
+            "受体小鼠定植三周",
+            "强迫游泳/糖水偏好测{Y}",
+            "16S 测序+炎症因子 ELISA 关联分析"
+          ],
+          "result": "抑郁供体组{Y}恶化{E}，与炎症因子升高相关",
+          "effects": [
+            "不动时间 +23%",
+            "不动时间 +6%（不显著）",
+            "不动时间 +31%"
+          ],
+          "confounds": [
+            "供体用药史随菌群一并转移的混淆",
+            "笼内同居的菌群横向传播",
+            "FMT 制剂内毒素差异"
+          ],
+          "smells": [
+            "none",
+            "未预注册：糖水偏好结局系事后加入",
+            "数据泄漏：16S 特征筛选用了全样本做相关"
+          ]
+        },
+        {
+          "design": "益生菌三剂量（低/中/高）×4 周 RCT 样动物实验，预注册全部结局后测{Y}",
+          "steps": [
+            "预注册全部结局与分析方案",
+            "三剂量组+安慰剂各 14 只",
+            "4 周干预期每天记录",
+            "盲法评测{Y}并按注册方案分析"
+          ],
+          "result": "中剂量组{Y}改善{E}，高剂量组逆转，倒 U 形剂量响应成立",
+          "effects": [
+            "d=0.48（中等）",
+            "d=0.15（边缘）",
+            "d=0.72（较强）"
+          ],
+          "confounds": [
+            "益生菌载体基质的营养效应",
+            "摄食量随剂量变化",
+            "批间菌群活菌数漂移"
+          ],
+          "smells": [
+            "none",
+            "样本量过小：每组 14 只且未做功效分析",
+            "随机种子未固定：分组随机数未存档"
+          ]
+        }
+      ]
+    },
+    "reviews": {
+      "accept": [
+        {
+          "note": "设计完整、效应量如实报告、混杂已声明，复现路径清晰，值得进入同行复现队列。",
+          "hidden": [
+            "样本来自单一供应商繁殖批次，遗传背景同质",
+            "实验室环境温湿度恒定且未写入报告"
+          ]
+        },
+        {
+          "note": "预注册与盲法到位，score 主要扣在单实验室外部效度，建议附原始数据与随机种子归档。",
+          "hidden": [
+            "评测者虽双盲但分组编码只有一人掌握",
+            "阳性对照沿用了实验室历史均值而非平行复测"
+          ]
+        }
+      ],
+      "revise": [
+        {
+          "note": "方向可取但流程有可修复的硬伤，整改清单已列——修完再来，别只改措辞。",
+          "hidden": [
+            "假定效应在组间同方差（未做异方差检验）",
+            "假定测量的信度不随剂量组变化"
+          ]
+        },
+        {
+          "note": "效应量与结论之间的推理跳步，需补敏感性分析；补齐混杂控制与种子存档即可重审。",
+          "hidden": [
+            "把统计显著默认等价于实际显著",
+            "混杂控制变量本身可能是中介而非混淆"
+          ]
+        }
+      ],
+      "reject": [
+        {
+          "note": "存在足以伪造结论的流程缺陷，本结论不可采信。证伪记录已入赫兹的记忆——这正是本实验室最值钱的产出。",
+          "hidden": [
+            "结果不显著后仍继续加样直到过线",
+            "阴性结果被选择性不入报告"
+          ]
+        },
+        {
+          "note": "同类问题两次整改未过，按不可复现处理。负结果同样入库：失败史会替下一张假设卡省算力。",
+          "hidden": [
+            "分析方法在看到数据后才最终确定",
+            "效应方向在预注册与成文之间发生了调头"
+          ]
+        }
+      ]
+    }
+  },
+  "audit_rules": [
+    {
+      "id": "R1",
+      "kws": [
+        "数据泄漏",
+        "测试集混入"
+      ],
+      "deduct": 40,
+      "why": "数据泄漏直接虚高效应量，结论不可信"
+    },
+    {
+      "id": "R2",
+      "kws": [
+        "p-hacking",
+        "二次加样"
+      ],
+      "deduct": 40,
+      "why": "序列加样直到显著=显著性失去意义"
+    },
+    {
+      "id": "R3",
+      "kws": [
+        "种子未固定",
+        "未存档"
+      ],
+      "deduct": 25,
+      "why": "随机过程不可复现，回放无从谈起"
+    },
+    {
+      "id": "R4",
+      "kws": [
+        "未预注册",
+        "事后加入"
+      ],
+      "deduct": 20,
+      "why": "结局与分析自由度过大，选择性报告风险高"
+    },
+    {
+      "id": "R5",
+      "kws": [
+        "样本量过小",
+        "未做功效分析"
+      ],
+      "deduct": 20,
+      "why": "小样本效应量不稳定，符号都可能翻转"
+    },
+    {
+      "id": "R6",
+      "kws": [
+        "单实验室",
+        "单一数据集",
+        "跨域验证"
+      ],
+      "deduct": 15,
+      "why": "无跨设置重复，外部效度存疑"
+    },
+    {
+      "id": "R7",
+      "kws": [
+        "混杂",
+        "运动量",
+        "去重不彻底"
+      ],
+      "deduct": 15,
+      "why": "混杂变量未控制，X→Y 归因不干净"
+    }
+  ]
+};
+/* 【独立部署】kernel 与 vendor 已随项目自带，相对路径任意静态服务器可跑 */
+const VENDOR_BASE = "./vendor/";
+const KERNEL = "./engine/kernel.js";
+
+/* 【vendor 怪癖归游戏层】DeepSeek V4 思考档会吃掉 max_tokens：拦 fetch 注入 thinking:disabled */
+{
+  const _fetch = window.fetch.bind(window);
+  window.fetch = async (u, o) => {
+    if (typeof u === "string" && u.includes("api.deepseek.com") && o && o.body) {
+      try {
+        const b = JSON.parse(o.body);
+        if (b.model && b.thinking === undefined) b.thinking = { type: "disabled" };
+        o = { ...o, body: JSON.stringify(b) };
+      } catch (e) { /* 非 JSON 体原样放行 */ }
+    }
+    return _fetch(u, o);
+  };
+}
+
+/* ============================== [SCI-CORE-BEGIN]
+ * 纯函数核：无 DOM / 存储 / 网络 / Math.random——离线确定性根，check.mjs 抽取本段在 Node 实跑三道门禁。
+ * ============================== */
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function fnv1a(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < String(str).length; i++) {
+    h ^= String(str).charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(16).padStart(8, "0");
+}
+function pickSeeded(rng, arr) { return arr[Math.floor(rng() * arr.length) % arr.length]; }
+/* 意图→预设主题关键词路由（离线只认预设三主题；先例离线立法关键词表同路线） */
+function routeIntent(text, presets) {
+  const t = String(text || "").toLowerCase();
+  let idx = -1, kw = "";
+  for (let i = 0; i < (presets || []).length; i++) {
+    for (const k of presets[i].keywords) {
+      if (t.includes(String(k).toLowerCase())) { idx = i; kw = k; break; }
+    }
+    if (idx >= 0) break;
+  }
+  return { idx, kw };
+}
+/* 假设官离线发卡：候选按替换后文本剔除「已提出/已证伪」清单后按种子取卡；候选耗尽出元假设（负结果论文） */
+function offlineHypothesis(topicId, seed, banks, vars, avoidTexts) {
+  const sub = (s) => String(s).replace(/\{X\}/g, vars.X).replace(/\{Y\}/g, vars.Y);
+  const pool = ((banks.hypotheses || {})[topicId] || [])
+    .filter(c => { const h = sub(c.hyp); return !((avoidTexts || []).some(a => a && (h === a || h.indexOf(a) >= 0 || a.indexOf(h) >= 0))); });
+  const rng = mulberry32(seed >>> 0);
+  if (!topicId) {
+    return { hypothesis: "（离线核无此意图的卡池——联网后由假设官任意语义立项；本次在线调用失败已降级为占位卡）", rationale: "规则引擎只认预设三主题的离线卡池，自由语义立项是 LLM 能力", novelty: 1, cost_estimate: 10, refs: [], meta: true };
+  }
+  if (!pool.length) {
+    return { hypothesis: "元假设：「" + topicId + "」方向候选假设已全部进入台账——转写负结果论文并冻结该方向", rationale: "卡池候选全部提出/证伪完毕，按可复现性原则把失败史整理成可检索的负结果", novelty: 5, cost_estimate: 10, refs: [], meta: true };
+  }
+  const c = pickSeeded(rng, pool);
+  return {
+    hypothesis: sub(c.hyp),
+    rationale: c.rationale,
+    novelty: c.novelty,
+    cost_estimate: 10 + Math.floor(rng() * 11),
+    refs: (c.refs || []).slice(),
+  };
+}
+/* 实验员离线出卡：模板 × 种子效应量 × 种子代码异味；confounds 如实随卡 */
+function offlineExperiment(topicId, seed, banks, vars, hypCard) {
+  const pool = ((banks.experiments || {})[topicId] || []);
+  const rng = mulberry32(seed >>> 0);
+  if (!pool.length) {
+    return { design: "（本主题无离线实验模板——联网后由实验员按假设定制设计）", steps: ["（需在线）"], result: "（需在线）", effect_size: "—", confounds: ["（需在线）"], code_smell: "none" };
+  }
+  const c = pickSeeded(rng, pool);
+  const eff = pickSeeded(rng, c.effects);
+  const smell = pickSeeded(rng, c.smells);
+  const n = 1 + Math.floor(rng() * 8);
+  return {
+    design: String(c.design).replace(/\{X\}/g, vars.X).replace(/\{Y\}/g, vars.Y),
+    steps: c.steps.slice(),
+    result: String(c.result).replace(/\{Y\}/g, vars.Y).replace(/\{E\}/g, eff).replace(/\{N\}/g, String(n)),
+    effect_size: eff,
+    confounds: (c.confounds || ["未识别"]).slice(),
+    code_smell: smell,
+  };
+}
+/* 评审员离线评审：audit_rules 关键词扣分表打 reproducibility_score；硬伤（deduct≥40）强制 reject */
+function offlineReview(seed, expCard, rules, reviewsBank, strictBonus) {
+  const rng = mulberry32(seed >>> 0);
+  const text = [expCard.design].concat(expCard.steps || [], [expCard.result, expCard.effect_size,
+    (expCard.confounds || []).join("；"), expCard.code_smell || ""]).join("；");
+  let score = 100;
+  const hits = [];
+  for (const r of rules || []) {
+    const kw = (r.kws || []).find(k => text.indexOf(k) >= 0);
+    if (kw) { const d = r.deduct + (strictBonus || 0); score -= d; hits.push({ id: r.id, kw, deduct: d, why: r.why }); }
+  }
+  score = Math.max(0, score);
+  const hard = (rules || []).some(r => r.deduct >= 40 && (r.kws || []).some(k => text.indexOf(k) >= 0));
+  const verdict = (score >= 75 && !hard) ? "accept" : ((hard || score < 45) ? "reject" : "revise");
+  const card = pickSeeded(rng, (reviewsBank || {})[verdict] || reviewsBank.revise);
+  const hidden = [];
+  const hs = (card.hidden || []).slice();
+  while (hidden.length < Math.min(2, hs.length)) {
+    const h = pickSeeded(rng, hs);
+    if (hidden.indexOf(h) < 0) hidden.push(h);
+  }
+  return {
+    verdict,
+    reproducibility_score: score,
+    hidden_assumptions: hidden.length ? hidden : ["（未检出显式隐藏假设——不代表不存在）"],
+    issues: hits.length ? hits.map(h => h.why + "（" + h.id + " 命中「" + h.kw + "」，-" + h.deduct + "）")
+      : ["无重大问题（离线评分未命中审计规则）"],
+    note: card.note,
+  };
+}
+/* 导演离线排产：next 必为预期环节（排产理由模板 + 种子化预算意见） */
+function ruleDirector(expect, seed, ctx) {
+  const rng = mulberry32(seed >>> 0);
+  const R = {
+    hypothesize: () => "积压待实验 " + ctx.funnel.p + " 张，先补假设弹药（漏斗上口要宽）",
+    experiment: () => "待实验 " + ctx.funnel.p + " 张堆在最上口，先把存量压下去",
+    review: () => "待评审 " + ctx.funnel.t + " 张卡不能过夜——评审是漏斗的咽喉",
+    archive: () => "本轮闭环：台账要当天对账",
+  };
+  return { next: expect, reason: (R[expect] || (() => "按流水线顺序推进"))(), budget_grant: { hypothesize: 5, experiment: 10 + Math.floor(rng() * 11), review: 8 }[expect] || 0 };
+}
+function hashCard(obj) { return fnv1a(JSON.stringify(obj)); }
+/* SCI-CORE 打包引用：应用层经 SCI.* 调用纯函数核（check.mjs 抽取的是上方源码本身） */
+const SCI = { mulberry32, fnv1a, pickSeeded, routeIntent, offlineHypothesis, offlineExperiment, offlineReview, ruleDirector, hashCard };
+/* ============================== [SCI-CORE-END] ============================== */
+
+/* ============ L7 provider 装配（与引擎 café demo / 先例同一机制） ============ */
+let KERNEL_MOD = null, provider = null, providerReady = false;
+const savedCfg = JSON.parse(localStorage.getItem("aicafe.llm.v1") || "null");
+async function boot() {
+  try {
+    KERNEL_MOD = await import(KERNEL);
+  } catch (e) {
+    document.getElementById("fallback").style.display = "flex";
+    return;
+  }
+  if (savedCfg && savedCfg.key && savedCfg.kind !== "rule") {
+    provider = KERNEL_MOD.createProvider(savedCfg);
+    providerReady = !!(provider && provider.ready);
+  }
+  if (providerReady) {
+    document.getElementById("prov-name").textContent =
+      (savedCfg.model || "llm") + "（引擎 L7 · AI 已植入）";
+    document.getElementById("dot").classList.add("live");
+  }
+  await startScene();
+}
+
+const $ = id => document.getElementById(id);
+const esc = s => (s === null || s === undefined ? "" : String(s)).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const extractJSONLoose = s => { const m = (s || "").match(/\{[\s\S]*\}/); try { return m ? JSON.parse(m[0]) : null; } catch { return null; } };
+const COST = { hypothesize: 5, experiment: 10, review: 8, replay: 3, archive: 0 };
+const STAGE_ZH = { direct: "导演排产", hypothesize: "假设", experiment: "实验", review: "评审", archive: "归档", gate: "预算闸门" };
+const AGENT_OF = { direct: "卡文迪什", hypothesize: "赫兹", experiment: "法拉第", review: "居里", gate: "系统", archive: "卡文迪什" };
+const TEMP_OF = { direct: 0.3, hypothesize: 0.9, experiment: 0.5, review: 0.2, archive: 0.3 };
+const CLIP_OF = { direct: "Wave", hypothesize: "Dance", experiment: "Running", review: "ThumbsUp", archive: "Jump" };
+
+async function startScene() {
+  const THREE = await import("three");
+  const { OrbitControls } = await import(VENDOR_BASE + "OrbitControls.js");
+  const { GLTFLoader } = await import(VENDOR_BASE + "GLTFLoader.js");
+  /* L9 长期记忆：三 agent 分键共存一个 store（kernel.js:13-53），export() 进审计存档 */
+  const mem = new KERNEL_MOD.MemoryStore("game.oriera-sci.mem.v1");
+
+  /* ---- 持久化状态 ---- */
+  const DEF_STATE = () => ({
+    pool: 100, rep: 0, storyIdx: 0, day: 1, round: 0,
+    grants: { hypothesize: 5, experiment: 15, review: 8 },
+    intent: "", topicIdx: -1,
+    ledger: [], proposed: [], tested: [],
+    accepted: 0, falsified: [], hypHistory: [],
+    litLoaded: false, strict: false, tight: false, auditDone: false,
+    lastRound: null, roundsDone: 0, replayCount: 0,
+  });
+  let S;
+  try { S = Object.assign(DEF_STATE(), JSON.parse(localStorage.getItem("game.oriera-sci.state") || "null") || {}); }
+  catch (e) { S = DEF_STATE(); }
+  function persist() {
+    if (S.ledger.length > 200) S.ledger = S.ledger.slice(-200);
+    localStorage.setItem("game.oriera-sci.state", JSON.stringify(S));
+  }
+
+  /* ---- 主题（space） ---- */
+  const TH = { bg: 0x0d1017, ground: 0x1a2438, ring: 0x2d5b9e, hemiSky: 0x8fb5ff, hemiGnd: 0x22283a, sun: 0xffe9c4 };
+  const sceneEl = $("scene");
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(sceneEl.clientWidth, sceneEl.clientHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  sceneEl.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(TH.bg);
+  scene.fog = new THREE.Fog(TH.bg, 18, 55);
+  const camera = new THREE.PerspectiveCamera(50, sceneEl.clientWidth / sceneEl.clientHeight, 0.1, 200);
+  camera.position.set(0, 6, 14);
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.target.set(0, 1.2, 0);
+  controls.enableDamping = true; controls.maxPolarAngle = Math.PI / 2.05;
+  controls.minDistance = 6; controls.maxDistance = 30;
+  scene.add(new THREE.HemisphereLight(TH.hemiSky, TH.hemiGnd, 1.1));
+  const sun = new THREE.DirectionalLight(TH.sun, 1.6);
+  sun.position.set(6, 10, 4); scene.add(sun);
+  scene.add(new THREE.Mesh(
+    new THREE.CircleGeometry(16, 48).rotateX(-Math.PI / 2),
+    new THREE.MeshStandardMaterial({ color: TH.ground, roughness: .95 })));
+  scene.add(new THREE.Mesh(
+    new THREE.RingGeometry(15.4, 16, 64).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ color: TH.ring, transparent: true, opacity: .5 })));
+
+  /* ---- 4 位课题组机器人 ---- */
+  const palette = [0xc9b8ff, 0x7eb8ff, 0xffb37e, 0x7effc3];
+  const npcs = [];
+  const gltf = await new GLTFLoader().loadAsync(VENDOR_BASE + "RobotExpressive.glb");
+  AGENTS.forEach((a, i) => {
+    const root = gltf.scene.clone(true);
+    const angle = (i / Math.max(AGENTS.length, 1)) * Math.PI * 2;
+    root.position.set(Math.cos(angle) * 5, 0, Math.sin(angle) * 5);
+    root.lookAt(0, 0, 0);
+    root.userData = { index: i };
+    scene.add(root);
+    const cv = document.createElement("canvas"); cv.width = 256; cv.height = 72;
+    const cx = cv.getContext("2d");
+    cx.fillStyle = "rgba(13,16,23,.85)"; roundRect(cx, 4, 6, 248, 56, 14); cx.fill();
+    cx.fillStyle = "#" + palette[i % palette.length].toString(16).padStart(6, "0");
+    cx.font = "bold 30px sans-serif"; cx.textAlign = "center";
+    cx.fillText(a.name, 128, 46);
+    const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), depthTest: false, transparent: true }));
+    label.scale.set(2.2, 0.62, 1); label.position.set(root.position.x, 3.1, root.position.z);
+    scene.add(label);
+    let mixer = null;
+    try {
+      mixer = new THREE.AnimationMixer(root);
+      const idle = gltf.animations.find(x => /idle/i.test(x.name)) || gltf.animations[0];
+      if (idle) mixer.clipAction(idle).play();
+    } catch (e) {}
+    npcs.push({ agent: a, root, label, mixer, color: palette[i % palette.length], clipTimer: null });
+  });
+  function roundRect(c, x, y, w, h, r) {
+    c.beginPath(); c.moveTo(x + r, y);
+    c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+  }
+  function playOne(i, clipName) {
+    const n = npcs[i]; if (!n || !n.mixer) return;
+    const clip = gltf.animations.find(c => c.name === clipName) ||
+      gltf.animations.find(c => new RegExp(clipName, "i").test(c.name));
+    if (!clip) return;
+    n.mixer.stopAllAction(); n.mixer.clipAction(clip).reset().play();
+    clearTimeout(n.clipTimer);
+    n.clipTimer = setTimeout(() => {
+      const idle = gltf.animations.find(c => /idle/i.test(c.name)) || gltf.animations[0];
+      if (idle) { n.mixer.stopAllAction(); n.mixer.clipAction(idle).reset().play(); }
+    }, 3600);
+  }
+  const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
+  renderer.domElement.addEventListener("click", e => {
+    const r = renderer.domElement.getBoundingClientRect();
+    ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ptr, camera);
+    const hits = ray.intersectObjects(npcs.map(n => n.root), true);
+    if (hits.length) {
+      let o = hits[0].object;
+      while (o && o.userData.index === undefined) o = o.parent;
+      if (o) showAgentMemory(o.userData.index);
+    }
+  });
+
+  /* ---- 聊天流 ---- */
+  const logEl = document.createElement("div");
+  logEl.style.cssText = "position:absolute;left:14px;bottom:14px;width:44%;max-width:520px;display:flex;flex-direction:column;gap:8px;pointer-events:none;";
+  sceneEl.appendChild(logEl);
+  function bubble(cls, html) {
+    const d = document.createElement("div");
+    d.className = "msg " + cls; d.innerHTML = html;
+    logEl.appendChild(d);
+    while (logEl.children.length > 7) logEl.removeChild(logEl.firstChild);
+    return d;
+  }
+  const sys = t => bubble("sys", t);
+
+  /* ============================== 台账（唯一事实源） ============================== */
+  function statSnap() { return { t: (provider && provider.stats.tokens) || 0, c: (provider && provider.stats.calls) || 0 }; }
+  function ledgerPush(e) {
+    e.id = "T" + String(S.ledger.length + 1).padStart(3, "0");
+    e.round = S.round; e.day = S.day; e.beat = S.storyIdx + 1;
+    e.mode = providerReady ? "online" : "offline";
+    e.replay = null;
+    S.ledger.push(e);
+    persist(); renderHUD(); renderLedger();
+    return e;
+  }
+  function gateNote(stage, msg) {
+    world.abort = msg;
+    playOne(0, "No");
+    ledgerPush({ stage: "gate", agent: "系统", msgs: null, temp: null, seed: null,
+      request: msg, response: { skipped: stage, reason: msg }, cost: 0, tokens: 0, calls: 0 });
+    sys("🚧 " + msg);
+  }
+
+  /* ============================== 文献入库（首轮 record 进 MemoryStore） ============================== */
+  function ensureLit() {
+    if (S.litLoaded) return;
+    TRACK.literature.forEach(l => mem.record("赫兹", {
+      turn: 0, day: 1, about: "文献库", imp: 4, kind: "lit",
+      text: "文献 " + l.id + "《" + l.title + "》：" + l.finding,
+    }));
+    S.litLoaded = true; persist();
+    sys("📚 微文献库 " + TRACK.literature.length + " 条已录入赫兹长期记忆（MemoryStore，跨轮可检索）");
+  }
+
+  /* ============================== 四个同契约系统 + Scheduler 单泵 ============================== */
+  const world = {
+    turn: 0, expect: null, decision: null, abort: null,
+    S, intent: "", topicId: null, vars: { X: "处理", Y: "结局" }, cards: {},
+  };
+  const funnel = () => ({ p: S.proposed.length, t: S.tested.length, a: S.accepted, f: S.falsified.length });
+
+  class DirectorSciSystem {
+    constructor(p2, m2, { interval = 1 } = {}) { this.provider = p2; this.memory = m2; this.interval = interval; }
+    async tick(w) {
+      w.turn++;
+      if (w.expect === "archive") return this._archive(w);
+      let dec = null, msgs = null, s0 = statSnap();
+      if (this.provider && this.provider.ready) {
+        const f = funnel();
+        msgs = [
+          { role: "system", content: sysOf(0) + "\n\n【排产·输出协议】只输出一个 JSON 对象：{\"next\":\"" + w.expect + "\",\"reason\":\"一句话排产理由（≤40字）\",\"budget_grant\":0到30的整数}。当前预期 next 必须是 " + w.expect + "。", },
+          { role: "user", content: "第" + S.round + "轮 · 当前环节=" + w.expect + " · 积压漏斗 待实验" + f.p + "/待评审" + f.t + "/已接受" + f.a + "/已证伪" + f.f + " · 算力池 " + S.pool + " · 玩家分拨 假设" + S.grants.hypothesize + "/实验" + S.grants.experiment + "/评审" + S.grants.review + "。请给出排产决策 JSON。" },
+        ];
+        try {
+          const out = await this.provider.complete(msgs, { json: true, temp: TEMP_OF.direct, max: 200 });
+          const j = extractJSONLoose(out) || {};
+          dec = { next: w.expect, reason: String(j.reason || "").slice(0, 60) || ruleDirector(w.expect, 0, { funnel: f }).reason, budget_grant: Math.max(0, Math.min(40, +j.budget_grant || 0)), clamped: j.next !== w.expect && j.next !== undefined };
+        } catch (e) { dec = null; }
+      }
+      if (!dec) dec = this._rule(w);
+      w.decision = dec;
+      const s1 = statSnap();
+      ledgerPush({ stage: "direct", agent: "卡文迪什", msgs, temp: msgs ? TEMP_OF.direct : null, seed: msgs ? null : seedFor("direct"),
+        request: "排产 → " + w.expect, response: dec, cost: 0,
+        tokens: msgs ? (s1.t - s0.t) : 0, calls: msgs ? (s1.c - s0.c) : 0,
+        args: msgs ? { expect: w.expect } : { expect: w.expect, ctx: { funnel: funnel() } } });
+      playOne(0, CLIP_OF.direct);
+      return dec;
+    }
+    _rule(w) {
+      const d = SCI.ruleDirector(w.expect, seedFor("direct"), { funnel: funnel() });
+      return { next: d.next, reason: d.reason, budget_grant: d.budget_grant };
+    }
+    _archive(w) {
+      const roundEntries = S.ledger.filter(x => x.round === S.round);
+      const spent = roundEntries.reduce((a, x) => a + (x.cost || 0), 0);
+      const tk = roundEntries.reduce((a, x) => a + (x.tokens || 0), 0);
+      const f = funnel();
+      const last = S.lastRound || {};
+      sys("📋 第 " + S.round + " 轮归档（卡文迪什）：算力 −" + spent + " · tokens " + tk + " · 漏斗 待实验" + f.p + "→待评审" + f.t + "→已接受" + f.a + "→已证伪" + f.f + (last.revNote ? " · " + last.revNote : ""));
+      if (last.exp) mem.record("法拉第", { turn: w.turn, day: S.day, about: S.intent || "实验", imp: 2, text: "实验记录：" + String(last.exp.design || "").slice(0, 40) + " / 效应量 " + (last.exp.effect_size || "—") + " / 混杂 " + (last.exp.confounds || []).join("、").slice(0, 30) });
+      if (last.rev) mem.record("居里", { turn: w.turn, day: S.day, about: S.intent || "评审", imp: 3, text: "裁决 " + last.rev.verdict + "（score " + last.rev.reproducibility_score + "）：" + String((last.rev.issues || [])[0] || "").slice(0, 40) });
+      S.roundsDone++; S.lastRound = null; persist();
+      ledgerPush({ stage: "archive", agent: "卡文迪什", msgs: null, temp: null, seed: seedFor("archive"),
+        request: "第 " + S.round + " 轮归档", response: { spent, tokens: tk, funnel: f }, cost: 0, tokens: 0, calls: 0 });
+      playOne(0, CLIP_OF.archive);
+      return null;
+    }
+  }
+
+  class HypothesisSystem {
+    constructor(p2, m2, { interval = 1 } = {}) { this.provider = p2; this.memory = m2; this.interval = interval; }
+    async tick(w) {
+      if (w.expect !== "hypothesize" || !w.decision) return null;
+      const cost = COST.hypothesize;
+      if (S.grants.hypothesize < cost) { gateNote("hypothesize", "预算分拨不足：假设工序分拨 " + S.grants.hypothesize + " < 成本 " + cost + "，本轮不产新假设（积压不补）"); return null; }
+      if (S.pool < cost) { gateNote("hypothesize", "算力池不足（需 " + cost + "，余 " + S.pool + "）——推进剧情补充"); return null; }
+      S.pool -= cost;
+      const seed = seedFor("hypothesize");
+      const topicLabel = w.topicId ? TRACK.preset_intents.find(p => p.id === w.topicId).label : (S.intent || "自由意图");
+      const avoid = S.hypHistory.slice(-14).concat(S.falsified);
+      const recall = mem.retrieve("赫兹", "文献库", (S.intent || "") + " 证伪 假设", w.turn, 4);
+      let card, msgs = null, s0 = statSnap(), degraded = false;
+      if (this.provider && this.provider.ready) {
+        const falsifiedList = S.falsified.length ? S.falsified.map((t, i) => (i + 1) + ". " + t).join("\n") : "（暂无）";
+        const litList = TRACK.literature.map(l => l.id + "《" + l.title + "》：" + l.finding).join("\n");
+        msgs = [
+          { role: "system", content: sysOf(1) + "\n\n研究意图：" + (S.intent || topicLabel) + "（X=" + w.vars.X + "，Y=" + w.vars.Y + "）\n【勿重复清单 · 来自 MemoryStore 证伪史（imp:5），禁止复述或换皮】\n" + falsifiedList + "\n【可引用文献】\n" + litList + "\n\n【假设卡·输出协议】只输出一个 JSON 对象：{\"hypothesis\":\"一句话可证伪假设（≤40字，含方向性预期）\",\"rationale\":\"两句话依据\",\"novelty\":1到5,\"cost_estimate\":10到20,\"refs\":[\"文献id\"]}" },
+          { role: "user", content: "为本轮产出一张假设卡（第 " + S.round + " 轮）。" },
+        ];
+        try {
+          const out = await this.provider.complete(msgs, { json: true, temp: TEMP_OF.hypothesize, max: 500 });
+          const j = extractJSONLoose(out) || {};
+          if (j.hypothesis && j.rationale) {
+            card = { hypothesis: String(j.hypothesis).slice(0, 80), rationale: String(j.rationale).slice(0, 160), novelty: Math.max(1, Math.min(5, +j.novelty || 3)), cost_estimate: Math.max(10, Math.min(20, +j.cost_estimate || 15)), refs: Array.isArray(j.refs) ? j.refs.map(String).slice(0, 4) : [] };
+          } else degraded = true;
+        } catch (e) { degraded = true; }
+      }
+      if (!card) { card = SCI.offlineHypothesis(w.topicId, seed, TRACK.offline_banks, w.vars, avoid); if (degraded) card._degraded = true; }
+      const s1 = statSnap();
+      ledgerPush({ stage: "hypothesize", agent: "赫兹", msgs, temp: msgs ? TEMP_OF.hypothesize : 0.9, seed: msgs ? null : seed,
+        request: "假设卡 · 意图「" + (S.intent || topicLabel) + "」· 避开证伪史 " + S.falsified.length + " 条",
+        response: card, cost: cost, tokens: msgs ? (s1.t - s0.t) : 0, calls: msgs ? (s1.c - s0.c) : 0,
+        args: { topicId: w.topicId, vars: w.vars, avoid: msgs ? null : avoid } });
+      playOne(1, CLIP_OF.hypothesize);
+      w.cards.hyp = card;
+      S.proposed.push({ hyp: card, revise: 0 });
+      S.hypHistory.push(card.hypothesis);
+      S.lastRound = Object.assign(S.lastRound || {}, { hyp: card });
+      persist();
+      sys("💡 赫兹产假设卡「" + esc(card.hypothesis.slice(0, 30)) + "…" + "」（新颖度 " + card.novelty + " · 建议实验算力 " + card.cost_estimate + "）→ 待实验");
+      renderFunnel(); renderCards();
+      return card;
+    }
+    _rule(w) { return SCI.offlineHypothesis(w.topicId, seedFor("hypothesize"), TRACK.offline_banks, w.vars, S.hypHistory.concat(S.falsified)); }
+  }
+
+  class ExperimentSystem {
+    constructor(p2, m2, { interval = 1 } = {}) { this.provider = p2; this.memory = m2; this.interval = interval; }
+    async tick(w) {
+      if (w.expect !== "experiment" || !w.decision) return null;
+      if (!S.proposed.length) { gateNote("experiment", "无待实验假设（积压上口为空）——先拨假设工序"); return null; }
+      if (S.grants.experiment < COST.experiment) { gateNote("experiment", "预算分拨不足：实验工序分拨 " + S.grants.experiment + " < 起步成本 " + COST.experiment + "，假设滞留待实验"); return null; }
+      const item = S.proposed.shift();
+      const charge = Math.max(10, Math.min(20, +item.hyp.cost_estimate || 15));
+      if (S.pool < charge) { S.proposed.unshift(item); gateNote("experiment", "算力池不足（本实验需 " + charge + "，余 " + S.pool + "）——假设退回待实验"); return null; }
+      S.pool -= charge;
+      const seed = seedFor("experiment");
+      let card, msgs = null, s0 = statSnap(), degraded = false;
+      if (this.provider && this.provider.ready) {
+        msgs = [
+          { role: "system", content: sysOf(2) + "\n\n待验证假设：" + JSON.stringify(item.hyp) + "\n\n【实验卡·输出协议】只输出一个 JSON 对象：{\"design\":\"一句话实验设计\",\"steps\":[\"步骤1\",\"步骤2\",\"步骤3\"],\"result\":\"结果一句话\",\"effect_size\":\"效应量（如 d=0.42）\",\"confounds\":[\"混杂1\"],\"code_smell\":\"none 或 一句话隐患\"}。effect_size 必给；confounds 至少 1 条；code_smell 宁丑话在前。" },
+          { role: "user", content: "为该假设出实验卡（第 " + S.round + " 轮）。" },
+        ];
+        try {
+          const out = await this.provider.complete(msgs, { json: true, temp: TEMP_OF.experiment, max: 500 });
+          const j = extractJSONLoose(out) || {};
+          if (j.design && j.effect_size) {
+            card = { design: String(j.design).slice(0, 160), steps: Array.isArray(j.steps) ? j.steps.map(x => String(x).slice(0, 80)).slice(0, 6) : ["（略）"], result: String(j.result || "").slice(0, 160), effect_size: String(j.effect_size).slice(0, 40), confounds: Array.isArray(j.confounds) ? j.confounds.map(x => String(x).slice(0, 60)).slice(0, 4) : ["未识别"], code_smell: String(j.code_smell || "none").slice(0, 80) };
+          } else degraded = true;
+        } catch (e) { degraded = true; }
+      }
+      if (!card) { card = SCI.offlineExperiment(w.topicId, seed, TRACK.offline_banks, w.vars, item.hyp); if (degraded) card._degraded = true; }
+      const s1 = statSnap();
+      ledgerPush({ stage: "experiment", agent: "法拉第", msgs, temp: msgs ? TEMP_OF.experiment : 0.5, seed: msgs ? null : seed,
+        request: "实验卡 · 假设「" + item.hyp.hypothesis.slice(0, 24) + "…」· 计费 " + charge + "（假设卡 cost_estimate）",
+        response: card, cost: charge, tokens: msgs ? (s1.t - s0.t) : 0, calls: msgs ? (s1.c - s0.c) : 0,
+        args: { topicId: w.topicId, vars: w.vars, hyp: msgs ? null : item.hyp } });
+      playOne(2, CLIP_OF.experiment);
+      w.cards.exp = card;
+      S.tested.push({ hyp: item.hyp, exp: card, revise: item.revise });
+      S.lastRound = Object.assign(S.lastRound || {}, { exp: card });
+      persist();
+      sys("🔬 法拉第交实验卡（效应量 " + esc(card.effect_size) + " · 混杂 " + esc((card.confounds || [])[0] || "—") + " · code_smell: " + esc(card.code_smell) + "）→ 待评审");
+      renderFunnel(); renderCards();
+      return card;
+    }
+    _rule(w) {
+      const item = S.proposed[0];
+      return SCI.offlineExperiment(w.topicId, seedFor("experiment"), TRACK.offline_banks, w.vars, item ? item.hyp : null);
+    }
+  }
+
+  class ReviewSystem {
+    constructor(p2, m2, { interval = 1 } = {}) { this.provider = p2; this.memory = m2; this.interval = interval; }
+    async tick(w) {
+      if (w.expect !== "review" || !w.decision) return null;
+      if (!S.tested.length) { gateNote("review", "无待评审实验卡——先拨实验工序"); return null; }
+      if (S.grants.review < COST.review) { gateNote("review", "预算分拨不足：评审工序分拨 " + S.grants.review + " < 成本 " + COST.review + "，实验卡滞留待评审"); return null; }
+      if (S.pool < COST.review) { gateNote("review", "算力池不足（评审需 " + COST.review + "，余 " + S.pool + "）"); return null; }
+      S.pool -= COST.review;
+      const item = S.tested.shift();
+      const seed = seedFor("review");
+      const strictBonus = S.strict ? 5 : 0;
+      let card, msgs = null, s0 = statSnap(), degraded = false;
+      if (this.provider && this.provider.ready) {
+        const rulesTxt = TRACK.audit_rules.map(r => r.id + " " + r.kws.join("/") + " −" + r.deduct + "（" + r.why + "）").join("\n");
+        msgs = [
+          { role: "system", content: sysOf(3) + "\n\n待审实验卡：" + JSON.stringify(item.exp) + "\n【audit_rules 关键词扣分表" + (strictBonus ? " · 复现危机加严期：每条命中额外 −" + strictBonus : "") + "】\n" + rulesTxt + "\nverdict 规则：score≥75 且无 deduct≥40 硬伤=accept；45~74=revise；<45 或硬伤=reject。\n\n【评审卡·输出协议】只输出一个 JSON 对象：{\"verdict\":\"accept|revise|reject\",\"reproducibility_score\":0到100,\"hidden_assumptions\":[\"至少1条\"],\"issues\":[\"至少1条\"]}" },
+          { role: "user", content: "评审该实验卡（第 " + S.round + " 轮）。" },
+        ];
+        try {
+          const out = await this.provider.complete(msgs, { json: true, temp: TEMP_OF.review, max: 460 });
+          const j = extractJSONLoose(out) || {};
+          if (["accept", "revise", "reject"].includes(j.verdict)) {
+            card = { verdict: j.verdict, reproducibility_score: Math.max(0, Math.min(100, +j.reproducibility_score || 0)), hidden_assumptions: Array.isArray(j.hidden_assumptions) ? j.hidden_assumptions.map(x => String(x).slice(0, 80)).slice(0, 4) : ["（未给出）"], issues: Array.isArray(j.issues) ? j.issues.map(x => String(x).slice(0, 100)).slice(0, 5) : ["（未给出）"] };
+          } else degraded = true;
+        } catch (e) { degraded = true; }
+      }
+      if (!card) { card = SCI.offlineReview(seed, item.exp, TRACK.audit_rules, TRACK.offline_banks.reviews, strictBonus); if (degraded) card._degraded = true; }
+      const s1 = statSnap();
+      ledgerPush({ stage: "review", agent: "居里", msgs, temp: msgs ? TEMP_OF.review : 0.2, seed: msgs ? null : seed,
+        request: "评审 · 实验卡「" + item.exp.design.slice(0, 22) + "…」" + (strictBonus ? " · 加严 −" + strictBonus : ""),
+        response: card, cost: COST.review, tokens: msgs ? (s1.t - s0.t) : 0, calls: msgs ? (s1.c - s0.c) : 0,
+        args: { topicId: w.topicId, vars: w.vars, exp: msgs ? null : item.exp, strictBonus } });
+      playOne(3, CLIP_OF.review);
+      w.cards.rev = card;
+      S.lastRound = Object.assign(S.lastRound || {}, { rev: card });
+      const hypText = item.hyp.hypothesis;
+      if (card.verdict === "accept") {
+        S.accepted++;
+        mem.record("赫兹", { turn: w.turn, day: S.day, about: "文献库", imp: 4, kind: "verified", text: "已验证（第" + S.round + "轮 accept，score " + card.reproducibility_score + "）：" + hypText });
+        sys("✅ 居里 accept（score " + card.reproducibility_score + "）：「" + esc(hypText.slice(0, 26)) + "…」入已接受 · 信誉 +2");
+        S.rep += 2;
+      } else if (card.verdict === "reject") {
+        S.falsified.push(hypText);
+        /* 证伪假设按重要度 imp:5 沉淀进赫兹长期记忆——下一轮 visibly 避开 */
+        mem.record("赫兹", { turn: w.turn, day: S.day, about: "文献库", imp: 5, kind: "falsified", text: hypText });
+        sys("⛔ 居里 reject（score " + card.reproducibility_score + "）：假设已证伪，按重要度 imp:5 入赫兹记忆（勿重复清单）");
+      } else {
+        item.revise++;
+        if (item.revise >= 2) {
+          S.falsified.push(hypText);
+          mem.record("赫兹", { turn: w.turn, day: S.day, about: "文献库", imp: 5, kind: "falsified", text: hypText });
+          sys("⛔ 居里两次 revise 未过 → 按「不可复现」reject 证伪（ imp:5 入记忆）");
+          S.lastRound = Object.assign(S.lastRound || {}, { revNote: "两次整改未过强制证伪" });
+        } else {
+          S.proposed.unshift({ hyp: item.hyp, revise: item.revise });
+          sys("↩️ 居里 revise（score " + card.reproducibility_score + "）：打回待实验（第 " + item.revise + " 次整改，两次即证伪）");
+        }
+      }
+      persist(); renderFunnel(); renderCards(); renderHUD();
+      return card;
+    }
+    _rule(w) {
+      const item = S.tested[0];
+      return SCI.offlineReview(seedFor("review"), item ? item.exp : { design: "", steps: [], result: "", effect_size: "", confounds: [], code_smell: "none" }, TRACK.audit_rules, TRACK.offline_banks.reviews, S.strict ? 5 : 0);
+    }
+  }
+
+  /* 应用层同签名系统类替换内核咖啡馆场景（先例 index.html 同路线：只复用构造契约与 _rule 降级形态） */
+  const sch = new KERNEL_MOD.Scheduler();
+  sch.add(new DirectorSciSystem(provider, mem, { interval: 1 }));
+  sch.add(new HypothesisSystem(provider, mem, { interval: 1 }));
+  sch.add(new ExperimentSystem(provider, mem, { interval: 1 }));
+  sch.add(new ReviewSystem(provider, mem, { interval: 1 }));
+  function sysOf(i) {
+    const a = AGENTS[i];
+    return "你在「" + GAME.name + "」实验室原型里工作。角色：" + a.name + "（" + a.role + "）。人设：" + a.persona + "\n世界观前提：" + STORY.premise + "\n当前进度：第" + S.day + "日 · " + ((STORY.beats[S.storyIdx] || {}).title || "") + "。严格按人设内嵌的输出协议只输出 JSON，不输出任何其他文字。";
+  }
+  function seedFor(stage) {
+    /* 每轮每环节独立种子：台账记录在案，回放逐位重算 */
+    return (20261019 + S.round * 97 + { direct: 3, hypothesize: 11, experiment: 29, review: 47, archive: 61 }[stage] * 13) >>> 0;
+  }
+
+  /* ============================== 开跑一轮 ============================== */
+  let busy = false;
+  async function runRound() {
+    if (busy) return;
+    if (!S.intent) { sys("先口述研究意图（输入框或点预设主题）"); shake($("intent")); return; }
+    if (S.topicIdx < 0 && !providerReady) {
+      sys("规则引擎（离线）只认预设三主题的关键词路由——点下方预设主题，或在 Studio 植入 Key 后任意语义立项。");
+      shake($("intent")); return;
+    }
+    busy = true; $("btn-run").disabled = true;
+    ensureLit();
+    S.round++;
+    world.intent = S.intent;
+    world.topicId = S.topicIdx >= 0 ? TRACK.preset_intents[S.topicIdx].id : null;
+    world.vars = S.topicIdx >= 0 ? TRACK.preset_intents[S.topicIdx].vars : { X: "干预", Y: "结局指标" };
+    world.cards = {}; S.lastRound = {};
+    for (const expect of ["hypothesize", "experiment", "review"]) {
+      setPipe(expect, "on");
+      if (expect === "experiment" && !S.proposed.length) { setPipe(expect, "skip"); continue; }
+      if (expect === "review" && !S.tested.length) { setPipe(expect, "skip"); continue; }
+      world.expect = expect; world.decision = null;
+      await sch.tick(world);
+      setPipe(expect, world.abort ? "skip" : "ok");
+      if (world.abort) { sys("⏸ 本轮在「" + STAGE_ZH[expect] + "」中断：" + world.abort); break; }
+    }
+    if (!world.abort) { setPipe("archive", "on"); world.expect = "archive"; world.decision = null; await sch.tick(world); setPipe("archive", "ok"); }
+    busy = false; $("btn-run").disabled = false;
+    renderAll();
+  }
+  function setPipe(stage, cls) {
+    const el = document.querySelector('#pipe .st[data-s="' + stage + '"]');
+    if (el) el.className = "st " + (cls || "");
+  }
+
+  /* ============================== 回放审计（复现重放） ============================== */
+  function recomputeOffline(e) {
+    const banks = TRACK.offline_banks, a = e.args || {};
+    const vars = a.vars || { X: "处理", Y: "结局" };
+    switch (e.stage) {
+      case "direct": return SCI.ruleDirector(a.expect, e.seed, a.ctx || { funnel: { p: 0, t: 0, a: 0, f: 0 } });
+      case "hypothesize": return SCI.offlineHypothesis(a.topicId, e.seed, banks, vars, a.avoid || []);
+      case "experiment": return SCI.offlineExperiment(a.topicId, e.seed, banks, vars, a.hyp || { hyp: "" });
+      case "review": return SCI.offlineReview(e.seed, a.exp || { design: "", steps: [], result: "", effect_size: "", confounds: [], code_smell: "none" }, TRACK.audit_rules, banks.reviews, a.strictBonus || 0);
+      default: return null;
+    }
+  }
+  async function replayEntry(e, silent) {
+    if (S.pool < COST.replay) { if (!silent) { sys("算力不足（复现重放收 " + COST.replay + "）——推进剧情补充"); shake($("btn-audit")); } return; }
+    S.pool -= COST.replay; S.replayCount++;
+    if (e.mode === "offline" && e.args) {
+      const again = recomputeOffline(e);
+      const same = JSON.stringify(again) === JSON.stringify(e.response);
+      e.replay = { status: same ? "match" : "mismatch", response2: again,
+        hash1: hashCard(e.response), hash2: hashCard(again),
+        detail: same ? "逐位一致（种子 " + e.seed + " 重算 ≡ 台账原响应）——可复现性的下界" : "重算与台账不一致——离线核被改过或记录不完整（这是事故，不是随机性）" };
+    } else if (e.mode === "online" && e.msgs && providerReady) {
+      try {
+        const out = await provider.complete(e.msgs, { json: true, temp: e.temp, max: 500 });
+        const j = extractJSONLoose(out) || out;
+        const same = JSON.stringify(j) === JSON.stringify(e.response);
+        e.replay = { status: same ? "match" : "mismatch", response2: j,
+          detail: same ? "低 temp（" + e.temp + "）下两次采样碰巧一致——这是运气，不是可依赖的确定性" : "temperature=" + e.temp + "：同请求两次响应不一致——没有留痕，就没有科学" };
+      } catch (err) {
+        e.replay = { status: "error", detail: "重放请求失败：" + String(err.message || err) };
+      }
+    } else {
+      e.replay = { status: "error", detail: e.mode === "online" ? "在线条目重放需要联网与 Key" : "该条目无可重放参数（闸门/归档类仅留痕）" };
+    }
+    persist(); renderHUD(); renderLedger(); showDetail(e.id);
+    if (!silent) {
+      sys(e.replay.status === "match" ? "✅ " + e.id + " 回放逐位一致" :
+          e.replay.status === "mismatch" ? "⚠️ " + e.id + " 回放不一致——" + (e.mode === "online" ? "temperature 随机性当场暴露" : "离线核漂移") : "⚠️ " + e.id + " 回放失败");
+    }
+    return e.replay;
+  }
+  function offlineTargets() {
+    return S.ledger.filter(e => e.mode === "offline" && e.args && ["direct", "hypothesize", "experiment", "review"].includes(e.stage));
+  }
+  function offlineAllMatch() {
+    const t = offlineTargets();
+    return t.length > 0 && t.every(e => { const a = recomputeOffline(e); return JSON.stringify(a) === JSON.stringify(e.response); });
+  }
+  async function fullAudit() {
+    if (busy) return;
+    const t = offlineTargets();
+    if (!t.length) { sys("台账里还没有可重放的离线条目——先开跑一轮"); return; }
+    if (S.pool < COST.replay) { sys("算力不足（复现自检收 " + COST.replay + "）——推进剧情补充"); shake($("btn-audit")); return; }
+    busy = true; $("btn-audit").disabled = true;
+    S.pool -= COST.replay; S.replayCount += t.length;
+    let match = 0; const mismatch = [];
+    for (const e of t) {
+      const again = recomputeOffline(e);
+      const same = JSON.stringify(again) === JSON.stringify(e.response);
+      e.replay = { status: same ? "match" : "mismatch", response2: again, hash1: hashCard(e.response), hash2: hashCard(again),
+        detail: same ? "逐位一致（种子 " + e.seed + " 重算 ≡ 台账原响应）" : "重算与台账不一致——离线核被改过或记录不完整" };
+      same ? match++ : mismatch.push(e.id);
+    }
+    const pass = mismatch.length === 0;
+    if (pass && !S.auditDone) { S.auditDone = true; S.rep += 5; sys("✅ 全台账复现自检通过：" + t.length + " 条逐位一致（哈希全对）——审稿信誉 +5"); }
+    else if (pass) sys("✅ 复现自检再次全过：" + t.length + " 条逐位一致");
+    else sys("⚠️ 复现自检发现不一致：" + mismatch.join("、"));
+    busy = false; $("btn-audit").disabled = false;
+    persist(); renderAll();
+  }
+
+  /* ============================== 渲染 ============================== */
+  function renderHUD() {
+    $("pool").textContent = S.pool;
+    $("rep").textContent = S.rep;
+    $("beat").textContent = Math.min(S.storyIdx + 1, 8);
+    $("ledgerN").textContent = S.ledger.length;
+    $("stats-line").textContent = provider
+      ? "LLM 计量（真值读数）：calls " + provider.stats.calls + " · tokens " + (provider.stats.tokens || 0) + (provider.stats.tokens ? "" : "（端点未回 usage 时 tokens 按 0 记，预算以 calls 兜底）")
+      : "LLM 计量：规则引擎 0 token（离线核 mulberry32 种子确定性）";
+  }
+  function renderFunnel() {
+    const f = funnel();
+    const total = Math.max(1, f.p + f.t + f.a + f.f);
+    $("funnel").innerHTML =
+      '<div class="f-hyp" style="width:' + (f.p / total * 100) + '%">' + (f.p ? "待实验 " + f.p : "") + "</div>" +
+      '<div class="f-exp" style="width:' + (f.t / total * 100) + '%">' + (f.t ? "待评审 " + f.t : "") + "</div>" +
+      '<div class="f-acc" style="width:' + (f.a / total * 100) + '%">' + (f.a ? "已接受 " + f.a : "") + "</div>" +
+      '<div class="f-fal" style="width:' + (f.f / total * 100) + '%">' + (f.f ? "已证伪 " + f.f : "") + "</div>";
+    $("funnel-line").textContent = "漏斗：待实验 " + f.p + " → 待评审 " + f.t + " → 已接受 " + f.a + " / 已证伪 " + f.f + "（revise 打回两次即证伪；分拨不足的假设滞留上口）";
+  }
+  function renderCards() {
+    const lr = S.lastRound || {};
+    let h = "";
+    if (lr.hyp) h += '<div class="card"><div class="ct">💡 假设卡（赫兹）</div><div><span class="ck">假设：</span><span class="cv">' + esc(lr.hyp.hypothesis) + "</span></div><div><span class='ck'>依据：</span><span class='cv'>" + esc(lr.hyp.rationale) + "</span></div><div><span class='ck'>新颖度：</span>" + esc(lr.hyp.novelty) + " · <span class='ck'>建议实验算力：</span>" + esc(lr.hyp.cost_estimate) + " · <span class='ck'>refs：</span>" + esc((lr.hyp.refs || []).join("、") || "—") + (S.falsified.length ? " · <span style='color:#ff9d9d'>⛔已避开证伪史 " + S.falsified.length + " 条（记忆 imp:5）</span>" : "") + "</div></div>";
+    if (lr.exp) h += '<div class="card"><div class="ct">🔬 实验卡（法拉第）</div><div><span class="ck">设计：</span><span class="cv">' + esc(lr.exp.design) + "</span></div><div><span class='ck'>效应量：</span><b style='color:#e8d78a'>" + esc(lr.exp.effect_size) + "</b> · <span class='ck'>混杂：</span>" + esc((lr.exp.confounds || []).join("；")) + " · <span class='ck'>code_smell：</span><span style='color:" + (lr.exp.code_smell === "none" ? "#7effc3" : "#e8b24e") + "'>" + esc(lr.exp.code_smell) + "</span></div><div><span class='ck'>结果：</span><span class='cv'>" + esc(lr.exp.result) + "</span></div></div>";
+    if (lr.rev) h += '<div class="card ' + (lr.rev.verdict === "reject" ? "fal" : lr.rev.verdict === "accept" ? "acc" : "") + '"><div class="ct">🧾 评审卡（居里）· ' + esc(lr.rev.verdict) + " · score " + esc(lr.rev.reproducibility_score) + "</div><div><span class='ck'>隐藏假设：</span><span class='cv'>" + esc((lr.rev.hidden_assumptions || []).join("；")) + "</span></div><div><span class='ck'>问题：</span><span class='cv'>" + esc((lr.rev.issues || []).join("；")) + "</span></div></div>";
+    $("cards-view").innerHTML = h;
+  }
+  function renderLedger() {
+    const tb = $("ledger-body");
+    const rows = S.ledger.slice(-60).reverse();
+    tb.innerHTML = rows.map(e => {
+      const rp = e.replay ? (e.replay.status === "match" ? '<span class="rp-match">✅一致</span>' : e.replay.status === "mismatch" ? '<span class="rp-mismatch">⚠️不一致</span>' : '<span class="rp-mismatch">⚠️失败</span>') : '<span class="rp-none">·</span>';
+      const st = e.stage === "gate" ? "闸门" : STAGE_ZH[e.stage] || e.stage;
+      return '<tr class="entry" data-id="' + e.id + '"><td>' + e.id + '</td><td>' + e.round + '</td><td>' + st + '</td><td>' + esc(e.agent) + '</td><td>' + (e.mode === "online" ? "在线" : "离线") + '</td><td>' + (e.seed !== null && e.seed !== undefined ? e.seed : "—") + "/" + (e.temp !== null && e.temp !== undefined ? e.temp : "—") + '</td><td>' + (e.cost || 0) + '</td><td>' + rp + "</td></tr>";
+    }).join("");
+    tb.querySelectorAll("tr.entry").forEach(tr => tr.onclick = () => {
+      const e = S.ledger.find(x => x.id === tr.dataset.id);
+      if (!e) return;
+      const cur = $("ledger-detail").dataset.id;
+      if (cur === e.id && $("ledger-detail").style.display === "block" && e.replay) { $("ledger-detail").style.display = "none"; return; }
+      replayEntry(e, false);
+    });
+    renderHUD();
+  }
+  function showDetail(id) {
+    const e = S.ledger.find(x => x.id === id);
+    if (!e) return;
+    const d = $("ledger-detail");
+    d.dataset.id = e.id; d.style.display = "block";
+    let h = "<b style='color:#9fc3ff'>" + e.id + " · " + (STAGE_ZH[e.stage] || e.stage) + " · " + esc(e.agent) + "</b>（第 " + e.round + " 轮 · " + (e.mode === "online" ? "在线" : "离线") + " · 算力 " + (e.cost || 0) + " · tokens " + (e.tokens || 0) + "）";
+    if (e.msgs) {
+      h += "<div class='ck' style='color:#66718f;margin-top:6px'>留痕 messages（原样可重发）：</div><pre>" + esc(e.msgs.map(m => "[" + m.role + "] " + m.content).join("\n---\n")).slice(0, 2600) + "</pre>";
+      h += "<div class='ck' style='color:#66718f'>temp=" + esc(e.temp) + " · json:true · 种子：—（在线无种子，见 README 缺口声明）</div>";
+    } else {
+      h += "<div class='ck' style='color:#66718f;margin-top:6px'>离线核：种子 <b style='color:#e8d78a'>" + esc(e.seed) + "</b> · temp=" + esc(e.temp) + " · 请求：" + esc(e.request) + "</div>";
+    }
+    h += "<div class='ck' style='color:#66718f'>台账响应：</div><pre>" + esc(JSON.stringify(e.response, null, 1)).slice(0, 2200) + "</pre>";
+    if (e.replay) {
+      const cls = e.replay.status === "match" ? "match" : e.replay.status === "mismatch" ? "mismatch" : "error";
+      h += "<div class='rb " + cls + "'>" + (e.replay.status === "match" ? "✅ 复现一致" : e.replay.status === "mismatch" ? "⚠️ 复现不一致" : "⚠️ 重放失败") + " — " + esc(e.replay.detail) + (e.replay.hash1 ? "<br>台账哈希 " + e.replay.hash1 + " vs 重放哈希 " + e.replay.hash2 : "") + "</div>";
+      if (e.replay.response2 !== undefined) h += "<div class='ck' style='color:#66718f'>重放响应：</div><pre>" + esc(JSON.stringify(e.replay.response2, null, 1)).slice(0, 2200) + "</pre>";
+      h += "<button id='btn-rereplay'>🔁 再次重放（−3 算力）</button>";
+    } else {
+      h += "<div class='rb error' style='background:#101a2c;border-color:#2a3a5c;color:#9fc3ff'>尚未回放——点表格本行即回放审计（−3 算力）</div>";
+    }
+    d.innerHTML = h;
+    const b = $("btn-rereplay");
+    if (b) b.onclick = () => replayEntry(e, false);
+  }
+  function shake(el) { el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake"); }
+
+  /* ---- 意图路由 ---- */
+  function route() {
+    const t = $("intent").value.trim();
+    S.intent = t;
+    const r = SCI.routeIntent(t, TRACK.preset_intents);
+    S.topicIdx = r.idx;
+    const el = $("route-line");
+    if (!t) { el.className = ""; el.textContent = "（未立项）"; return; }
+    if (r.idx >= 0) {
+      const p = TRACK.preset_intents[r.idx];
+      el.className = "hit";
+      el.textContent = "路由命中：「" + p.label + "」（关键词「" + r.kw + "」）· X=" + p.vars.X + " · Y=" + p.vars.Y;
+    } else {
+      el.className = "";
+      el.textContent = providerReady ? "未命中预设主题——在线模式由假设官任意语义立项" : "未命中预设主题：规则引擎（离线）只认预设三主题，联网后可任意语义立项";
+    }
+    persist();
+  }
+  $("intent").addEventListener("input", route);
+  $("intent").addEventListener("change", route);
+  $("presets").innerHTML = TRACK.preset_intents.map((p, i) => '<button data-i="' + i + '">' + esc(p.label) + "</button>").join("");
+  $("presets").querySelectorAll("button").forEach(b => b.onclick = () => {
+    $("intent").value = "研究" + TRACK.preset_intents[+b.dataset.i].label;
+    $("presets").querySelectorAll("button").forEach(x => x.classList.toggle("sel", x === b));
+    route();
+  });
+  ["hyp", "exp", "rev"].forEach(k => {
+    const map = { hyp: "hypothesize", exp: "experiment", rev: "review" };
+    $(("sl-" + k)).addEventListener("input", () => {
+      S.grants[map[k]] = +$("sl-" + k).value;
+      $("v-" + k).textContent = S.grants[map[k]];
+      persist();
+    });
+    $("sl-" + k).value = S.grants[map[k]];
+    $("v-" + k).textContent = S.grants[map[k]];
+  });
+  $("btn-run").onclick = runRound;
+  $("btn-audit").onclick = fullAudit;
+
+  /* ============================== 剧情八拍 ============================== */
+  function renderStory() {
+    let html = '<p class="hint" style="margin-bottom:10px">' + esc(STORY.premise) + "</p>";
+    STORY.beats.forEach((b, i) => {
+      const cls = i === S.storyIdx ? "now" : (i < S.storyIdx ? "done" : "");
+      html += '<div class="beat ' + cls + '"><div class="ph">' + esc(b.phase) + (i < S.storyIdx ? " · 已完成" : i === S.storyIdx ? " · 进行中" : "") + '</div><div class="tt">' + esc(b.title) + '</div><div class="ds">' + esc(b.desc) + "</div></div>";
+    });
+    html += '<button id="btn-next" ' + (S.storyIdx >= STORY.beats.length ? "disabled" : "") + ">" + (S.storyIdx >= STORY.beats.length ? "八日已尽——台账就是遗产" : "推进剧情 → 第 " + (S.storyIdx + 1) + " 拍（+" + (S.tight ? 10 : 15) + " 算力）") + "</button>";
+    $("page-story").innerHTML = html;
+    const btn = $("btn-next");
+    if (btn) btn.onclick = advance;
+  }
+  async function advance() {
+    if (S.storyIdx >= STORY.beats.length) return;
+    const b = STORY.beats[S.storyIdx];
+    sys("📖 第 " + S.day + " 日 · 剧情推进：「" + b.title + "」");
+    if (providerReady) {
+      const t = bubble("thinking", "导演系统正在运镜……");
+      try {
+        const out = await provider.complete([
+          { role: "system", content: "你是实验室导演系统（DirectorSystem 同契约形态），用 2~3 句有画面感的中文旁白演绎当前剧情节拍，不要解释。" },
+          { role: "user", content: "前提：" + STORY.premise + "\n节拍：" + b.phase + "「" + b.title + "」——" + b.desc + "\n实验室现状：第" + S.round + "轮 · 漏斗 待实验" + S.proposed.length + "/待评审" + S.tested.length + "/已接受" + S.accepted + "/已证伪" + S.falsified.length + " · 台账 " + S.ledger.length + " 步。" },
+        ], { temp: 1.0, max: 200 });
+        t.remove(); bubble("direct", "<b>🎬 导演</b><br>" + esc(out));
+      } catch (e) { t.remove(); bubble("direct", "<b>🎬 导演</b><br>" + esc(b.desc)); }
+    } else {
+      bubble("direct", "<b>🎬 导演</b><br>" + esc(b.desc));
+    }
+    S.storyIdx++; S.day++;
+    earn(S.tight ? 10 : 15, "💰 探索奖励 +" + (S.tight ? 10 : 15) + " 算力");
+    applyBeatEffect();
+    persist(); renderStory(); renderHUD(); renderFunnel();
+  }
+  function applyBeatEffect() {
+    const i = S.storyIdx;
+    if (i === 3 && !S.strict) { S.strict = true; sys("🧯 复现危机爆发：评审加严生效——audit_rules 每条命中额外 −5（本拍之后）"); }
+    if (i === 4 && !S.tight) { S.tight = true; sys("🧊 预算收紧：此后推进剧情 +10/拍（原 +15）"); }
+    if (i === 5) { ensureLit(); sys("📚 文献入库拍：赫兹记忆现有 " + (mem.export() ? JSON.parse(mem.export())["赫兹"]?.length || 0 : 0) + " 条，文献与证伪史均可被检索引用"); }
+    if (i === 6 && S.falsified.length) { const bonus = S.falsified.length * 3; S.pool += bonus; sys("🏆 证伪的价值：按证伪存量 " + S.falsified.length + " 条发放一次性奖金 +" + bonus + " 算力"); }
+    if (i === 7 && !S.proposed.length && !S.tested.length) { S.pool += 5; sys("🧹 积压清理：漏斗已排干，+5 算力"); }
+    if (i === 8) finalReview();
+  }
+  function finalReview() {
+    const okRep = S.rep >= 8, okFal = S.falsified.length >= 1, okLed = offlineAllMatch();
+    const gaps = [];
+    if (!okRep) gaps.push("审稿信誉 " + S.rep + "/8（评审 accept 与复现自检可涨）");
+    if (!okFal) gaps.push("证伪史 0 条（至少要杀死 1 个假设）");
+    if (!okLed) gaps.push("离线台账未全部回放一致（跑一次全台账复现自检）");
+    if (S.storyIdx >= STORY.beats.length && gaps.length === 0)
+      sys("🏛 终审通过：信誉 " + S.rep + " · 证伪 " + S.falsified.length + " 条 · 离线台账回放全 ✅——零号实验室存续。「没有留痕就没有科学」今天有了样板间。");
+    else if (S.storyIdx >= STORY.beats.length)
+      sys("🏛 终审整改清单：" + gaps.join("；") + "——补齐后重放台账即可翻案。");
+  }
+
+  function earn(n, why) { S.pool += n; if (why) sys(why); renderHUD(); persist(); }
+
+  /* ============================== 玩法 / 课题组 ============================== */
+  function renderCodex() {
+    const done = [!!S.intent, S.roundsDone > 0, S.replayCount > 0];
+    let html = "<h4>核心循环</h4>";
+    GAME.core_loop.forEach((s, i) => {
+      html += '<div class="loop-step ' + (done[i] ? "done" : "") + '"><span>' + (done[i] ? "✅" : "▫️") + "</span>" + esc(s) + "</div>";
+    });
+    html += "<h4>机制系统</h4>";
+    GAME.mechanics.forEach(m => { html += '<div class="mech"><b>' + esc(m.name) + "</b><div>" + esc(m.detail) + "</div></div>"; });
+    html += '<h4>经济循环</h4><table class="eco"><tr><th>资源</th><th>来源</th><th>去向</th></tr>';
+    GAME.economy.forEach(r => { html += "<tr><td>" + esc(r.name) + "</td><td>" + esc(r.source) + "</td><td>" + esc(r.sink) + "</td></tr>"; });
+    html += '</table><h4>难度曲线</h4><div class="mech"><div>' + esc(GAME.difficulty) + "</div></div>";
+    html += "<h4>证伪档案（赫兹记忆 imp:5）</h4>";
+    if (!S.falsified.length) html += '<div class="mech"><div>（尚无证伪记录——评审 reject 后此处点亮，下一轮假设官 visibly 避开）</div></div>';
+    S.falsified.forEach((t, i) => { html += '<div class="mech" style="border-left:3px solid #a83a3a"><b style="color:#e8a0a0">⛔ ' + esc(t) + "</b></div>"; });
+    html += '<h4>审计存档</h4><div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button id="btn-export-save" style="background:#2d5b9e;color:#fff;border:none;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:12.5px">📤 导出存档（含台账+记忆）</button>' +
+      '<button id="btn-import-save" style="background:#161a28;color:#cdd6ec;border:1px solid #2a3a5c;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:12.5px">📥 导入存档</button>' +
+      '<input type="file" id="save-file" accept="application/json" style="display:none" /></div>' +
+      '<p style="color:#5f6b8a;font-size:11px;margin:8px 0 0">状态、台账与三 agent 记忆（MemoryStore.export）都在浏览器里——换电脑前记得导出。</p>';
+    $("page-codex").innerHTML = html;
+    $("btn-export-save").onclick = exportSave;
+    $("btn-import-save").onclick = () => $("save-file").click();
+    $("save-file").onchange = e => { if (e.target.files[0]) importSave(e.target.files[0]); };
+  }
+  function exportSave() {
+    const data = {};
+    for (let k = 0; k < localStorage.length; k++) {
+      const key = localStorage.key(k);
+      if (key && key.indexOf("game.oriera-sci.") === 0) data[key] = localStorage.getItem(key);
+    }
+    const blob = new Blob([JSON.stringify({ game: GAME.id, saved_at: Date.now(), memory: JSON.parse(mem.export() || "{}"), data }, null, 1)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "oriera-存档-" + GAME.id + ".json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+  function importSave(file) {
+    const r = new FileReader();
+    r.onload = () => {
+      try {
+        const j = JSON.parse(r.result);
+        Object.entries(j.data || {}).forEach(([k, v]) => localStorage.setItem(k, v));
+        location.reload();
+      } catch (e) { sys("存档文件无法识别"); }
+    };
+    r.readAsText(file);
+  }
+  function renderAgents() {
+    $("agent-list").innerHTML = AGENTS.map((a, i) => {
+      const memLen = (JSON.parse(mem.export() || "{}")[a.name] || []).length;
+      return '<div class="npc-row" data-i="' + i + '"><div class="npc-ava" style="background:#' + npcs[i].color.toString(16).padStart(6, "0") + '22;border:2px solid #' + npcs[i].color.toString(16).padStart(6, "0") + '"></div><div><div class="npc-nm">' + esc(a.name) + ' <span class="npc-rl">· ' + esc(a.role) + " · 记忆 " + memLen + " 条</span></div>" +
+        '<div class="npc-pf">' + esc(a.persona.split("【")[0]) + "</div></div></div>";
+    }).join("");
+    $("agent-list").querySelectorAll(".npc-row").forEach(d => d.onclick = () => showAgentMemory(+d.dataset.i));
+  }
+  function showAgentMemory(i) {
+    const a = AGENTS[i];
+    const eps = (JSON.parse(mem.export() || "{}")[a.name] || []).slice(-10).reverse();
+    let h = "<b style='color:#9fc3ff'>" + esc(a.name) + " 的长期记忆（MemoryStore · 最近 " + eps.length + " 条）</b>";
+    if (!eps.length) h += "<p class='hint'>（暂无记忆——开跑一轮后这里开始生长）</p>";
+    eps.forEach(e => {
+      h += '<div class="mep ' + (e.kind === "falsified" ? "fal" : "") + '">第' + e.day + "日 imp:" + e.imp + " · " + esc(e.text) + (e.kind === "falsified" ? " ⛔已入勿重复清单" : "") + "</div>";
+    });
+    $("agent-mem").style.display = "block";
+    $("agent-mem").innerHTML = h;
+    sys(a.name + "（" + a.role + "）向你开放了记忆审计");
+  }
+
+  document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
+    document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("on", x === b));
+    document.querySelectorAll(".tab-page").forEach(p => p.classList.remove("on"));
+    $("page-" + b.dataset.t).classList.add("on");
+  });
+
+  /* ---- 开场 ---- */
+  $("tagline").textContent = GAME.tagline;
+  renderHUD(); renderFunnel(); renderLedger(); renderCards(); renderStory(); renderCodex(); renderAgents();
+  sys("欢迎来到「" + esc(GAME.name) + "」。你当 PI，也当审计员——先口述研究意图（或点预设主题），拨好三根滑杆，开跑第一轮。");
+  AGENTS.forEach((a, i) => setTimeout(() => {
+    sys(a.name + "（" + a.role + "）：「" + a.first_line + "」");
+  }, 600 + i * 2200));
+
+  const clock = new THREE.Clock();
+  (function animate() {
+    requestAnimationFrame(animate);
+    const dt = clock.getDelta();
+    npcs.forEach((n, j) => {
+      n.label.position.y = 3.1 + Math.sin(clock.elapsedTime * 2 + j) * 0.06;
+      if (n.mixer) n.mixer.update(dt);
+    });
+    controls.update();
+    renderer.render(scene, camera);
+  })();
+  window.addEventListener("resize", () => {
+    camera.aspect = sceneEl.clientWidth / sceneEl.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(sceneEl.clientWidth, sceneEl.clientHeight);
+  });
+}
+boot();
+</script>
+</body>
+</html>

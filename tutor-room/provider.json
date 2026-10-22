@@ -1,0 +1,7 @@
+{
+  "kind": "rule",
+  "model": "rule-v1",
+  "base": "",
+  "key": "",
+  "note": "本文件是 Studio 全局配置快照（project.rs settings::load_provider），非本项目游戏数据可控字段，运行时不读——真正生效配置须在 Studio「模型中心」保存并植入（写入 localStorage aicafe.llm.v1），或手动执行 localStorage.setItem('aicafe.llm.v1', JSON.stringify({kind:'deepseek',key:'sk-…',model:'deepseek-flash',base:'https://api.deepseek.com'})) 后刷新。默认 kind=rule 离线行：断网/无 key 自动全链路规则降级，「答→调→放」三步完整可演示（仅降级两处：LLM 现编话术→固定提示阶梯文案，督学旁白→模板句）。API Key 一律不写入本文件。"
+}

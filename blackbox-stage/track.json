@@ -1,0 +1,44 @@
+{
+  "track": "AIGC",
+  "title": "黑匣片场：一令一镜的 AI 导演台",
+  "pitch": "同一句导演令＋同一份世界存档＝同一份分镜脚本：AI 导演把 token 预算实拨给剧情/分镜/台词三个生成器并逐条记账，角色设定靠长期记忆锚定不崩，每条令落进黑匣随时重放对 diff——AIGC 的不可复现、记不住、算不起三个死穴一次拆完。",
+  "benchmarks": [
+    { "project": "LangGraph", "aspect": "有状态多智能体编排，checkpoint 与时间旅行（本 demo 黑匣的最小等价参照）", "license": "MIT" },
+    { "project": "Dify", "aspect": "可视化 LLM 工作流编排，多模型接入与调用计费面板", "license": "Apache-2.0（附附加条件）" },
+    { "project": "CrewAI", "aspect": "角色化多智能体协作（导演/写手分工与协议卡同型）", "license": "MIT" },
+    { "project": "MoneyPrinterTurbo", "aspect": "一句主题自动出短视频成片（文案/素材/字幕全管线）", "license": "MIT" }
+  ],
+  "pain_to_mechanic": [
+    {
+      "pain": "生成不可复现：抽卡式产出，同一需求重跑结果漂移，改稿没有基准帧",
+      "mechanic": "不可复现→黑匣 checkpoint＋种子回放＋diff 视图：每令的命令全文＋世界状态快照落匣（localStorage），离线用 mulberry32(令哈希^世界哈希) 种子重放逐字节一致全绿；在线 temp:0 真透传（kernel.js:81 传 0 非 nullish 即生效）做「可验证的复现」，diff 逐字段亮出差异而非假装 100%"
+    },
+    {
+      "pain": "长程记不住：角色设定崩坏、前后台词不一致，全靠把设定粘进 prompt 手工续命",
+      "mechanic": "记不住→L9 记忆锚定：角色卡 initState 首访灌入 MemoryStore（每角色一条记忆线），定稿的状态变更与台词回写同线；每个生成器开跑前 retrieve 召回五锚点（about 同名 +1.2 加成，kernel.js:42）注入上下文，硬状态另存 KV 表保证「当前是否黑化」这类判定不靠 bigram 猜"
+    },
+    {
+      "pain": "成本不可控：一次生成烧多少 token 没有账，重跑/重放对不上数",
+      "mechanic": "算不起→预算实拨＋真实账本：每令预算（默认 600 可调）按拍摄计划拆给三生成器，分拨值就是调用的 max_tokens 由端点硬执行；provider.stats.tokens 逐调用累计（kernel.js:88-89）做 before/after 差值分账，回放调用单独计费不入正片账"
+    }
+  ],
+  "feasibility": "强成（其中在线确定性一处为「可验证的复现」而非魔法一致，已诚实降级表述）。强成项：预算分拨是 API 级真实约束（max_tokens 透传 kernel.js:77,81）＋真实 token 账本（stats.tokens kernel.js:88-89）；长期记忆锚定直用 MemoryStore 检索注入；离线回放用种子模板逐字节一致，是全 demo 最硬的确定性时刻；黑匣 checkpoint=localStorage 快照＋非破坏回放，是 LangGraph checkpoint/时间旅行的最小等价物。弱成项（诚实）：在线「同一令＋同一状态＝逐字节一致」不可承诺——temp=0 只是近似（厂商批处理/浮点仍可漂移），且 vendored kernel.js 不透传 seed/top_p，demo 因此把在线卖点定为「可验证的复现」（diff 亮出差异而非假装 100%）。",
+  "engine_gaps": [
+    "CognitionSystem/DirectorSystem 系统提示词硬编码咖啡馆世界（kernel.js:158、253），无法注入自定义世界观与生成协议——demo 的导演/生成器只能应用层自拼 prompt 直调 provider.complete；引擎应补提示词模板化与世界注入参数",
+    "MemoryStore 为 bigram 启发式（kernel.js:28-47），无字段级状态查询——「林见鹿当前是否黑化」这类硬状态由应用层 KV 表（game.aigc-director.state）另存，先例 trust 表同法",
+    "自然语言→拍摄计划的路由在应用层实现（vendored kernel 无命令通道）；引擎若补命令通道可直接替换离线路由表",
+    "无流式输出且单次 20s 超时（kernel.js:85），长分镜需拆多次小 max 调用；anthropic 分支不透传 temperature（kernel.js:76-79），回放演示应选 openai 兼容厂商（deepseek/zhipu）"
+  ],
+  "budgetDefaults": { "perOrder": 600, "splitFloor": 80 },
+  "generators": [
+    { "key": "plot", "name": "剧情生成器", "agent": "织文" },
+    { "key": "shots", "name": "分镜生成器", "agent": "格画" },
+    { "key": "lines", "name": "台词生成器", "agent": "声线" }
+  ],
+  "replayPolicy": {
+    "temp": 0,
+    "offlineSeed": "mulberry32(cmdHash^worldHash)",
+    "diffFields": ["beat", "shots", "lines", "stateDeltas"]
+  },
+  "anchorFields": ["性格", "服装", "标志物", "口癖", "当前状态"]
+}

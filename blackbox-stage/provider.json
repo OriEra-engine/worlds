@@ -1,0 +1,6 @@
+{
+  "kind": "rule",
+  "model": "rule-v1",
+  "base": "",
+  "note": "本文件是 Studio 全局配置快照（project.rs settings::load_provider 同位字段），非本项目游戏数据可控字段，运行时不读——真正生效配置须在 Studio「模型中心」保存并植入（写入 localStorage aicafe.llm.v1），或手动执行 localStorage.setItem('aicafe.llm.v1', JSON.stringify({kind:'deepseek',key:'sk-…',model:'deepseek-chat',base:'https://api.deepseek.com'})) 后刷新。默认 kind=rule 即离线演示的合法配置位：断网/无 Key 自动降级离线规则管线（关键词路由×种子模板），下令/分拨/锚定/黑匣/回放 diff 全链路照常。回放演示建议选 openai 兼容厂商（deepseek/zhipu）——anthropic 分支不透传 temperature（kernel.js:76-79）。API Key 一律不写入本文件。"
+}

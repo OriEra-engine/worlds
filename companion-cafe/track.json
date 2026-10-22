@@ -1,0 +1,42 @@
+{
+  "track": "陪伴（AI Companion）",
+  "title": "《第 61 杯：证忆咖啡馆》——可验证的零幻觉陪伴记忆",
+  "painpoint": "陪伴型 AI 产品的致命伤是『她记不住你』：长期记忆靠 LLM 生成式回忆，说了什么、记错了什么，用户无法当场核验；记忆检索过程是黑盒，幻觉式回忆（把没发生的事说得言之凿凿）直接摧毁陪伴关系中最值钱的『被记得』感。解药不在更大的模型，而在确定性层：落账逐字、回放确定、对账可查——这三件事全部落在 OriEra 引擎已验证的 MemoryStore 确定性检索与游戏层不可变账本上，无需引擎补件。",
+  "benchmarks": [
+    "mem0——检索增强记忆层，检索对用户不可见不可核验，无『证据卡』式当场对账",
+    "letta（MemGPT）——分层记忆自编辑，但『她引用的到底是哪一条』永远无法对账，幻觉无警报机制",
+    "SillyTavern——记忆卡/世界书靠手工维护，无确定性检索打分、无逐字落账、无容量边界的叙事化"
+  ],
+  "engine_evidence": [
+    { "anchor": "engine/kernel.js:13", "hook": "MemoryStore", "fact": "检索式长期记忆类：record/retrieve(agent,about,query,now,k)，与 Rust memory.rs 同构" },
+    { "anchor": "engine/kernel.js:25", "hook": "容量上界 60", "fact": "if (v.length > 60) v.splice(0, v.length - 60)——每 agent 60 条硬容量，即核心机制『第 61 杯』的引擎事实来源，引擎边界先于设计存在" },
+    { "anchor": "engine/kernel.js:28-47", "hook": "确定性检索", "fact": "bigram 命中×1.6 + imp×0.45 + 时间衰减×2 + about 加成，无任何随机源——对账检索与回放的确定性依据，离线 0 token" },
+    { "anchor": "engine/kernel.js:14,52", "hook": "持久化", "fact": "localStorage 存取，跨会话记忆不断片；游戏层账本同法持久并附哈希链" },
+    { "anchor": "engine/kernel.js:136", "hook": "CognitionSystem", "fact": "陪伴角色认知 tick：检索→注入→JSON 台词生成→亲密度→双侧记忆写回，全自动" },
+    { "anchor": "engine/kernel.js:147-149", "hook": "partner 自动生成", "fact": "单 NPC 时 partner 自动落为『客人』——单角色陪伴场景即插即用，无需第二 NPC" },
+    { "anchor": "engine/kernel.js:153-164", "hook": "检索注入", "fact": "每轮 world.guestQueue 取客人发言，MemoryStore.retrieve(…,4) 检索记忆注入 prompt——用户输入→系统级 tick 的通道" },
+    { "anchor": "engine/kernel.js:196-198", "hook": "亲密度演算", "fact": "world.rel 按 mood 涨落（happy/excited +2，其余 +0.5，封顶 100）——陪伴关系的量化进度" },
+    { "anchor": "engine/kernel.js:201-206", "hook": "双侧记忆写回", "fact": "她的 remember（≤30 字要点）与客人的对话摘要各记一条——注意：引擎存的是压缩要点而非逐字原话，逐字全量由游戏层公证账本自持（诚实边界，双层叙事的由来）" },
+    { "anchor": "engine/kernel.js:243-266", "hook": "DirectorSystem", "fact": "可配 interval 的节拍生成；离线节拍库 RULE_BEATS（:235-242）即咖啡馆关系风味；demo 用子类把离线节拍源直连 story.json 时间线" },
+    { "anchor": "engine/kernel.js:263-264", "hook": "世界事件写记忆", "fact": "节拍以 imp:4 写进每位 agent 记忆并推进 day——停电夜/旧便签等关系节拍真实进入她的记忆层" },
+    { "anchor": "engine/kernel.js:270-274", "hook": "Scheduler", "fact": "应用层只 pump scheduler.tick(world)，add(CognitionSystem)+add(DirectorSystem) 按序驱动；预算门控在 pump 前判定（见底=不 tick=引擎降级）" },
+    { "anchor": "engine/kernel.js:277-290", "hook": "createProvider + PROVIDER_PRESETS", "fact": "L7 八厂商自选；kind=rule 或无 Key 返回 null（:288）即天然离线；HttpChatProvider.stats.calls/tokens（:62, 88-89）真实遥测直喂心力面板" },
+    { "anchor": "engine/kernel.js:22", "hook": "record 公开方法", "fact": "MemoryStore.record 可被应用层直调——离线『快进十晚』按钮批量落账+写索引，几秒跨过 60 条边界演示遗忘与找回" }
+  ],
+  "zero_hallucination_laws": [
+    "落账逐字——每句对话以 {序号, 第X日, 第Y轮, 角色, 逐字原文, 哈希链} 追加进公证账本：只增不改、localStorage 持久、导出 JSON 存证可验完整性",
+    "回放确定——账本检索与回放走引擎确定性 bigram 打分（kernel.js:28-47），零随机、零 token：同一质询永远命中同一证据",
+    "对账可查——她的每次口头回忆与逐字证据卡并排展示：引用命中打绿勾✓（+10 心力），凭空编造当场亮『幻觉警报』红条"
+  ],
+  "budget": {
+    "formula": "每轮分拨 = 检索条数 k × 生成档位；心力账户：认知 tick 8/次 · 导演 tick 20/次 · 质询检索 1×k；收入：次日 +40 / 质询被正确引用 +10 / 快进一晚 +40；心力不足即停 pump，降级零 token 规则模式（台词直接引用账本原文）。诚实注记：引擎 CognitionSystem 的 complete 不透传 max（kernel.js:176，默认 260 tokens），token 级『短句档』需引擎补 per-tick opts（约 1 行），当前以『不 tick 即降级』门控实现档位切换",
+    "telemetry": "provider.stats（HttpChatProvider.stats.calls / stats.tokens，kernel.js:62, 88-89）为引擎真实计数，直读上屏不估算；离线 createProvider 返回 null（kernel.js:288），面板 token 列恒 0——离线态实证『记忆层不烧钱』"
+  },
+  "offline_mode": "离线（rule 行/无 Key）核心卖点完整保留且更有说服力：① 公证账本逐字落账、天数推进、哈希链校验、导出存证全部可用（纯确定性，零依赖）；② 质询+引擎确定性检索+逐字证据卡照常工作，0 token 实证『检索不烧钱』；③ 快进十晚批量写入（直调 mem.record），几秒跨过 60 条边界，完整演示『她忘了最老一条、账本仍能回放找回』；④ 规则台词模板从账本取引文，引用核对 100% 绿勾（幻觉警报用『伪造一次回忆』演示按钮演出）；⑤ 关系节拍由 DirectorSystem 子类直读 story.json 时间线。降级部分：她的台词失去模型风味（人设规则库+账本引文；引擎 _rule 咖啡馆台词库 kernel.js:209-231 二层兜底）、无模型生成旁白。",
+  "honest_gaps": [
+    "幻觉警报的引用核对是字符串级启发式（归一化后包含匹配），不是语义级检测——demo 演出，已在玩法卡与 UI 中标注",
+    "引擎记忆 episode 存 ≤30 字要点（kernel.js:168,185,201-206）、world.dialogue 只留 24 条（kernel.js:200）——逐字全量账本由游戏层自持（贴合双层叙事：她=人脑式压缩记忆，账本=全存）",
+    "CognitionSystem 的 complete 固定不传 max（kernel.js:176）——预算『短句档』无法经 opts 下调，以『不 tick 即降级』门控替代；引擎补 per-tick opts 透传（约 1 行）后可细到 token 档",
+    "在线模式下她拿到的检索材料是压缩要点而非逐字原文，模型复述措辞可能与账本有出入——这正是核对器与警报存在的意义，属于特性而非缺陷"
+  ]
+}

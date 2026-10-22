@@ -1,0 +1,7 @@
+{
+  "kind": "rule",
+  "model": "rule-v1",
+  "base": "",
+  "key": "",
+  "note": "本文件是 Studio 全局配置快照说明（参照 project.rs settings::load_provider 的先例形态），运行时不读，也永不落 Key——key 字段留空即离线。默认 rule 离线行：引擎 createProvider 对 kind=rule 或无 Key 一律返回 null（engine/kernel.js:287-289），CognitionSystem/DirectorSystem 自动走零 token 规则降级，检索与回放 0 消耗，核心循环（落账/对账/预算）离线完整可玩。切在线（二选一）：① Studio「模型中心」粘贴 Key 保存并植入；② 游戏页 F12 执行 localStorage.setItem('aicafe.llm.v1', JSON.stringify({kind:'deepseek', key:'sk-你的Key', model:'deepseek-chat', base:'https://api.deepseek.com/v1'})) 后 F5。真实 token 遥测来自 HttpChatProvider.stats（kernel.js:62, 88-89），直接喂心力面板。API Key 一律不写入本文件或任何项目文件。"
+}

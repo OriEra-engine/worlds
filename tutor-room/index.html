@@ -1,0 +1,1237 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>可回放辅导舱：白老师的分数课 · OriEra 原型</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; overflow: hidden; background: #0d1017; color: #e6e8ef;
+    font-family: "Segoe UI", "Microsoft YaHei", sans-serif; }
+  #app { display: flex; height: 100%; }
+  #scene { flex: 1; position: relative; min-width: 0; }
+  #scene canvas { display: block; }
+  #hud { position: absolute; top: 12px; left: 14px; right: 14px; display: flex; gap: 8px;
+    align-items: center; pointer-events: none; flex-wrap: wrap; }
+  .chip { background: rgba(13,16,23,.82); border: 1px solid #2a3a5c; border-radius: 20px;
+    padding: 6px 12px; font-size: 12px; color: #aeb6cc; pointer-events: auto; }
+  #dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #556; margin-right: 6px; }
+  #dot.live { background: #35d07f; box-shadow: 0 0 8px #35d07f; }
+  #budget-chip.low { border-color: #a83a3a; color: #e0a0a0; }
+  #panel { width: 440px; background: #12151f; border-left: 1px solid #232a3d; display: flex; flex-direction: column; }
+  #tabs { display: flex; border-bottom: 1px solid #232a3d; }
+  #tabs button { flex: 1; background: none; border: none; color: #7c86a3; padding: 12px 2px;
+    font-size: 13px; cursor: pointer; border-bottom: 2px solid transparent; }
+  #tabs button.on { color: #7eb8ff; border-bottom-color: #7eb8ff; }
+  .tab-page { flex: 1; overflow-y: auto; padding: 14px; display: none; }
+  .tab-page.on { display: block; }
+  #chat-log { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+  .msg { max-width: 92%; padding: 8px 12px; border-radius: 12px; font-size: 13px; line-height: 1.65; white-space: pre-wrap; }
+  .msg.npc { background: #1b2336; border: 1px solid #2c3c5e; align-self: flex-start; }
+  .msg.me { background: #1d3a5f; align-self: flex-end; }
+  .msg.sys { color: #7c86a3; font-size: 12px; align-self: center; }
+  .msg.thinking { color: #7c86a3; font-size: 12px; align-self: flex-start; }
+  .msg b { color: #9fc3ff; }
+  /* 决策帧卡片（本 demo 的审计货币单位） */
+  .msg.frame { background: #10231c; border: 1px solid #2f6b52; align-self: stretch; max-width: 100%;
+    font-size: 12.5px; white-space: normal; line-height: 1.7; }
+  .msg.frame .fh { color: #7ed9a8; font-weight: 700; }
+  .msg.frame span.dim { color: #8a93ad; }
+  /* 题卡 */
+  .qcard { background: #161a28; border: 1px solid #2a3a5c; border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+  .qcard .qskill { font-size: 11px; color: #7c86a3; margin-bottom: 6px; display: flex; justify-content: space-between; gap: 8px; }
+  .qcard .qstem { font-size: 14px; font-weight: 700; margin-bottom: 10px; line-height: 1.6; }
+  .opt { display: block; width: 100%; text-align: left; background: #0d1017; border: 1px solid #2a3a5c;
+    color: #e6e8ef; border-radius: 8px; padding: 9px 12px; font-size: 13px; cursor: pointer; margin-bottom: 6px; }
+  .opt:hover:not(:disabled) { border-color: #7eb8ff; }
+  .opt:disabled { cursor: default; opacity: .8; }
+  #q-actions { display: flex; gap: 8px; margin-top: 6px; }
+  #q-actions button { flex: 1; background: #161a28; border: 1px solid #2a3a5c; color: #aeb6cc;
+    border-radius: 8px; padding: 9px 6px; cursor: pointer; font-size: 12.5px; }
+  #q-actions button:disabled { cursor: default; opacity: .5; }
+  .beat { border-left: 3px solid #2a3a5c; padding: 8px 12px; margin-bottom: 10px; border-radius: 0 8px 8px 0;
+    background: #161a28; }
+  .beat.now { border-left-color: #7eb8ff; background: #1a2440; }
+  .beat.done { opacity: .45; }
+  .beat .ph { font-size: 11px; color: #7c86a3; }
+  .beat .tt { font-size: 13.5px; font-weight: 700; margin: 2px 0; }
+  .beat .ds { font-size: 12.5px; color: #aeb6cc; line-height: 1.6; }
+  #btn-nextday { width: 100%; margin: 6px 0 14px; padding: 11px; background: #2d5b9e; color: #fff;
+    border: none; border-radius: 8px; cursor: pointer; font-size: 13.5px; }
+  #btn-nextday:disabled { background: #2a3348; cursor: default; }
+  .codex h4 { margin: 14px 0 8px; font-size: 13px; color: #9fc3ff; }
+  .codex h4:first-child { margin-top: 0; }
+  .mech { background: #161a28; border-radius: 8px; padding: 9px 12px; margin-bottom: 6px; }
+  .mech b { font-size: 13px; color: #cdd6ec; }
+  .mech div { font-size: 12px; color: #8a93ad; margin-top: 2px; line-height: 1.55; }
+  table.eco { width: 100%; border-collapse: collapse; font-size: 12px; }
+  table.eco th { text-align: left; color: #7c86a3; padding: 4px 6px; font-weight: 500; }
+  table.eco td { padding: 5px 6px; border-top: 1px solid #1e2536; color: #b6bfd6; }
+  /* 回放时间轴与帧卡 */
+  .tl-dots { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0 12px; }
+  .tl-dot { width: 11px; height: 11px; border-radius: 50%; cursor: pointer; background: #2a3a5c;
+    border: 1px solid #0d1017; }
+  .tl-dot.on { outline: 2px solid #fff; transform: scale(1.25); }
+  .tl-dot.m-socratic { background: #7eb8ff; }
+  .tl-dot.m-teach { background: #e8b24e; }
+  .tl-dot.m-quiz { background: #9f8fff; }
+  .tl-dot.m-repair { background: #e07a7a; }
+  .tl-dot.m-advance { background: #35d07f; }
+  .fcard { background: #10231c; border: 1px solid #2f6b52; border-radius: 10px; padding: 10px 12px; }
+  .fcard .fh { color: #7ed9a8; font-weight: 700; font-size: 13px; margin-bottom: 6px; }
+  table.ftab { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.ftab td { padding: 5px 6px; border-top: 1px solid #1e3428; color: #b6bfd6; vertical-align: top; line-height: 1.55; }
+  table.ftab td:first-child { color: #7c86a3; white-space: nowrap; width: 74px; }
+  .rbtn { flex: 1; background: #2d5b9e; border: none; color: #fff; border-radius: 8px;
+    padding: 10px 8px; cursor: pointer; font-size: 12.5px; }
+  .rbtn:hover { background: #3568b3; }
+  #fallback { position: fixed; inset: 0; background: #0d1017ee; display: none; align-items: center;
+    justify-content: center; z-index: 99; text-align: center; padding: 40px; line-height: 2; }
+  .hint { font-size: 12px; color: #7c86a3; margin-top: 8px; }
+  input[type="range"] { accent-color: #7ed9a8; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="scene">
+    <div id="hud">
+      <div class="chip"><b style="color:#9fc3ff">可回放辅导舱</b> · <span id="tagline"></span></div>
+      <div class="chip">第 <b id="day" style="color:#e8d78a">1</b> 课</div>
+      <div class="chip">🎯 <b id="hud-skill" style="color:#9fc3ff">—</b> <span id="hud-p">p=—</span></div>
+      <div class="chip" id="budget-chip">🎫 <b id="hud-budget">—</b></div>
+      <div class="chip">📋 帧 <b id="hud-frames">0</b></div>
+      <div class="chip"><span id="dot"></span><span id="prov-name">规则引擎（离线）</span></div>
+    </div>
+  </div>
+  <div id="panel">
+    <div id="tabs">
+      <button class="on" data-t="chat">📝 课堂</button>
+      <button data-t="story">📖 课程</button>
+      <button data-t="codex">🎯 玩法</button>
+      <button data-t="replay">⏪ 回放</button>
+    </div>
+    <div id="page-chat" class="tab-page on">
+      <div id="qbox"></div>
+      <div id="chat-log"></div>
+      <p class="hint">答 / 求助 / 换题，每步落一张决策帧 · AI 话术由引擎 L7 层驱动 · 掌握度与画像存本浏览器 · F5 刷新</p>
+    </div>
+    <div id="page-story" class="tab-page"></div>
+    <div id="page-codex" class="tab-page codex"></div>
+    <div id="page-replay" class="tab-page"></div>
+  </div>
+</div>
+<div id="fallback">
+  <div>
+    <div style="font-size:40px">🛰️</div>
+    <h2 style="margin:12px 0">请通过静态服务器打开本项目</h2>
+    <p style="color:#8a93ad">demo 依赖 ES Module 相对路径加载（engine/kernel.js、vendor/）——file:// 直开会被浏览器拦截。</p>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "./vendor/three.module.js",
+  "three/addons/": "./vendor/"
+} }
+</script>
+<script type="module">
+/* ============ 游戏数据（由构建脚本从 game/story/agents/track.json 注入，与磁盘文件字节同步） ============ */
+const GAME = {
+  "id": "edu-tutorpod",
+  "name": "可回放辅导舱：白老师的分数课",
+  "tagline": "每道错题实时更新掌握概率，每次换教学策略都落一张带理由的决策帧，每个 token 都记在课时预算账上",
+  "gameplay_id": "knowledge-traced-tutoring",
+  "core_loop": [
+    "【答】学生做题或点「求助」，导师按当前掌握概率选教学动作：苏格拉底提示 / 直接讲解 / 换题 / 回前置技能——离线读 track.json 固定三级提示阶梯，在线由 LLM 按 JSON 协议现编话术",
+    "【调】BKT 引擎即时更新该技能 p(掌握)（Corbett-Anderson 更新式，纯确定性数学），导演按阈值表＋token 预算余量换策略，每一步落一张「决策帧」",
+    "【放】家长/教师拖回放时间轴逐帧审计：每帧 = 学生输入＋掌握度前后值＋导演动作与理由＋本帧 token 消耗（回放为事件溯源重演，数字与理由完全可对质）"
+  ],
+  "mechanics": [
+    {
+      "name": "苏格拉底动作",
+      "detail": "教学动作五选一：socratic（只提问不给答案）/ teach（三级阶梯讲完直接讲解）/ quiz（换题巩固）/ repair（回前置技能修地基）/ advance（进阶换技能）。动作由阈值表决定，话术可离线——离线读 track.json 三级提示阶梯，在线由 LLM 按 {move,hint,askBack,rationale} JSON 协议现编。"
+    },
+    {
+      "name": "决策帧",
+      "detail": "学生每提交一步（作答/求助/换题）落一张帧：输入、判分、掌握度前后值、导演动作与理由（阈值表原文＋LLM 措辞）、本帧 token 消耗与来源（llm/rule）——回放时间轴逐帧可查，是审计的唯一事实源。"
+    },
+    {
+      "name": "预算降级",
+      "detail": "课时预算 = 拨款 2400 + 答题回收（答对 +12/题）；LLM 调用按 perCallMax≤160 定价（complete 的 opts.max 上限），余量 < 25%（cheapBelow 阈值）自动降级为规则话术——本帧 0 token，课照样上完，帧上明标 source:\"rule\"。"
+    },
+    {
+      "name": "掌握演算",
+      "detail": "BKT（Corbett-Anderson）对每技能维护 p(掌握)：答对按 (1−pSlip)/pGuess 似然修正、答错按 pSlip/(1−pGuess) 修正，再叠加 pTransit 学习迁移——纯确定性客户端数学，回放页附重演校验（按帧日志重算 BKT vs 记录值逐帧对质）。"
+    },
+    {
+      "name": "跨课画像",
+      "detail": "引擎 L9 记忆层（MemoryStore）按技能落「判对/错 p=0.xx＋错因」摘要（about=技能 id 吃检索加成），导演每步 retrieve 该生此技能历史注入上下文——localStorage 持久，次日续档白老师开场先背出你昨天栽过的技能。"
+    },
+    {
+      "name": "审计报告",
+      "detail": "期末一键生成（督学旁白）：各技能掌握度增量、错因分布、教学动作分布、帧来源统计（llm/rule）、token 账目（调用数/错误数/消耗/回收）与重演校验结论——离线为模板报告，全部数字取自决策帧日志。"
+    }
+  ],
+  "economy": [
+    {
+      "name": "课时 token 预算",
+      "source": "课时拨款 2400/课（次日续档重置）＋答题回收（答对 +12/题）",
+      "sink": "LLM 教学动作与督学旁白按次定价（单次 max_tokens ≤ 160，取 kernel stats.tokens 真值）；余量 < 25% 触发规则降级，此后 0 消耗"
+    },
+    {
+      "name": "掌握度 p",
+      "source": "BKT 观测更新：每道题的判对/判错实时修正该技能 p(掌握)（Corbett-Anderson 更新式）",
+      "sink": "导演阈值表换策略（<0.25 回前置 / <0.5 苏格拉底 / <0.8 基础题 / ≥0.9 进阶，连错 2 题强制回前置）与结课审计报告"
+    }
+  ],
+  "difficulty": "入门 3 分钟：四个选项点选作答，掌握度与预算条全程可见；错两次自动回前置技能，三级提示阶梯保底不卡壳；断网全流程可演示（固定阶梯授课＋模板审计报告），在线解锁 LLM 现编苏格拉底话术与督学旁白——审计价值离线不打折",
+  "theme": "space"
+};
+const STORY = {
+  "framework": "一节可审计的辅导课",
+  "premise": "「可回放辅导舱」是运行在 OriEra 引擎上的 AI 家教舱：白老师教分数课，督学在一旁做审计旁白。这节课覆盖四个技能点（分数的意义 → 同分母加减 → 通分与异分母 → 比大小），知识追踪引擎（BKT）实时维护每个技能的掌握概率，教学导演按阈值表与课时 token 预算决定每一步怎么教；家长课后拖动回放时间轴，逐帧对质每个教学决定——为什么这里换策略、那里回前置、这一步花了多少 token。",
+  "beats": [
+    {
+      "phase": "环节一",
+      "title": "摸底",
+      "desc": "白老师先出几道基础题摸清底子——每答一题，BKT 引擎立刻修正该技能的掌握概率；答错不扣分，只影响 p 值与导演的下一步选择，督学的审计通道同步落帧。"
+    },
+    {
+      "phase": "环节二",
+      "title": "苏格拉底",
+      "desc": "p 掉到 0.5 以下时，白老师收起答案改用提问：三级提示阶梯逐级放，离线有 track.json 固定阶梯兜底，在线由 LLM 现编话术——但换不换策略永远由阈值表说了算。"
+    },
+    {
+      "phase": "环节三",
+      "title": "挑战",
+      "desc": "技能 p 爬上 0.8 后导演切到挑战档出题；连错两题则触发回前置技能——修理地基比硬推进度更要紧，每次切换都落决策帧说明阈值理由。"
+    },
+    {
+      "phase": "环节四",
+      "title": "小结",
+      "desc": "四个技能各有去处：p ≥ 0.9 进阶过关，其余列入次日计划。小结卡列出本课掌握度增量与错因分布，全部数字取自决策帧日志，可逐条回放核对。"
+    },
+    {
+      "phase": "环节五",
+      "title": "家长回放",
+      "desc": "家长/教师打开回放页，拖动时间轴逐帧对质：这一步学生答了什么、p 从多少变到多少、导演为什么换策略、本帧花了多少 token——离线生成的帧标 source:\"rule\"，照样可审计。"
+    },
+    {
+      "phase": "环节六",
+      "title": "次日续档",
+      "desc": "点「次日续档」开新课时：token 拨款重置、掌握度与画像留存——白老师开场先背出你昨天在哪个技能栽过跟头（引擎 L9 记忆检索），再从最弱技能继续，跨课记忆演示完整闭环。"
+    }
+  ]
+};
+const AGENTS = [
+  {
+    "name": "白老师",
+    "role": "AI 导师",
+    "persona": "太空辅导舱的 AI 家教，教分数课，语气温暖爱打比方，从不责备学生；学生同一技能连错两次就自觉回头修地基。信条：动作归阈值表，话术归我——什么时候换教学策略由导演按掌握概率决定，每一句话怎么说由我负责。【教学动作·输出协议】每步会收到一条已确定的教学决策（move 由导演按掌握度阈值选定，原样回传不得更改）与当前提示级别。只输出一个 JSON 对象，不输出任何其他文字，格式：{\"move\":\"socratic|teach|quiz|repair|advance 之一（原样回传）\",\"hint\":\"面向当前题的提示或引导语，1~3 句，符合指定提示级别\",\"askBack\":\"抛回给学生的一个小问题，没有则空串\",\"rationale\":\"一两句解释为什么此刻这么做，必须提到当前掌握概率与对应阈值\"}。级别约定：socratic 只提问不给答案（hint 是第 N 级提示，逐级递进）；teach 才允许给完整推理与结论；quiz 的 hint 是换题引导；repair 的 hint 解释为什么回前置；advance 的 hint 是进阶祝贺。除协议调用外被闲聊时，以导师姿态简短回应。",
+    "mood": "温和耐心",
+    "first_line": "欢迎登舱！今天我们上分数课——别紧张，答错不扣分，它只会改变我对你的了解。"
+  },
+  {
+    "name": "督学",
+    "role": "审计旁白",
+    "persona": "教育质量审计员，口吻克制、只认数字：每句话都引用帧号、掌握概率、阈值或 token 账目，像念审计底稿。在回放页逐帧解说家长看到的内容，期末出审计报告。被问到判断时先报数据再下结论，绝不说没有出处的评价。【旁白·输出要求】解说单帧时按「帧号→学生输入→掌握度变化→导演动作与理由→token 消耗」的顺序组织，2~3 句；出审计报告时按「掌握度增量→错因分布→帧来源→token 账目→重演校验」组织，3~5 句，最后给一句改进建议。",
+    "mood": "克制严谨",
+    "first_line": "审计通道已接入。本课每个教学决定都会落帧——课后欢迎逐帧对质。"
+  }
+];
+const TRACK = {
+  "studentId": "stu01",
+  "studentName": "小明",
+  "skills": [
+    {
+      "id": "s1",
+      "name": "分数的意义",
+      "prereq": [],
+      "bkt": { "pInit": 0.3, "pTransit": 0.1, "pSlip": 0.1, "pGuess": 0.25 },
+      "mastery": 0.9
+    },
+    {
+      "id": "s2",
+      "name": "同分母加减",
+      "prereq": ["s1"],
+      "bkt": { "pInit": 0.3, "pTransit": 0.1, "pSlip": 0.12, "pGuess": 0.25 },
+      "mastery": 0.9
+    },
+    {
+      "id": "s3",
+      "name": "通分与异分母加减",
+      "prereq": ["s1", "s2"],
+      "bkt": { "pInit": 0.25, "pTransit": 0.1, "pSlip": 0.15, "pGuess": 0.25 },
+      "mastery": 0.9
+    },
+    {
+      "id": "s4",
+      "name": "分数比大小",
+      "prereq": ["s1", "s3"],
+      "bkt": { "pInit": 0.25, "pTransit": 0.1, "pSlip": 0.12, "pGuess": 0.25 },
+      "mastery": 0.9
+    }
+  ],
+  "items": [
+    {
+      "id": "i01",
+      "skill": "s1",
+      "stem": "「3/4」这个分数表示什么？",
+      "options": ["把单位「1」平均分成 4 份，取其中的 3 份", "把 3 个单位平均分成 4 份，取其中 1 份", "4 份中的第 3 份，按顺序数", "3 份加上 4 份，共 7 份"],
+      "answer": "把单位「1」平均分成 4 份，取其中的 3 份",
+      "misconception": "整体与份数角色混淆（分子分母谁管分、谁管取没分清）",
+      "hints": [
+        "先看分母 4：它说的是「平均分成几份」？",
+        "再看分子 3：它说的是「取其中的几份」？把两句连起来说一遍。",
+        "口诀：分母管「怎么分」，分子管「取几份」——3/4 就是四份取三份。"
+      ]
+    },
+    {
+      "id": "i02",
+      "skill": "s1",
+      "stem": "「5/8」中的 8 叫什么？它表示什么？",
+      "options": ["分母，表示把单位「1」平均分成 8 份", "分子，表示取了 8 份", "分数线，表示相除", "分母，表示取了 8 份"],
+      "answer": "分母，表示把单位「1」平均分成 8 份",
+      "misconception": "名称与含义错位（知道叫分母，却把含义说成「取几份」）",
+      "hints": [
+        "分数线下面的那个数，名字叫什么？",
+        "位置记忆：下面的数管「分」——分成多少份。",
+        "下＝分母＝分的份数，所以 8 表示平均分成 8 份。"
+      ]
+    },
+    {
+      "id": "i03",
+      "skill": "s1",
+      "stem": "一卷彩带剪成同样长的 6 小段，每小段是全长的几分之几？",
+      "options": ["1/6", "6/1", "1/5", "6/6"],
+      "answer": "1/6",
+      "misconception": "把剪的刀数当份数（剪 5 刀得 6 段）或分子分母颠倒",
+      "hints": [
+        "剪成同样长的几段，分母就该是几？",
+        "只问「每一段」，取的份数是几？",
+        "6 段取 1 段，每段就是全长的 1/6。"
+      ]
+    },
+    {
+      "id": "i04",
+      "skill": "s2",
+      "stem": "2/7 + 3/7 = ?",
+      "options": ["5/7", "5/14", "6/7", "1/7"],
+      "answer": "5/7",
+      "misconception": "分母也跟着相加（2/7＋3/7＝5/14）",
+      "hints": [
+        "两个加数都是「七分之几」，分数单位一样吗？",
+        "单位一样就能直接数：2 个 1/7 加 3 个 1/7，是几个 1/7？",
+        "同分母相加：分母不变，分子相加，得 5/7。"
+      ]
+    },
+    {
+      "id": "i05",
+      "skill": "s2",
+      "stem": "5/9 − 2/9 = ?",
+      "options": ["3/9", "3/0", "3/18", "7/9"],
+      "answer": "3/9",
+      "misconception": "分母参与运算（分母相减或清零）",
+      "hints": [
+        "同分母减法，哪个数保持不变？",
+        "5 个 1/9 拿走 2 个 1/9，还剩几个 1/9？",
+        "分母不变，分子相减：5−2＝3，得 3/9。"
+      ]
+    },
+    {
+      "id": "i06",
+      "skill": "s2",
+      "stem": "3/8 + 7/8 = ?",
+      "options": ["10/8", "10/16", "1/8", "21/8"],
+      "answer": "10/8",
+      "misconception": "和超过 1 时不知所措（误以为分数必须小于 1），或分母相加",
+      "hints": [
+        "先估一估：7/8 已经很接近 1 了，和会不会超过 1？",
+        "3 个 1/8 加 7 个 1/8，一共是几个 1/8？",
+        "分母不变分子相加得 10/8——比 1 大也没关系，假分数是合法答案。"
+      ]
+    },
+    {
+      "id": "i07",
+      "skill": "s3",
+      "stem": "1/2 + 1/3 = ?",
+      "options": ["5/6", "2/5", "1/5", "2/6"],
+      "answer": "5/6",
+      "misconception": "分子分母分别相加（1/2＋1/3＝2/5）",
+      "hints": [
+        "1/2 和 1/3 的分数单位一样吗？能像上一课那样直接数吗？",
+        "找一个既是 2 的倍数、又是 3 的倍数的数当公分母，是多少？",
+        "通分：1/2＝3/6，1/3＝2/6；3/6＋2/6＝5/6。"
+      ]
+    },
+    {
+      "id": "i08",
+      "skill": "s3",
+      "stem": "3/4 − 1/6 = ?",
+      "options": ["7/12", "2/12", "2/24", "1/2"],
+      "answer": "7/12",
+      "misconception": "公分母找对但分子忘了换（(3−1)/12＝2/12），或分母相减得 2/24",
+      "hints": [
+        "4 和 6 的最小公倍数是多少？它就是公分母。",
+        "把两个分数都换成十二分之几：3/4＝9/12，1/6＝2/12。",
+        "同分母再减：9/12−2/12＝7/12。"
+      ]
+    },
+    {
+      "id": "i09",
+      "skill": "s3",
+      "stem": "把 5/6 与 7/9 通分，最小公分母是多少？",
+      "options": ["18", "54", "9", "15"],
+      "answer": "18",
+      "misconception": "直接把两个分母相乘当最小公分母（6×9＝54）",
+      "hints": [
+        "公分母必须同时是 6 的倍数和 9 的倍数。",
+        "从 9 开始列：9、18、27……哪个先撞上 6 的倍数？",
+        "最小公倍数是 18；54 是公倍数但不是最小的。"
+      ]
+    },
+    {
+      "id": "i10",
+      "skill": "s4",
+      "stem": "比较大小：3/5 ○ 4/5，○ 里应填什么？",
+      "options": ["<", ">", "＝", "无法比较"],
+      "answer": "<",
+      "misconception": "没有「每份一样大时只比份数」的直觉，或反着比",
+      "hints": [
+        "两个分数都分成 5 份，每一份一样大吗？",
+        "每份一样大时，只比取的份数就行。",
+        "3 份 < 4 份，所以 3/5 < 4/5，填「<」。"
+      ]
+    },
+    {
+      "id": "i11",
+      "skill": "s4",
+      "stem": "比较大小：2/3 ○ 3/5，○ 里应填什么？",
+      "options": [">", "<", "＝", "无法比较"],
+      "answer": ">",
+      "misconception": "分母大就大（5>3 所以 3/5 大）",
+      "hints": [
+        "分母不同，每一份还一样大吗？能直接比分子吗？",
+        "通分：2/3＝10/15，3/5＝9/15。",
+        "10/15 > 9/15，所以 2/3 > 3/5，填「>」。"
+      ]
+    },
+    {
+      "id": "i12",
+      "skill": "s4",
+      "stem": "比较大小：1/4 ○ 1/6，○ 里应填什么？",
+      "options": [">", "<", "＝", "无法比较"],
+      "answer": ">",
+      "misconception": "分母大分数大（6>4 所以 1/6 大）",
+      "hints": [
+        "同样一整张饼，切成 4 份和切成 6 份，哪种每份更大？",
+        "分的份数越多，每一份反而越小。",
+        "每份大的一份就大：1/4 > 1/6，填「>」。"
+      ]
+    }
+  ],
+  "director": {
+    "thresholds": {
+      "pRepair": 0.25,
+      "pSocratic": 0.5,
+      "pQuiz": 0.8,
+      "pAdvance": 0.9,
+      "streakWrong": 2
+    },
+    "budget": {
+      "lessonTokens": 2400,
+      "cheapBelow": 0.25,
+      "perCallMax": 160,
+      "recyclePerCorrect": 12
+    }
+  }
+};
+/* 【独立部署】kernel 与 vendor 已随项目自带（engine/kernel.js、vendor/、utils/），
+   相对路径解析：任意静态服务器根目录或 Studio /projects/{id}/ 下均可运行。 */
+const VENDOR_BASE = "./vendor/";
+const KERNEL = "./engine/kernel.js";
+
+const TUTOR = AGENTS[0];    /* 白老师 · AI 导师（ persona 内嵌【教学动作·输出协议】） */
+const AUDITOR = AGENTS[1];  /* 督学 · 审计旁白 */
+const STUDENT = { id: TRACK.studentId, name: TRACK.studentName };
+const DIR = TRACK.director, THR = DIR.thresholds, BUD = DIR.budget;
+const SK = TRACK.skills;
+const MOVE_ZH = { socratic: "苏格拉底提示", teach: "直接讲解", quiz: "出题巩固", repair: "回前置技能", advance: "进阶" };
+const ASK_BACK = [
+  "你说说看，这里的分母和分子各自管什么？",
+  "按这个思路，把这道题自己再走一步？",
+  "现在你能说出答案了吗？",
+];
+const skillById = id => SK.find(s => s.id === id);
+const itemById = id => TRACK.items.find(i => i.id === id);
+const itemsOf = sid => TRACK.items.filter(i => i.skill === sid);
+const fmtP = p => Number(p).toFixed(2);
+/* 帧上的 p 一律存完整精度（JSON 序列化可无损往返 IEEE754）——回放 foldTo 重演才能与记录值逐位一致，
+   显示时再用 toFixed(2) 取两位（审计数字不因四舍五入失真）。 */
+function extractJSONLoose(s) { const m = (s || "").match(/\{[\s\S]*\}/); try { return m ? JSON.parse(m[0]) : null; } catch { return null; } }
+
+/* ============ L7 provider 装配（与先例同一 boot 通路：localStorage aicafe.llm.v1 → createProvider） ============ */
+let provider = null, providerReady = false;
+const savedCfg = JSON.parse(localStorage.getItem("aicafe.llm.v1") || "null");
+async function boot() {
+  let mod;
+  try {
+    mod = await import(KERNEL);
+  } catch (e) {
+    document.getElementById("fallback").style.display = "flex";
+    return;
+  }
+  if (savedCfg && savedCfg.key && savedCfg.kind !== "rule") {
+    provider = mod.createProvider(savedCfg);
+    providerReady = !!(provider && provider.ready);
+  }
+  if (providerReady) {
+    document.getElementById("prov-name").textContent =
+      (savedCfg.model || "llm") + "（引擎 L7 · AI 已植入）";
+    document.getElementById("dot").classList.add("live");
+  }
+  await startScene(mod);
+}
+
+/* ============ BKT（Corbett-Anderson 更新式，纯确定性数学——回放重演用的同一份公式） ============ */
+function bktUpdate(p, correct, bkt) {
+  const pl = correct
+    ? (p * (1 - bkt.pSlip)) / (p * (1 - bkt.pSlip) + (1 - p) * bkt.pGuess)
+    : (p * bkt.pSlip) / (p * bkt.pSlip + (1 - p) * (1 - bkt.pGuess));
+  return pl + (1 - pl) * bkt.pTransit;
+}
+
+async function startScene(mod) {
+  const THREE = await import("three");
+  const { OrbitControls } = await import(VENDOR_BASE + "OrbitControls.js");
+  const { GLTFLoader } = await import(VENDOR_BASE + "GLTFLoader.js");
+
+  /* ---- 主题（space）与场景 ---- */
+  const THEMES = {
+    space: { bg: 0x0d1017, ground: 0x1a2438, ring: 0x2d5b9e, hemiSky: 0x8fb5ff, hemiGnd: 0x22283a, sun: 0xffe9c4 },
+  };
+  const TH = THEMES[GAME.theme] || THEMES.space;
+  const sceneEl = document.getElementById("scene");
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(sceneEl.clientWidth, sceneEl.clientHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  sceneEl.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(TH.bg);
+  scene.fog = new THREE.Fog(TH.bg, 18, 55);
+  const camera = new THREE.PerspectiveCamera(50, sceneEl.clientWidth / sceneEl.clientHeight, 0.1, 200);
+  camera.position.set(0, 6, 14);
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.target.set(0, 1.2, 0);
+  controls.enableDamping = true; controls.maxPolarAngle = Math.PI / 2.05;
+  controls.minDistance = 6; controls.maxDistance = 30;
+  const hemi = new THREE.HemisphereLight(TH.hemiSky, TH.hemiGnd, 1.1);
+  scene.add(hemi);
+  const sun = new THREE.DirectionalLight(TH.sun, 1.6);
+  sun.position.set(6, 10, 4); scene.add(sun);
+  const ground = new THREE.Mesh(
+    new THREE.CircleGeometry(16, 48).rotateX(-Math.PI / 2),
+    new THREE.MeshStandardMaterial({ color: TH.ground, roughness: .95 }));
+  scene.add(ground);
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(15.4, 16, 64).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ color: TH.ring, transparent: true, opacity: .5 }));
+  scene.add(ring);
+
+  /* ---- 角色（白老师 + 督学）---- */
+  const palette = [0x7eb8ff, 0xb48fff];
+  const robots = [];
+  const loader = new GLTFLoader();
+  const gltf = await loader.loadAsync(VENDOR_BASE + "RobotExpressive.glb");
+  AGENTS.forEach((a, i) => {
+    const root = gltf.scene.clone(true);
+    root.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.color.multiplyScalar(1); } });
+    const angle = (i / Math.max(AGENTS.length, 1)) * Math.PI * 2;
+    root.position.set(Math.cos(angle) * 4.5, 0, Math.sin(angle) * 4.5);
+    root.lookAt(0, 0, 0);
+    root.userData = { index: i };
+    scene.add(root);
+    const cv = document.createElement("canvas"); cv.width = 256; cv.height = 72;
+    const cx = cv.getContext("2d");
+    cx.fillStyle = "rgba(13,16,23,.85)";
+    cx.beginPath(); cx.moveTo(18, 6); cx.arcTo(248, 6, 248, 62, 14); cx.arcTo(248, 62, 8, 62, 14);
+    cx.arcTo(8, 62, 8, 6, 14); cx.arcTo(8, 6, 248, 6, 14); cx.closePath(); cx.fill();
+    cx.fillStyle = "#" + palette[i % palette.length].toString(16).padStart(6, "0");
+    cx.font = "bold 30px sans-serif"; cx.textAlign = "center";
+    cx.fillText(a.name, 128, 46);
+    const label = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: new THREE.CanvasTexture(cv), depthTest: false, transparent: true }));
+    label.scale.set(2.2, 0.62, 1); label.position.set(root.position.x, 3.1, root.position.z);
+    scene.add(label);
+    let mixer = null, idle = null;
+    try {
+      mixer = new THREE.AnimationMixer(root);
+      idle = gltf.animations.find(x => /idle/i.test(x.name)) || gltf.animations[0];
+      if (idle) mixer.clipAction(idle).play();
+    } catch (e) {}
+    robots.push({ agent: a, root, label, mixer, gltfAnims: gltf.animations, idle });
+  });
+  const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
+  renderer.domElement.addEventListener("click", e => {
+    const r = renderer.domElement.getBoundingClientRect();
+    ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ptr, camera);
+    const hits = ray.intersectObjects(robots.map(n => n.root), true);
+    if (hits.length) {
+      let o = hits[0].object;
+      while (o && o.userData.index === undefined) o = o.parent;
+      if (o) {
+        const a = AGENTS[o.userData.index];
+        sys(`${a.name}（${a.role}）${a.name === TUTOR.name ? "正在等你作答" : "正在记录审计底稿"}。`);
+      }
+    }
+  });
+
+  /* ---- 世界状态（localStorage 持久，跨课续档） ---- */
+  const LS = k => "game." + GAME.id + "." + k;
+  const loadJSON = (k, d) => { try { const v = JSON.parse(localStorage.getItem(LS(k)) || "null"); return v === null || v === undefined ? d : v; } catch { return d; } };
+  const save = (k, v) => localStorage.setItem(LS(k), JSON.stringify(v));
+  function initPmap() { const m = {}; SK.forEach(s => m[s.id] = s.bkt.pInit); return m; }
+  const world = {
+    turn: loadJSON("turn", 0),
+    day: loadJSON("day", 1),
+    beat: loadJSON("beat", 0),
+    p: loadJSON("pmap", null) || initPmap(),
+    pmap0: loadJSON("pmap0", null) || initPmap(),
+    streak: loadJSON("streak", {}),
+    done: loadJSON("done", {}),
+    hints: loadJSON("hints", {}),
+    cur: loadJSON("cur", null) || { skillId: SK[0].id, itemId: itemsOf(SK[0].id)[0].id },
+    budget: loadJSON("budget", { used: 0, recycled: 0 }),
+    tally: loadJSON("tally", { calls: 0, errors: 0 }),
+    frames: loadJSON("frames", []),
+    lessonDone: loadJSON("lessondone", false),
+    pending: null, grade: null, action: null,
+  };
+  if (localStorage.getItem(LS("pmap0")) === null) save("pmap0", world.pmap0);
+  if (localStorage.getItem(LS("pmap")) === null) save("pmap", world.p);
+  function persistAll() {
+    save("pmap", world.p); save("streak", world.streak); save("done", world.done); save("hints", world.hints);
+    save("cur", world.cur); save("budget", world.budget); save("tally", world.tally); save("frames", world.frames);
+    save("lessondone", world.lessonDone); save("day", world.day); save("beat", world.beat); save("turn", world.turn);
+  }
+
+  /* ---- L9 跨课画像（MemoryStore：about=技能id 吃检索加成）+ 课时预算记账 ---- */
+  const mem = new mod.MemoryStore("tutorpod." + STUDENT.id + ".mem.v1");
+  function budgetNow() {
+    const grant = BUD.lessonTokens;
+    const total = grant + world.budget.recycled;
+    const remaining = total - world.budget.used;
+    return { grant, recycled: world.budget.recycled, used: world.budget.used, remaining, pct: remaining / total };
+  }
+  /* stats→预算同步：provider.stats.tokens 为 kernel.js:88-89 累计的真值 total_tokens，
+     本函数取增量记入课时账（教学动作与督学旁白都从这里走），不自造计数器 */
+  let statSync = { tokens: 0, calls: 0, errors: 0 };
+  function syncStats() {
+    if (!provider) return { tokens: 0, calls: 0, errors: 0 };
+    const s = provider.stats;
+    const d = { tokens: (s.tokens || 0) - statSync.tokens, calls: s.calls - statSync.calls, errors: s.errors - statSync.errors };
+    statSync = { tokens: s.tokens || 0, calls: s.calls, errors: s.errors };
+    world.budget.used += d.tokens;
+    world.tally.calls += d.calls; world.tally.errors += d.errors;
+    persistAll();
+    return d;
+  }
+
+  /* ---- 对话气泡 ---- */
+  const log = document.getElementById("chat-log");
+  function bubble(role, html) {
+    const d = document.createElement("div");
+    d.className = "msg " + role; d.innerHTML = html;
+    log.appendChild(d);
+    while (log.children.length > 80) log.removeChild(log.firstChild);
+    log.scrollTop = log.scrollHeight;
+    return d;
+  }
+  const esc = s => (s || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  function sys(text) { bubble("sys", text); }
+  function npcLine(name, text) { bubble("npc", `<b>${esc(name)}</b><br>${esc(text)}`); }
+
+  /* ============================== L2 调度器：应用只 pump，教学系统全部注册在调度器上 ============================== */
+  /* ① 导师判分系统：判分 + BKT 更新 + 记忆落账 */
+  class GraderSystem {
+    async tick(w) {
+      if (!w.pending) return;
+      const sid = w.cur.skillId;
+      if (w.pending.type === "answer") {
+        const item = itemById(w.cur.itemId);
+        const correct = w.pending.choice === item.answer;
+        const pB = w.p[sid];
+        const pA = bktUpdate(pB, correct, skillById(sid).bkt);
+        w.p[sid] = pA;
+        w.streak[sid] = correct ? 0 : (w.streak[sid] || 0) + 1;
+        if (correct) { w.done[item.id] = true; w.budget.recycled += BUD.recyclePerCorrect; }
+        mem.record(STUDENT.id, {
+          turn: w.turn, day: w.day, about: sid,
+          text: sid + " 判" + (correct ? "对" : "错") + " p=" + pA.toFixed(2) +
+            (!correct && item.misconception ? " 错因:" + item.misconception.split("（")[0] : ""),
+          imp: correct ? 2 : 3,
+        });
+        w.grade = { sid, itemId: item.id, correct, pB, pA };
+        sceneReact(correct ? "correct" : "wrong");
+      } else {
+        /* 求助/换题：无观测，掌握度不动 */
+        w.grade = { sid, itemId: w.cur.itemId, correct: null, pB: w.p[sid], pA: w.p[sid] };
+      }
+    }
+  }
+  /* ② 教学导演系统（应用层实现：内核 CognitionSystem/DirectorSystem 是咖啡馆专用，教育语料兜底自备于 track.json）：
+     决策=阈值表＋预算（确定性）；话术=LLM 窄口（JSON 协议）或规则兜底 */
+  class TeachDirectorSystem {
+    async tick(w) {
+      if (!w.pending || !w.grade) return;
+      const sid = w.cur.skillId, skill = skillById(sid), p = w.p[sid];
+      const item = itemById(w.cur.itemId);
+      const bud = budgetNow();
+      const cheap = bud.pct < BUD.cheapBelow;
+      const lvl0 = w.hints[item.id] || 0;
+      const streak = w.streak[sid] || 0;
+      const prereqs = skill.prereq.map(skillById).filter(s => s && w.p[s.id] < s.mastery);
+      const repairTarget = prereqs.length ? prereqs.slice().sort((a, b) => w.p[a.id] - w.p[b.id])[0] : null;
+
+      /* ① 确定性决策（阈值表） */
+      let move = "quiz", reason = "";
+      if (w.pending.type === "skip") {
+        move = "quiz"; reason = "学生请求换题 → 出下一题（掌握度不变，无 BKT 观测）";
+      } else if (w.pending.type === "help") {
+        move = lvl0 >= 3 ? "teach" : "socratic";
+        reason = "学生点「求助」→ 保持本题放提示（阶梯第 " + Math.min(3, lvl0 + 1) + " 级，无 BKT 观测）";
+      } else if (streak >= THR.streakWrong && repairTarget) {
+        move = "repair";
+        reason = skill.name + "连错 " + streak + " 题（阈值 连错" + THR.streakWrong + "）→ 回前置技能「" + repairTarget.name + "」";
+      } else if (p < THR.pRepair && repairTarget) {
+        move = "repair";
+        reason = "p=" + fmtP(p) + " < " + THR.pRepair + "（pRepair 阈值）→ 回前置技能「" + repairTarget.name + "」";
+      } else if (p < THR.pRepair) {
+        move = "teach"; reason = "p=" + fmtP(p) + " < " + THR.pRepair + " 且无未达标前置可回 → 直接讲解";
+      } else if (p < THR.pSocratic) {
+        move = lvl0 >= 3 ? "teach" : "socratic";
+        reason = "p=" + fmtP(p) + " < " + THR.pSocratic + "（pSocratic 阈值）→ " +
+          (move === "teach" ? "三级阶梯已尽，直接讲解" : "苏格拉底提示（阶梯第 " + (lvl0 + 1) + " 级）");
+      } else if (p < THR.pAdvance) {
+        move = "quiz";
+        reason = "p=" + fmtP(p) + " ∈ [" + THR.pSocratic + ", " + THR.pAdvance + ") → 出题巩固（" +
+          (p < THR.pQuiz ? "基础档" : "挑战档") + "，pQuiz=" + THR.pQuiz + "）";
+      } else {
+        move = "advance";
+        reason = "p=" + fmtP(p) + " ≥ " + THR.pAdvance + "（pAdvance 阈值）→ 进阶下一技能";
+      }
+
+      /* ② 话术窄口：在线 LLM（JSON 协议，opts.max=perCallMax），断网/降级 → 规则兜底 */
+      let source = "rule", tokens = 0, hint = "", askBack = "", rationale = "";
+      const lvl = (move === "socratic" || move === "teach") ? Math.min(3, lvl0 + 1) : lvl0;
+      if (providerReady && !cheap) {
+        const recalled = mem.retrieve(STUDENT.id, sid, item.stem + " " + (item.misconception || ""), w.turn, 4);
+        const tb = bubble("thinking", "白老师正在备课……");
+        try {
+          const out = await provider.complete([
+            { role: "system", content: this.prompt(w, { move, lvl, p, item, skill, recalled }) },
+            { role: "user", content: "学生输入：" + describeInput(w.pending) +
+              "，判分：" + (w.grade.correct === null ? "无（求助/换题不作答）" : w.grade.correct ? "对" : "错") +
+              "。请严格按【教学动作·输出协议】只输出 JSON。" },
+          ], { json: true, max: BUD.perCallMax, temp: 0.7 });
+          tb.remove();
+          const j = extractJSONLoose(out);
+          if (j && j.hint) {
+            hint = String(j.hint).slice(0, 320);
+            askBack = String(j.askBack || "").slice(0, 140);
+            rationale = String(j.rationale || "").slice(0, 220);
+            source = "llm";
+          } else {
+            sys("（白老师的教案格式异常——已改用固定提示阶梯，本帧 0 token）");
+          }
+        } catch (e) {
+          tb.remove();
+          sys("（模型调用失败：" + esc(String(e.message || e)) + "——已用规则话术兜底，本帧 0 token）");
+        }
+        const d = syncStats(); tokens = d.tokens;
+      }
+      if (source === "rule") {
+        if (move === "socratic") {
+          hint = item.hints[lvl - 1] || item.hints[2];
+          askBack = ASK_BACK[Math.min(2, Math.max(0, lvl - 1))];
+        } else if (move === "teach") {
+          hint = "三级阶梯连讲：" + item.hints.join(" → ") + " 结论：" + item.answer + "。";
+          askBack = "现在用自己的话，把这道题再说一遍？";
+        } else if (move === "quiz") {
+          hint = w.pending.type === "skip" ? "好，换一题——注意刚才的错因，稳住分数单位。" : "不错，再练一题巩固手感。";
+        } else if (move === "repair") {
+          hint = "先回「" + (repairTarget ? repairTarget.name : skill.name) + "」补一补地基，很快回来。";
+        } else if (move === "advance") {
+          hint = skill.name + "已达 " + skill.mastery + "，进阶下一个技能！";
+        }
+      }
+      if (cheap && providerReady)
+        reason += " · 预算余 " + Math.round(bud.pct * 100) + "% < " + Math.round(BUD.cheapBelow * 100) + "%（cheapBelow）→ 降级规则话术，本帧 0 token";
+
+      /* ③ 动作落地（换技能/换题/结课） */
+      if (move === "socratic" || move === "teach") {
+        w.hints[item.id] = lvl;
+      } else if (move === "quiz") {
+        const nx = this.pickQuizItem(w, sid, p);
+        if (nx) { w.cur.itemId = nx.id; }
+        else { move = "advance"; reason += " · 本技能题库已练完 → 顺延进阶"; }
+      } else if (move === "repair") {
+        if (repairTarget) {
+          w.cur.skillId = repairTarget.id;
+          w.cur.itemId = this.firstItem(w, repairTarget.id);
+        } else { move = "teach"; reason += "（无未达标前置，改为直接讲解）"; }
+      }
+      if (move === "advance") {
+        const nx = SK.find(s => w.p[s.id] < s.mastery);
+        if (nx) { w.cur.skillId = nx.id; w.cur.itemId = this.firstItem(w, nx.id); }
+        else { w.lessonDone = true; }
+      }
+      w.action = { move, reason, hint, askBack, rationale, source, tokens };
+      sceneReact(move);
+      if (w.lessonDone) sys("🎓 本课全部技能达标——「课程」页可「次日续档」，「回放」页可逐帧审计这节课。");
+    }
+    pickQuizItem(w, sid, p) {
+      let pool = itemsOf(sid).filter(i => !w.done[i.id]);
+      if (!pool.length) {
+        const wrongIds = new Set(w.frames.filter(f => f.correct === false && f.skillId === sid).map(f => f.itemId));
+        pool = itemsOf(sid).filter(i => wrongIds.has(i.id));
+        pool.forEach(i => { delete w.done[i.id]; });
+        if (!pool.length) return null;
+      }
+      return p < THR.pQuiz ? pool[0] : pool[pool.length - 1];
+    }
+    firstItem(w, sid) {
+      /* 返回题 id 字符串（cur.itemId 全局契约是 id，非题对象——返回对象会让 itemById 落空、renderQuestion 崩） */
+      const it = itemsOf(sid).find(i => !w.done[i.id]) || itemsOf(sid)[0];
+      return it ? it.id : null;
+    }
+    prompt(w, { move, lvl, p, item, skill, recalled }) {
+      return `你在一场名为「${GAME.name}」的辅导课原型里扮演 AI 导师。
+角色：${TUTOR.name}（${TUTOR.role}），人设：${TUTOR.persona}
+学生：${STUDENT.name}。当前课次：第 ${w.day} 课 · 剧情环节：${(STORY.beats[w.beat] || {}).title || ""}
+当前技能：「${skill.name}」（${skill.id}），掌握概率 p=${fmtP(p)}（阈值表：pRepair<${THR.pRepair} / pSocratic<${THR.pSocratic} / pQuiz<${THR.pQuiz} / pAdvance≥${THR.pAdvance}）
+当前题：${item.stem}（选项：${(item.options || []).join(" / ")}；正确答案：${item.answer}）
+固定提示阶梯（第 1~3 级，参考其风格按第 ${lvl} 级现编，不要照抄）：
+${item.hints.map((h, i) => `  第${i + 1}级：${h}`).join("\n")}
+该生此技能历史（引擎 L9 记忆检索）：
+${recalled.length ? recalled.map(m => `- (第${m.day}课·回合${m.turn}) ${m.text}`).join("\n") : "-（暂无，可能是第一次学这个技能）"}
+教学决策（已由导演按阈值确定，move 原样回传不得更改）：${move}
+（现在执行教学动作：严格按人设中的【教学动作·输出协议】只输出 JSON，不输出任何其他文字。）`;
+    }
+  }
+  /* ③ 决策帧记录器：每步落帧（审计的唯一事实源） */
+  class FrameRecorderSystem {
+    async tick(w) {
+      if (!w.pending || !w.grade || !w.action) return;
+      const bud = budgetNow();
+      const f = {
+        seq: w.frames.length + 1, day: w.day, turn: w.turn, beat: w.beat,
+        skillId: w.grade.sid, itemId: w.grade.itemId,
+        input: describeInput(w.pending),
+        correct: w.grade.correct,
+        pBefore: w.grade.pB, pAfter: w.grade.pA,
+        move: w.action.move, reason: w.action.reason, rationale: w.action.rationale,
+        hint: w.action.hint, source: w.action.source, tokens: w.action.tokens,
+        budgetAfter: { grant: bud.grant, recycled: bud.recycled, used: bud.used, remaining: bud.remaining },
+        calls: w.tally.calls, errors: w.tally.errors,
+        ts: Date.now(),
+      };
+      w.frames.push(f);
+      persistAll();
+      tutorBubble(w.action);
+      frameBubble(f);
+      maybeAdvanceBeats(f);
+      renderQuestion(); renderHUD(); renderReplay(); renderCodex(); renderStory();
+    }
+  }
+  function describeInput(pg) {
+    if (pg.type === "answer") return "选择「" + pg.choice + "」";
+    if (pg.type === "help") return "点「求助」";
+    return "点「换一题」";
+  }
+  function tutorBubble(a) {
+    let txt = a.hint || "";
+    if (a.askBack) txt += "\n❓ " + a.askBack;
+    npcLine(TUTOR.name, txt);
+    if (a.rationale && a.source === "llm") bubble("sys", "（导师理由：" + esc(a.rationale) + "）");
+  }
+  function frameBubble(f) {
+    bubble("frame", `<span class="fh">📋 决策帧 #${f.seq}</span> ${MOVE_ZH[f.move]} · 来源 ${f.source === "llm" ? "AI 现编" : "规则阶梯"} · 本帧 ${f.tokens} token<br>` +
+      `输入：${esc(f.input)}${f.correct === null ? "（无观测）" : f.correct ? " → 判对" : " → 判错"} · ${esc(skillById(f.skillId).name)} p: ${f.pBefore.toFixed(2)}→${f.pAfter.toFixed(2)}<br>` +
+      `<span class="dim">理由：${esc(f.reason)}</span>`);
+  }
+
+  const scheduler = new mod.Scheduler();
+  /* kernel.js:272 的 add() 不返回 this——逐个注册，不可链式 */
+  scheduler.add(new GraderSystem());
+  scheduler.add(new TeachDirectorSystem());
+  scheduler.add(new FrameRecorderSystem());
+
+  /* ---- 学生每提交一步：pump 一次调度器（判分→导演→落帧） ---- */
+  let busy = false;
+  async function step(pg) {
+    if (busy || world.lessonDone) return;
+    busy = true;
+    world.pending = pg; world.turn++;
+    if (pg.type === "answer") bubble("me", "答：" + pg.choice);
+    else if (pg.type === "help") bubble("me", "🙋 求助");
+    else bubble("me", "🔄 换一题");
+    setQEnabled(false);
+    try {
+      await scheduler.tick(world);
+    } finally {
+      busy = false;
+      world.pending = null; world.grade = null; world.action = null;
+      persistAll();
+      setQEnabled(true);
+      renderQuestion(); renderHUD();
+    }
+  }
+
+  /* ---- 剧情环节（自动推进：摸底→苏格拉底→挑战→小结→家长回放→次日续档） ---- */
+  function setBeat(n) {
+    if (n <= world.beat || n >= STORY.beats.length) return;
+    world.beat = n; save("beat", n);
+    const b = STORY.beats[n];
+    if (b) sys("📖 进入环节「" + b.title + "」——" + b.desc.slice(0, 42) + "…");
+    renderStory();
+  }
+  function maybeAdvanceBeats(f) {
+    if (world.beat < 1 && ["socratic", "teach", "repair"].includes(f.move)) setBeat(1);
+    if (world.beat < 2 && SK.some(s => world.p[s.id] >= THR.pQuiz)) setBeat(2);
+    if (world.beat < 3 && (world.lessonDone || world.frames.length >= 10)) {
+      setBeat(3);
+      sys("🧮 小结：" + SK.map(s => s.name + " p=" + fmtP(world.p[s.id])).join(" · "));
+    }
+  }
+  function nextDay() {
+    if (world.beat < 3) return;
+    world.day++;
+    world.budget = { used: 0, recycled: 0 };
+    world.done = {}; world.hints = {}; world.streak = {}; world.lessonDone = false;
+    const weakest = SK.filter(s => world.p[s.id] < s.mastery).sort((a, b) => world.p[a.id] - world.p[b.id])[0] || SK[0];
+    world.cur = { skillId: weakest.id, itemId: itemsOf(weakest.id)[0].id };
+    persistAll();
+    setBeat(5);
+    /* 跨课记忆演示：白老师背出昨天画像（L9 检索） */
+    const lines = SK.map(s => mem.retrieve(STUDENT.id, s.id, s.name, world.turn, 2)
+      .map(e => "第" + e.day + "课 " + e.text)).flat().slice(0, 6);
+    npcLine(TUTOR.name, "新的一课！课时拨款重置为 " + BUD.lessonTokens + " token。先对一下昨天的账——\n" +
+      (lines.length ? lines.map(l => "· " + l).join("\n") : "· 昨天没有留下记录") +
+      "\n今天从「" + weakest.name + "」继续（当前最低 p=" + fmtP(world.p[weakest.id]) + "）。");
+    renderAll();
+  }
+
+  /* ---- 渲染 ---- */
+  function setQEnabled(on) {
+    document.querySelectorAll("#qbox button").forEach(b => { b.disabled = !on; });
+  }
+  function renderQuestion() {
+    const q = document.getElementById("qbox");
+    if (world.lessonDone) {
+      q.innerHTML = `<div class="qcard"><div class="qskill"><span>✅ 本课完成</span><span>掌握度全部 ≥ ${SK[0].mastery}</span></div>
+        <div class="qstem">四个技能全部达标。</div>
+        <div style="font-size:12.5px;color:#8a93ad;line-height:1.7">去「📖 课程」页点「次日续档」开新课（拨款重置·画像留存），或去「⏪ 回放」页拖时间轴逐帧审计这节课。</div></div>`;
+      return;
+    }
+    const skill = skillById(world.cur.skillId);
+    const item = itemById(world.cur.itemId);
+    const lvl = world.hints[item.id] || 0;
+    q.innerHTML = `<div class="qcard">
+      <div class="qskill"><span>📘 ${esc(skill.name)}（${skill.id}）· p(掌握)=${fmtP(world.p[skill.id])}${(world.streak[skill.id] || 0) ? " · 连错 " + world.streak[skill.id] : ""}</span><span>💡 阶梯 ${lvl}/3</span></div>
+      <div class="qstem">${esc(item.stem)}</div>
+      ${(item.options || []).map((o, i) => `<button class="opt" data-o="${esc(o)}">${String.fromCharCode(65 + i)}．${esc(o)}</button>`).join("")}
+      <div id="q-actions">
+        <button id="btn-help">🙋 求助（放提示阶梯）</button>
+        <button id="btn-skip">🔄 换一题</button>
+      </div>
+    </div>`;
+    q.querySelectorAll(".opt").forEach(b => b.onclick = () => step({ type: "answer", choice: b.dataset.o }));
+    document.getElementById("btn-help").onclick = () => step({ type: "help" });
+    document.getElementById("btn-skip").onclick = () => step({ type: "skip" });
+    setQEnabled(!busy);
+  }
+  function renderHUD() {
+    document.getElementById("day").textContent = world.day;
+    const skill = skillById(world.cur.skillId);
+    document.getElementById("hud-skill").textContent = skill.name;
+    document.getElementById("hud-p").textContent = "p=" + fmtP(world.p[skill.id]);
+    const bud = budgetNow();
+    document.getElementById("hud-budget").textContent =
+      Math.round(bud.remaining) + "/" + Math.round(bud.grant + bud.recycled) + "（" + Math.round(bud.pct * 100) + "%）";
+    document.getElementById("budget-chip").classList.toggle("low", bud.pct < BUD.cheapBelow);
+    document.getElementById("hud-frames").textContent = world.frames.length;
+  }
+  function renderStory() {
+    const el = document.getElementById("page-story");
+    let html = `<p class="hint" style="margin-bottom:10px">${esc(STORY.premise)}</p>`;
+    STORY.beats.forEach((b, i) => {
+      const cls = i === world.beat ? "now" : (i < world.beat ? "done" : "");
+      html += `<div class="beat ${cls}"><div class="ph">${esc(b.phase)}${i < world.beat ? " · 已完成" : i === world.beat ? " · 进行中" : ""}</div><div class="tt">${esc(b.title)}</div><div class="ds">${esc(b.desc)}</div></div>`;
+    });
+    html += `<button id="btn-nextday" ${world.beat >= 3 && !world.lessonDone || world.lessonDone ? "" : "disabled"}>🌙 次日续档（开第 ${world.day + 1} 课：拨款重置 · 画像留存）</button>`;
+    el.innerHTML = html;
+    const btn = document.getElementById("btn-nextday");
+    if (btn) btn.onclick = nextDay;
+  }
+  function renderCodex() {
+    let html = "<h4>核心循环（答 → 调 → 放）</h4>";
+    GAME.core_loop.forEach(s => { html += `<div class="mech"><div>${esc(s)}</div></div>`; });
+    html += "<h4>机制系统</h4>";
+    GAME.mechanics.forEach(m => { html += `<div class="mech"><b>${esc(m.name)}</b><div>${esc(m.detail)}</div></div>`; });
+    html += "<h4>经济循环</h4><table class=\"eco\"><tr><th>资源</th><th>来源</th><th>去向</th></tr>";
+    GAME.economy.forEach(r => { html += `<tr><td>${esc(r.name)}</td><td>${esc(r.source)}</td><td>${esc(r.sink)}</td></tr>`; });
+    html += "</table><h4>技能图谱（BKT 实时参数）</h4>";
+    SK.forEach(s => {
+      html += `<div class="mech"><b>${esc(s.name)}（${s.id}）· p=${fmtP(world.p[s.id])} / mastery ${s.mastery}</b>` +
+        `<div>${s.prereq.length ? "前置：" + s.prereq.join("←") : "入口技能"} · pInit ${s.bkt.pInit} · pTransit ${s.bkt.pTransit} · pSlip ${s.bkt.pSlip} · pGuess ${s.bkt.pGuess}${(world.streak[s.id] || 0) ? " · 当前连错 " + world.streak[s.id] : ""}</div></div>`;
+    });
+    html += "<h4>🧠 跨课画像（引擎 L9 记忆 · 当前技能）</h4>";
+    const cur = skillById(world.cur.skillId);
+    const recalled = mem.retrieve(STUDENT.id, world.cur.skillId, cur.name, world.turn, 4);
+    html += recalled.length
+      ? recalled.map(e => `<div class="mech"><div>(第${e.day}课 · 回合${e.turn}) ${esc(e.text)}</div></div>`).join("")
+      : `<div class="mech"><div>（暂无「${esc(cur.name)}」的历史——第一次学）</div></div>`;
+    html += `<div class="mech"><div>画像按「技能摘要」入库（about=${esc(cur.id)} 吃检索加成，单生上限 60 条）；逐题明细由决策帧日志承担。</div></div>`;
+    html += `<h4>存档</h4><div style="display:flex;gap:8px">
+      <button id="btn-reset" style="background:#2a1220;color:#e0a0b0;border:1px solid #6b2a3a;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:12.5px">🗑 清档重修（清空画像与决策帧）</button>
+    </div>
+    <p style="color:#5f6b8a;font-size:11px;margin:8px 0 0">掌握度/决策帧/画像全在本浏览器 localStorage——换浏览器即丢。</p>`;
+    const el = document.getElementById("page-codex");
+    el.innerHTML = html;
+    el.querySelector("#btn-reset").onclick = () => {
+      if (!window.confirm("清空画像、掌握度与决策帧，回到第 1 课？")) return;
+      Object.keys(localStorage).filter(k => k.startsWith("game." + GAME.id + ".")).forEach(k => localStorage.removeItem(k));
+      mem.clear();
+      location.reload();
+    };
+  }
+
+  /* ---- 【放】回放：事件溯源重演（fold 从 pmap0 重算 BKT，逐帧与记录值对质） ---- */
+  function foldTo(upTo) {
+    const p = {}; SK.forEach(s => p[s.id] = world.pmap0[s.id]);
+    for (let i = 0; i <= upTo; i++) {
+      const f = world.frames[i];
+      if (f && f.correct !== null) p[f.skillId] = bktUpdate(p[f.skillId], f.correct, skillById(f.skillId).bkt);
+    }
+    return { p };
+  }
+  let replayIdx = -1;
+  function renderReplay() {
+    const el = document.getElementById("page-replay");
+    const n = world.frames.length;
+    if (replayIdx < 0 || replayIdx >= n) replayIdx = n - 1;
+    if (n === 0) {
+      el.innerHTML = `<h4>⏪ 回放时间轴</h4><div class="mech"><div>还没有决策帧——去「📝 课堂」页答一道题试试：每一步（作答/求助/换题）都会落一张可审计的帧。</div></div>`;
+      return;
+    }
+    el.innerHTML = `
+      <h4>⏪ 回放时间轴（${n} 帧 · 事件溯源重演）</h4>
+      <input type="range" id="tl" min="0" max="${n - 1}" value="${Math.max(0, replayIdx)}" style="width:100%">
+      <div class="tl-dots">${world.frames.map((f, i) => `<span class="tl-dot m-${f.move}${i === replayIdx ? " on" : ""}" data-i="${i}" title="帧${f.seq} ${MOVE_ZH[f.move]}"></span>`).join("")}</div>
+      <div id="frame-detail"></div>
+      <div style="display:flex;gap:8px;margin:12px 0">
+        <button id="btn-frame-say" class="rbtn">🔍 督学解说本帧</button>
+        <button id="btn-report" class="rbtn">📋 生成期末审计报告</button>
+      </div>
+      <div id="audit-out"></div>`;
+    el.querySelector("#tl").oninput = e => showFrame(+e.target.value);
+    el.querySelectorAll(".tl-dot").forEach(d => d.onclick = () => showFrame(+d.dataset.i));
+    el.querySelector("#btn-frame-say").onclick = narrateFrame;
+    el.querySelector("#btn-report").onclick = genReport;
+    showFrame(Math.max(0, replayIdx));
+  }
+  function showFrame(i) {
+    replayIdx = Math.max(0, Math.min(i, world.frames.length - 1));
+    const f = world.frames[replayIdx];
+    const fold = foldTo(replayIdx);
+    const ok = f.correct === null || Math.abs(fold.p[f.skillId] - f.pAfter) < 1e-9;
+    const dl = f.pAfter - f.pBefore;
+    document.getElementById("frame-detail").innerHTML = `<div class="fcard">
+      <div class="fh">📋 决策帧 #${f.seq} · 第${f.day}课 回合${f.turn} · ${esc((STORY.beats[f.beat] || {}).title || "")}</div>
+      <table class="ftab">
+        <tr><td>学生输入</td><td>${esc(f.input)}${f.correct === null ? "（无 BKT 观测）" : f.correct ? " → <b style='color:#35d07f'>判对</b>" : " → <b style='color:#e07a7a'>判错</b>"}</td></tr>
+        <tr><td>题目</td><td>${esc(itemById(f.itemId).stem)}</td></tr>
+        <tr><td>技能</td><td>${esc(skillById(f.skillId).name)}（${f.skillId}）</td></tr>
+        <tr><td>掌握度</td><td>p ${f.pBefore.toFixed(2)} → <b>${f.pAfter.toFixed(2)}</b>（Δ${(dl >= 0 ? "+" : "") + dl.toFixed(2)}）</td></tr>
+        <tr><td>导演动作</td><td><b>${MOVE_ZH[f.move]}</b>（${f.move}）</td></tr>
+        <tr><td>决策理由</td><td>${esc(f.reason)}</td></tr>
+        ${f.rationale ? `<tr><td>导师措辞</td><td>${esc(f.rationale)}</td></tr>` : ""}
+        <tr><td>话术来源</td><td>${f.source === "llm" ? "AI 现编（llm）" : "规则阶梯（rule）"}</td></tr>
+        <tr><td>本帧消耗</td><td>${f.tokens} token · 预算余 ${Math.round(f.budgetAfter.remaining)}/${Math.round(f.budgetAfter.grant + f.budgetAfter.recycled)} · 累计调用 ${f.calls} 次（失败 ${f.errors}）</td></tr>
+        <tr><td>重演校验</td><td>${ok ? "✅ 按帧日志从初始 p 重算 BKT，与记录值一致（对质通过）" : "❌ 重算不一致（" + fold.p[f.skillId].toFixed(4) + " ≠ " + f.pAfter + "）"}</td></tr>
+      </table></div>`;
+    document.querySelectorAll("#page-replay .tl-dot").forEach(d => d.classList.toggle("on", +d.dataset.i === replayIdx));
+    const tl = document.getElementById("tl");
+    if (tl) tl.value = replayIdx;
+  }
+  function frameFacts(f) {
+    return `帧#${f.seq}（第${f.day}课·回合${f.turn}）：学生${f.input}${f.correct === null ? "（求助/换题，无观测）" : f.correct ? "判对" : "判错"}；技能「${skillById(f.skillId).name}」p ${f.pBefore.toFixed(2)}→${f.pAfter.toFixed(2)}；导演动作 ${MOVE_ZH[f.move]}；理由：${f.reason}；话术来源 ${f.source}；本帧 ${f.tokens} token，预算余 ${Math.round(f.budgetAfter.remaining)}。`;
+  }
+  async function narrateFrame() {
+    const f = world.frames[replayIdx];
+    if (!f) return;
+    const out = document.getElementById("audit-out");
+    if (!out) return;
+    if (providerReady) {
+      out.innerHTML = "<p class='hint'>督学翻底稿中……</p>";
+      try {
+        const txt = await provider.complete([
+          { role: "system", content: `你在一场名为「${GAME.name}」的辅导课原型里扮演审计旁白。\n角色：${AUDITOR.name}（${AUDITOR.role}），人设：${AUDITOR.persona}\n按【旁白·输出要求】组织语言，不要输出 JSON。` },
+          { role: "user", content: "单帧解说素材：" + frameFacts(f) },
+        ], { max: Math.min(140, BUD.perCallMax), temp: 0.6 });
+        syncStats();
+        out.innerHTML = `<div class="mech"><b>${esc(AUDITOR.name)} · 帧解说（AI）</b><div>${esc(txt)}</div></div>`;
+        renderHUD();
+        return;
+      } catch (e) {
+        sys("（督学的模型调用失败：" + esc(String(e.message || e)) + "——用模板底稿）");
+      }
+    }
+    out.innerHTML = `<div class="mech"><b>${esc(AUDITOR.name)} · 帧解说（模板）</b><div>${esc("第 " + f.seq + " 帧：学生" + f.input + (f.correct === null ? "，未产生观测" : f.correct ? "，判对" : "，判错") + "；「" + skillById(f.skillId).name + "」掌握度 " + f.pBefore.toFixed(2) + " → " + f.pAfter.toFixed(2) + "。导演依据「" + f.reason + "」选择" + MOVE_ZH[f.move] + "，本帧计 " + f.tokens + " token（来源 " + f.source + "）。数字均可按帧日志重演核对。")}</div></div>`;
+  }
+  function buildReport() {
+    const F = world.frames;
+    const days = new Set(F.map(f => f.day)).size || 1;
+    const lines = [];
+    lines.push(`课次：第 ${world.day} 课（日志跨 ${days} 个课日）· 总帧数 ${F.length}（AI 现编 ${F.filter(f => f.source === "llm").length} 帧 / 规则阶梯 ${F.filter(f => f.source === "rule").length} 帧）`);
+    SK.forEach(s => {
+      const fr = F.filter(f => f.skillId === s.id);
+      if (!fr.length) { lines.push(`${s.name}（${s.id}）：0 帧 · p ${fmtP(world.p[s.id])}（未涉）`); return; }
+      const first = fr[0], last = fr[fr.length - 1];
+      const c = fr.filter(f => f.correct === true).length, w = fr.filter(f => f.correct === false).length;
+      const d = last.pAfter - first.pBefore;
+      lines.push(`${s.name}（${s.id}）：${fr.length} 帧 · 对 ${c}/错 ${w} · p ${first.pBefore.toFixed(2)} → ${last.pAfter.toFixed(2)}（Δ${(d >= 0 ? "+" : "") + d.toFixed(2)}）`);
+    });
+    const mis = {};
+    F.filter(f => f.correct === false).forEach(f => {
+      const k = ((itemById(f.itemId) || {}).misconception || "未标注").split("（")[0];
+      mis[k] = (mis[k] || 0) + 1;
+    });
+    lines.push("错因分布：" + (Object.keys(mis).length ? Object.entries(mis).map(([k, v]) => k + "×" + v).join("；") : "（无错题）"));
+    const mv = {};
+    F.forEach(f => { mv[f.move] = (mv[f.move] || 0) + 1; });
+    lines.push("动作分布：" + (Object.keys(mv).length ? Object.entries(mv).map(([k, v]) => MOVE_ZH[k] + "×" + v).join("；") : "（无）"));
+    const bud = budgetNow();
+    lines.push(`token 账目：消耗 ${Math.round(bud.used)}（累计调用 ${world.tally.calls} 次 · 失败 ${world.tally.errors} 次）· 答题回收 +${bud.recycled} · 余 ${Math.round(bud.remaining)}/${Math.round(bud.grant + bud.recycled)}`);
+    let mismatch = 0;
+    {
+      const p = {}; SK.forEach(s => p[s.id] = world.pmap0[s.id]);
+      for (const f of F) {
+        if (f.correct !== null) {
+          p[f.skillId] = bktUpdate(p[f.skillId], f.correct, skillById(f.skillId).bkt);
+          if (Math.abs(p[f.skillId] - f.pAfter) > 1e-9) mismatch++;
+        }
+      }
+    }
+    lines.push(mismatch === 0
+      ? `重演校验：✅ ${F.length} 帧全部从初始 p 重算 BKT 与记录值一致（事件溯源对质通过）`
+      : `重演校验：❌ ${mismatch} 帧重算不一致，请人工核对`);
+    return lines.join("\n");
+  }
+  async function genReport() {
+    const out = document.getElementById("audit-out");
+    if (!out) return;
+    const rep = buildReport();
+    let html = `<div class="mech"><b>📋 期末审计报告（确定性数字 · 全部取自决策帧日志）</b><div style="white-space:pre-wrap">${esc(rep)}</div></div>`;
+    if (providerReady) {
+      html += "<p class='hint'>督学润色中……</p>";
+      out.innerHTML = html;
+      try {
+        const txt = await provider.complete([
+          { role: "system", content: `你在一场名为「${GAME.name}」的辅导课原型里扮演审计旁白。\n角色：${AUDITOR.name}（${AUDITOR.role}），人设：${AUDITOR.persona}\n按【旁白·输出要求】出审计报告，不要输出 JSON。` },
+          { role: "user", content: "审计底稿数据：\n" + rep },
+        ], { max: BUD.perCallMax, temp: 0.6 });
+        syncStats();
+        html += `<div class="mech"><b>${esc(AUDITOR.name)} · 审计意见（AI）</b><div>${esc(txt)}</div></div>`;
+      } catch (e) {
+        html += `<p class="hint">（督学模型调用失败，仅呈确定性底稿）</p>`;
+      }
+    }
+    out.innerHTML = html;
+    renderHUD();
+  }
+
+  /* ---- 场景反馈（判定/动作 → 动画 + 光环脉冲） ---- */
+  const CLIP = { correct: "Yes", wrong: "No", socratic: "Wave", teach: "Thumbs_Up", repair: "Running", advance: "Dance", quiz: "Jump" };
+  let reactTimer = null;
+  function playAll(clipName) {
+    robots.forEach(r => {
+      if (!r.mixer || !r.gltfAnims) return;
+      const clip = r.gltfAnims.find(c => c.name === clipName) || r.gltfAnims.find(c => new RegExp(clipName, "i").test(c.name));
+      if (!clip) return;
+      r.mixer.stopAllAction(); r.mixer.clipAction(clip).reset().play();
+    });
+  }
+  function flash(hex) {
+    const c = new THREE.Color(hex), base = new THREE.Color(TH.ring);
+    const t0 = performance.now(), dur = 900;
+    (function pulse() {
+      const k = (performance.now() - t0) / dur;
+      if (k >= 1) { ring.material.color.copy(base); return; }
+      ring.material.color.copy(base.clone().lerp(c, 0.65 * Math.sin(k * Math.PI)));
+      requestAnimationFrame(pulse);
+    })();
+  }
+  function sceneReact(kind) {
+    if (!robots.length) return;
+    playAll(CLIP[kind] || "Idle");
+    if (kind === "correct" || kind === "advance") flash(0x35d07f);
+    else if (kind === "wrong" || kind === "repair") flash(0xa83a3a);
+    else flash(0x7eb8ff);
+    clearTimeout(reactTimer);
+    reactTimer = setTimeout(() => robots.forEach(r => {
+      if (r.mixer && r.idle) { r.mixer.stopAllAction(); r.mixer.clipAction(r.idle).reset().play(); }
+    }), 3200);
+  }
+
+  /* ---- Tabs ---- */
+  document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
+    document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("on", x === b));
+    document.querySelectorAll(".tab-page").forEach(p => p.classList.remove("on"));
+    document.getElementById("page-" + b.dataset.t).classList.add("on");
+    if (b.dataset.t === "replay") {
+      if (world.beat >= 3) setBeat(4);
+      else if (world.frames.length === 0) sys("（回放页随时可看：每答一步都会在这里落一张决策帧）");
+      renderReplay();
+    }
+  });
+
+  function renderAll() {
+    renderQuestion(); renderHUD(); renderStory(); renderCodex(); renderReplay();
+  }
+
+  /* ---- 开场 ---- */
+  document.getElementById("tagline").textContent = GAME.tagline;
+  renderAll();
+  sys(`欢迎来到「${esc(GAME.name)}」——学生 ${esc(STUDENT.name)} 的分数课（共 ${SK.length} 技能 / ${TRACK.items.length} 题）。`);
+  npcLine(TUTOR.name, TUTOR.first_line);
+  sys(`${AUDITOR.name}（${AUDITOR.role}）：「${AUDITOR.first_line}」`);
+  if (world.frames.length > 0) {
+    sys(`已载入 ${world.frames.length} 帧历史（跨 ${new Set(world.frames.map(f => f.day)).size} 课日）——「⏪ 回放」页可继续逐帧审计。`);
+    const lastSkill = skillById(world.cur.skillId);
+    sys(`续档中：当前技能「${esc(lastSkill.name)}」p=${fmtP(world.p[lastSkill.id])}，课时预算余 ${Math.round(budgetNow().remaining)} token。`);
+  }
+
+  /* ---- 主循环 ---- */
+  const clock = new THREE.Clock();
+  (function animate() {
+    requestAnimationFrame(animate);
+    const dt = clock.getDelta();
+    robots.forEach((r, j) => {
+      r.label.position.y = 3.1 + Math.sin(clock.elapsedTime * 2 + j) * 0.06;
+      if (r.mixer) r.mixer.update(dt);
+    });
+    controls.update();
+    renderer.render(scene, camera);
+  })();
+  window.addEventListener("resize", () => {
+    camera.aspect = sceneEl.clientWidth / sceneEl.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(sceneEl.clientWidth, sceneEl.clientHeight);
+  });
+}
+boot();
+</script>
+</body>
+</html>

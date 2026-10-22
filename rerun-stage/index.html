@@ -1,0 +1,1445 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>复演台：具身策略评测沙盒 · OriEra 原型</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; overflow: hidden; background: #0b0e14; color: #e6e8ef;
+    font-family: "Segoe UI", "Microsoft YaHei", sans-serif; }
+  #app { display: flex; height: 100%; }
+  #scene { flex: 1; position: relative; min-width: 0; }
+  #scene canvas { display: block; }
+  #hud { position: absolute; top: 12px; left: 14px; right: 14px; display: flex; gap: 8px; flex-wrap: wrap;
+    align-items: center; pointer-events: none; }
+  .chip { background: rgba(11,14,20,.84); border: 1px solid #2a3a5c; border-radius: 20px;
+    padding: 5px 12px; font-size: 12px; color: #aeb6cc; pointer-events: auto; }
+  .chip b { color: #9fc3ff; }
+  #dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #556; margin-right: 6px; }
+  #dot.live { background: #35d07f; box-shadow: 0 0 8px #35d07f; }
+  #playbar { position: absolute; left: 14px; right: 14px; bottom: 12px; display: none; gap: 10px;
+    align-items: center; background: rgba(11,14,20,.9); border: 1px solid #2a3a5c; border-radius: 12px;
+    padding: 8px 12px; font-size: 12px; }
+  #playbar.on { display: flex; }
+  #playbar input[type=range] { flex: 1; }
+  #playbar button { background: #2d5b9e; color: #fff; border: none; border-radius: 8px;
+    padding: 6px 12px; cursor: pointer; font-size: 12px; white-space: nowrap; }
+  #playbar button.verify { background: #1e7a52; }
+  #panel { width: 430px; background: #10131c; border-left: 1px solid #232a3d; display: flex; flex-direction: column; }
+  #tabs { display: flex; border-bottom: 1px solid #232a3d; }
+  #tabs button { flex: 1; background: none; border: none; color: #7c86a3; padding: 11px 2px;
+    font-size: 12.5px; cursor: pointer; border-bottom: 2px solid transparent; }
+  #tabs button.on { color: #7eb8ff; border-bottom-color: #7eb8ff; }
+  .tab-page { flex: 1; overflow-y: auto; padding: 13px; display: none; }
+  .tab-page.on { display: block; }
+  .hint { font-size: 12px; color: #7c86a3; line-height: 1.6; margin: 6px 0; }
+  .card { background: #161a28; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; font-size: 12.5px; line-height: 1.6; }
+  .card b.tt { color: #cdd6ec; font-size: 13px; }
+  .card .dim { color: #8a93ad; }
+  .row { display: flex; gap: 8px; margin: 8px 0; flex-wrap: wrap; }
+  .row input[type=text] { flex: 1; min-width: 180px; background: #0b0e14; border: 1px solid #2a3a5c; color: #e6e8ef;
+    border-radius: 8px; padding: 9px 11px; font-size: 13px; outline: none; }
+  button.act { background: #2d5b9e; color: #fff; border: none; border-radius: 8px; padding: 9px 14px;
+    cursor: pointer; font-size: 13px; }
+  button.act:disabled { background: #2a3348; color: #667; cursor: default; }
+  button.act.green { background: #1e7a52; }
+  button.act.dim3 { background: #232a3d; color: #aeb6cc; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+  .chips button { background: #161a28; border: 1px solid #2a3a5c; color: #aeb6cc; border-radius: 14px;
+    padding: 4px 10px; font-size: 12px; cursor: pointer; }
+  .chips button:hover, .chips button.sel { background: #1a2440; color: #7eb8ff; border-color: #3a5a8c; }
+  table.grid { width: 100%; border-collapse: collapse; font-size: 12px; }
+  table.grid th { text-align: left; color: #7c86a3; padding: 4px 6px; font-weight: 500; }
+  table.grid td { padding: 6px; border-top: 1px solid #1e2536; color: #b6bfd6; }
+  table.grid tr.runrow { cursor: pointer; }
+  table.grid tr.runrow:hover, table.grid tr.runrow.sel { background: #1a2440; }
+  .badge { display: inline-block; border-radius: 10px; padding: 1px 8px; font-size: 11px; }
+  .badge.pass { background: #10321f; color: #57d98d; }
+  .badge.fail { background: #3a1418; color: #ff8a8a; }
+  .badge.timeout { background: #332a10; color: #ffd88a; }
+  .objline { display: flex; gap: 6px; align-items: center; font-size: 12px; color: #b6bfd6; padding: 2px 0; }
+  .objdot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .frag { color: #ff8a8a; font-size: 11px; border: 1px solid #5a2a2a; border-radius: 8px; padding: 0 6px; }
+  .runbox { background: #0b0e14; border: 1px solid #1e2536; border-radius: 8px; padding: 8px 10px;
+    font-size: 11.5px; color: #9aa3b8; white-space: pre-wrap; word-break: break-all; max-height: 150px; overflow-y: auto; }
+  .verify-ok { color: #57d98d; } .verify-bad { color: #ff8a8a; }
+  .memrow { background: #161a28; border-radius: 10px; padding: 9px 11px; margin-bottom: 7px; font-size: 12.5px; line-height: 1.55; }
+  .memrow .who { color: #7eb8ff; font-weight: 700; }
+  .memrow .go { background: none; border: 1px solid #2d5b9e; color: #7eb8ff; border-radius: 10px;
+    padding: 1px 9px; font-size: 11px; cursor: pointer; margin-left: 6px; }
+  .beatline { border-left: 3px solid #6a5aa8; background: #161a28; border-radius: 0 8px 8px 0;
+    padding: 7px 10px; font-size: 12px; color: #c9bfe8; margin: 6px 0; }
+  .roundcard { border-left: 3px solid #2d5b9e; }
+  .mech { background: #161a28; border-radius: 8px; padding: 9px 12px; margin-bottom: 6px; }
+  .mech b { font-size: 13px; color: #cdd6ec; }
+  .mech div { font-size: 12px; color: #8a93ad; margin-top: 2px; line-height: 1.55; }
+  .loop-step { display: flex; gap: 8px; align-items: center; padding: 7px 10px; background: #161a28;
+    border-radius: 8px; margin-bottom: 6px; font-size: 12.5px; cursor: pointer; }
+  .loop-step.done { color: #5f6b8a; text-decoration: line-through; }
+  #fallback { position: fixed; inset: 0; background: #0b0e14ee; display: none; align-items: center;
+    justify-content: center; z-index: 99; text-align: center; padding: 40px; line-height: 2; }
+  .thinking { color: #7c86a3; font-size: 12px; }
+  #strip { background: #0b0e14; border: 1px solid #1e2536; border-radius: 8px; cursor: crosshair; display: block; margin: 8px 0; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="scene">
+    <div id="hud">
+      <div class="chip"><b>复演台</b> · <span id="tagline"></span></div>
+      <div class="chip"><span id="dot"></span><span id="prov-name">规则引擎（离线）</span></div>
+      <div class="chip">任务 <b id="hud-task">—</b></div>
+      <div class="chip">种子 <b id="hud-seed">—</b></div>
+      <div class="chip">预算 <b id="hud-budget" style="color:#ffd88a">100</b> 分</div>
+      <div class="chip">通过 <b id="hud-pass">0/0</b></div>
+      <div class="chip">记忆 <b id="hud-mem">0</b> 条</div>
+      <div class="chip" id="hud-verify">帧校验待复演</div>
+    </div>
+    <div id="playbar">
+      <b id="pb-run" style="color:#9fc3ff; white-space:nowrap">—</b>
+      <button id="pb-play">▶ 播放</button>
+      <input type="range" id="pb-slider" min="0" max="0" value="0" />
+      <span id="pb-frame">0/0</span>
+      <button class="verify" id="pb-verify">🔁 复演校验</button>
+      <span id="pb-hash" class="dim">帧哈希 —</span>
+    </div>
+  </div>
+  <div id="panel">
+    <div id="tabs">
+      <button class="on" data-t="task">🎯 出题</button>
+      <button data-t="director">🎬 导演</button>
+      <button data-t="runs">📊 跑测</button>
+      <button data-t="memory">🧠 记忆</button>
+      <button data-t="codex">📖 玩法</button>
+    </div>
+    <div id="page-task" class="tab-page on">
+      <div class="row">
+        <input type="text" id="nl" placeholder="一句话出题：如「把红杯推上杯垫，别碰倒玻璃瓶」" />
+      </div>
+      <div class="row">
+        <button class="act" id="btn-nl-off">🎲 任务库出题</button>
+        <button class="act green" id="btn-nl-ai">🤖 AI 出题（在线）</button>
+      </div>
+      <div class="chips" id="task-chips"></div>
+      <div id="card-view"></div>
+    </div>
+    <div id="page-director" class="tab-page">
+      <div class="card">
+        <b class="tt">评测预算</b> <span style="font-size:20px;color:#ffd88a" id="budget-big">100</span> 分
+        <div class="dim" id="budget-rule"></div>
+      </div>
+      <div class="row">
+        <button class="act green" id="btn-runall">▶ 一键评测（跑到预算尽）</button>
+        <button class="act dim3" id="btn-round">＋派生 1 轮</button>
+      </div>
+      <div class="hint" id="dir-status"></div>
+      <div id="beat-view"></div>
+      <div id="rounds-view"></div>
+    </div>
+    <div id="page-runs" class="tab-page">
+      <table class="grid" id="runs-table"></table>
+      <div class="hint" style="margin-top:8px">轨迹小地图（路径线 + 绿点=当前帧，点地图任意处跳到最近轨迹点）：</div>
+      <canvas id="strip" width="380" height="170"></canvas>
+      <div id="run-detail"></div>
+    </div>
+    <div id="page-memory" class="tab-page">
+      <div class="row">
+        <input type="text" id="mem-q" placeholder="检索失败片段：如「碰倒瓶子的失败」" />
+        <button class="act" id="btn-mem-go">🔍 检索</button>
+      </div>
+      <div class="chips" id="mem-chips"></div>
+      <div class="hint" id="mem-stat"></div>
+      <div id="mem-view"></div>
+      <div class="row" style="margin-top:10px">
+        <button class="act dim3" id="btn-export">📤 导出数据集</button>
+        <button class="act dim3" id="btn-mem-clear">🗑 清空记忆</button>
+      </div>
+    </div>
+    <div id="page-codex" class="tab-page"></div>
+  </div>
+</div>
+<div id="fallback">
+  <div>
+    <div style="font-size:40px">🤖</div>
+    <h2 style="margin:12px 0">请通过静态服务器打开本项目</h2>
+    <p style="color:#8a93ad">demo 依赖相对路径的 ES 模块（engine/kernel.js、vendor/、app/sim.js）。<br>
+    在本目录起任意静态服务器即可（例：<code>npx serve .</code> 或 <code>python -m http.server</code>）。</p>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "./vendor/three.module.js",
+  "three/addons/": "./vendor/"
+} }
+</script>
+<script type="module">
+/* ============ 游戏数据（生成时注入；改 JSON 后跑 node scripts/inject.mjs 重注入） ============ */
+const GAME = {
+  "id": "embodied-eval-sandbox",
+  "name": "复演台：具身策略评测沙盒",
+  "tagline": "一句话生成桌面操作考题、AI 导演按预算派生变体、种子复演逐帧不差、失败片段自动入记忆库成可检索数据资产——把具身评测从「跑一次看运气」变成「任何一帧都能一手不差地重放」",
+  "gameplay_id": "embodied-eval-sandbox",
+  "core_loop": [
+    "①一句话出题：输入自然语言任务（如「把红杯推上杯垫，别碰倒玻璃瓶」），L7 结构化输出场景卡（桌面物体布局/目标/约束/初始种子）；离线=任务库关键词匹配产出同一张卡",
+    "②一键评测复演：AI 导演按预算积分派生 N 个扰动变体（换位/加干扰物/收紧容差/打滑），3 个内置策略机器人确定性跑测；任一轨迹点可复演——同种子逐帧重放，帧哈希逐帧比对「一手不差」",
+    "③失败入库检索：成功/失败片段按策略写入长期记忆，输入「碰倒瓶子的失败」检索召回并跳到出事那一帧复演；导演读记忆定向补测短板变体"
+  ],
+  "mechanics": [
+    {
+      "name": "场景卡出题",
+      "detail": "一句话任务经 L7 结构化输出场景卡 {table, objects[{id,type,color,x,y,r,fragile}], goal{verb,target,dest,tol}, constraints, seed}；模型只管语义，种子由应用层从卡片内容哈希分配——模型不碰随机源。离线走任务库关键词匹配，产出同一结构的卡；在线输出经 normalizeCard 统一夹紧（越界/重名/幻觉字段全部收敛）。"
+    },
+    {
+      "name": "扰动变体导演",
+      "detail": "AI 导演按预算积分从四算子表派生变体：shift 换位 / distract 路径加干扰物 / tighten 收紧容差 / slip 打滑升档，逐轮累计叠加；失败轮触发复测优先级（tighten→slip→shift→distract），预算分拨是硬约束——积分不够就算子不落地。在线时模型在同名算子内选型并给理由，扣分走同一张表。"
+    },
+    {
+      "name": "确定性策略机器人",
+      "detail": "直冲型（v=1.0，不避障，接触冲击直接超碰倒阈值）、绕行型（v=0.78，避障前扫插垂直绕行点，两段式承诺：摆动点→切回目标直到障碍落到身后）、试探型（v=0.75，近物减速到 0.5 倍，冲击 0.375 低于 0.5 碰倒阈值但慢到可能超时）——三者是同一套动力学状态机下的三组参数 {v, detour, probe}，离线在线同跑同一套，没有任何策略走模型。"
+    },
+    {
+      "name": "帧哈希复演",
+      "detail": "模拟器为纯前端确定性代码：mulberry32 种子 PRNG + 固定 tick 序列（dt=1/60，≤900 帧）+ 状态量化到 1e-3 后 FNV-1a 帧哈希。任一轨迹点可复演：同种子重跑整条轨迹，逐帧哈希与逐帧量化状态双比对，「一手不差 ✓ N/N 帧」或首个不一致帧坐标。复演不经过模型，离线在线同一保证。"
+    },
+    {
+      "name": "失败记忆检索",
+      "detail": "每次跑测落一条轨迹进引擎 L9 长期记忆（MemoryStore.record，按策略名分线）：结果/变体/失败原因/出事帧号全在片段文本里；输入「碰倒瓶子的失败」经 bigram 检索召回，点击结果直接跳到那条轨迹出事的帧复演。导演每轮读记忆短板（最弱策略+失败算子）定向补测——失败数据沉淀成可检索资产而不是看完就丢。"
+    },
+    {
+      "name": "积分预算经济",
+      "detail": "初始 100 评测积分，基础轮（无算子）免费；每个变体轮按算子价目扣分（shift 10 / distract 15 / tighten 8 / slip 12），最多 4 轮，积分不够导演即停——评测预算从「无限重跑」变成「每一分扰动都要记账」，与真实评测集群的成本结构同构。"
+    }
+  ],
+  "economy": [
+    {
+      "name": "评测积分",
+      "source": "初始 100 分；基础轮免费跑 3 策略 × 1 变体",
+      "sink": "变体算子价目：shift 10 / distract 15 / tighten 8 / slip 12，每轮按算子扣，预算尽即停轮"
+    },
+    {
+      "name": "轨迹数据资产",
+      "source": "每次跑测自动落一条轨迹片段（帧哈希链+结果+策略+变体+出事帧）入长期记忆",
+      "sink": "检索召回跳帧复演的依据；导演读短板定向补测；MemoryStore.export() 一键导出数据集"
+    },
+    {
+      "name": "帧哈希链",
+      "source": "种子 PRNG × 固定 tick 序列逐帧计算，每条轨迹一条完整链",
+      "sink": "复演校验的唯一凭据：重放哈希与首跑哈希逐帧比对，不一致即复现破损——不靠肉眼对录像"
+    }
+  ],
+  "difficulty": "入门 5 分钟：点预置任务 → 一键评测 → 点任一跑测行看轨迹 → 点「复演校验」看全绿帧哈希。离线（规则引擎）下最硬的卖点完整可用：种子模拟、四算子派生、逐帧复演校验、记忆检索与积分经济全部照常；仅三层降级为模板——任意句语义出题（限任务库句式）、导演自然语言扰动理由（改显算子名与规则理由）、记忆/导演语义点评（改固定文案）。",
+  "user_idea": "具身智能评测沙盒：自然语言一句话出题生成场景卡，AI 导演按预算积分派生扰动变体，三个确定性策略机器人全量跑测，逐帧哈希复演「一手不差」，失败片段按策略沉淀进长期记忆并可检索跳帧——把「评测可复现 + 可控场景源 + 失败数据资产化」三件事做进同一个核心循环。",
+  "theme": "space",
+  "track": {
+    "name": "具身智能（Embodied AI / 机器人）",
+    "pitch": "一句话生成桌面操作考题、AI 导演按预算派生变体、种子复演逐帧不差、失败片段自动入记忆库成可检索数据资产——把具身评测从「跑一次看运气」变成「任何一帧都能一手不差地重放」。",
+    "pain_to_mechanic": [
+      {
+        "pain": "评测不可复现：跑一次看运气，同一任务重跑结果漂移，失败没有基准帧可对",
+        "mechanic": "不可复现→种子复演：app 层确定性模拟器（mulberry32 种子 + 固定 tick + 帧哈希链），任一轨迹点同种子重放，逐帧哈希比对「一手不差」——复演不经过模型，离线在线同一保证（app/sim.js runSim/verifyReplay）"
+      },
+      {
+        "pain": "场景来源不可控：评测集靠人手摆台，想加一个变体要重新搭一遍",
+        "mechanic": "不可控→场景卡+四算子导演：一句话出题出结构化场景卡，导演按预算从 shift/distract/tighten/slip 算子表确定性派生变体轮，逐轮累计叠加，失败轮触发复测优先级（game.json mechanics + variants.json）"
+      },
+      {
+        "pain": "失败数据浪费：失败轨迹看完就丢，长不成可检索的资产",
+        "mechanic": "浪费→失败入库：轨迹片段按策略写进引擎 L9 记忆（MemoryStore.record），bigram 检索召回「碰倒瓶子的失败」并跳到出事帧复演，导演读记忆短板定向补测（kernel.js:22/28/43）"
+      }
+    ],
+    "hooks": {
+      "engine": [
+        "createProvider(cfg)+PROVIDER_PRESETS（kernel.js:277/287）：L7 八厂商装配，kind=rule 或无 key 返回 null，全链路自动降级离线",
+        "HttpChatProvider.complete(messages,{json,temp,max})（kernel.js:65）：场景卡生成与导演变体选型的唯一模型通路；prompt 拼装在应用层（先例模式）",
+        "MemoryStore.record/retrieve/export（kernel.js:22/28/51）：轨迹片段按策略名沉淀，bigram×1.6+重要度×0.45+时近×2+about 加权检索直接服务「失败检索→跳帧复演」",
+        "Scheduler.add/tick（kernel.js:270-274）：评测主循环泵，变体派生系统→确定性模拟系统→记忆沉淀系统依次 tick 同一 world 对象",
+        "DirectorSystem.tick（kernel.js:247）：在线时挂载为变体日程节拍器（beat 即下一轮加测建议）；其离线 RULE_BEATS 为咖啡馆语料（kernel.js:235-242），离线变体改走 app 层确定性算子表——先例同款诚实绕行"
+      ],
+      "honesty": [
+        "桌面操作是 app 层确定性运动学状态机（推/碰/倒），非引擎物理；情报所称「命令通道（spawn/gravity/speed）」在 vendored kernel.js 中不存在（grep 三份镜像零命中），kernel 仅 8 个导出",
+        "CognitionSystem/DirectorSystem 内置咖啡馆语料，不能直接扮演具身 agent，沿用先例「provider 直连+应用层 prompt+离线模板」模式",
+        "MemoryStore 每 agent 60 条上限（kernel.js:25），对数据资产库偏小，export() 可作临时补偿",
+        "浏览器 demo 只证明「评测可复现+可控场景源」半边；与世界模型训练侧对接需 GPU 并行后端"
+      ]
+    }
+  }
+};
+const TASKS = {
+  "note": "预置任务库：离线出题模板 + 在线 few-shot 种子。spec 坐标系：桌面 x∈[-w/2,w/2]、y∈[-h/2,h/2]（渲染时 y 即世界 z）。种子=基础轮模拟种子，变体轮种子由 runSeed 派生。",
+  "tasks": [
+    {
+      "id": "t1_cup_to_coaster",
+      "nl": "把红杯推上杯垫，别碰倒玻璃瓶",
+      "title": "红杯上座",
+      "keywords": [
+        "红杯",
+        "杯垫",
+        "玻璃瓶",
+        "碰倒",
+        "杯子"
+      ],
+      "spec": {
+        "table": {
+          "w": 10,
+          "h": 6
+        },
+        "objects": [
+          {
+            "id": "coaster_1",
+            "type": "coaster",
+            "color": "gray",
+            "x": 3.2,
+            "y": -1.2,
+            "r": 0.6,
+            "fragile": false
+          },
+          {
+            "id": "red_cup",
+            "type": "cup",
+            "color": "red",
+            "x": -2.2,
+            "y": 1.3,
+            "r": 0.35,
+            "fragile": false
+          },
+          {
+            "id": "glass_bottle",
+            "type": "bottle",
+            "color": "green",
+            "x": -3.6,
+            "y": 0.75,
+            "r": 0.28,
+            "fragile": true
+          },
+          {
+            "id": "crate_a",
+            "type": "box",
+            "color": "brown",
+            "x": -0.5,
+            "y": -2.1,
+            "r": 0.42,
+            "fragile": false
+          }
+        ],
+        "goal": {
+          "verb": "push",
+          "target": "red_cup",
+          "dest": "coaster_1",
+          "tol": 0.5
+        },
+        "constraints": [
+          "no_topple",
+          "stay_on_table"
+        ],
+        "seed": 20261019
+      }
+    },
+    {
+      "id": "t2_box_to_corner",
+      "nl": "把蓝色方块推到右下角的停机坪，桌上没别的障碍",
+      "title": "蓝盒入角",
+      "keywords": [
+        "蓝",
+        "方块",
+        "停机坪",
+        "角落",
+        "盒子"
+      ],
+      "spec": {
+        "table": {
+          "w": 10,
+          "h": 6
+        },
+        "objects": [
+          {
+            "id": "pad_home",
+            "type": "pad",
+            "color": "gray",
+            "x": 3.6,
+            "y": -1.9,
+            "r": 0.7,
+            "fragile": false
+          },
+          {
+            "id": "blue_box",
+            "type": "box",
+            "color": "blue",
+            "x": -3.4,
+            "y": 1.4,
+            "r": 0.45,
+            "fragile": false
+          }
+        ],
+        "goal": {
+          "verb": "push",
+          "target": "blue_box",
+          "dest": "pad_home",
+          "tol": 0.55
+        },
+        "constraints": [
+          "stay_on_table"
+        ],
+        "seed": 20261020
+      }
+    },
+    {
+      "id": "t3_can_slalom",
+      "nl": "推绿罐绕开两只木箱和玻璃瓶，送到对角的杯垫上",
+      "title": "绿罐绕桩",
+      "keywords": [
+        "绿",
+        "罐",
+        "绕",
+        "障碍",
+        "木箱"
+      ],
+      "spec": {
+        "table": {
+          "w": 10,
+          "h": 6
+        },
+        "objects": [
+          {
+            "id": "coaster_far",
+            "type": "coaster",
+            "color": "gray",
+            "x": 3.4,
+            "y": -1.8,
+            "r": 0.6,
+            "fragile": false
+          },
+          {
+            "id": "green_can",
+            "type": "can",
+            "color": "green",
+            "x": -2.6,
+            "y": 1.7,
+            "r": 0.3,
+            "fragile": false
+          },
+          {
+            "id": "glass_bottle2",
+            "type": "bottle",
+            "color": "white",
+            "x": -3.85,
+            "y": 1.05,
+            "r": 0.28,
+            "fragile": true
+          },
+          {
+            "id": "crate_b",
+            "type": "box",
+            "color": "brown",
+            "x": -1,
+            "y": 0.4,
+            "r": 0.42,
+            "fragile": false
+          },
+          {
+            "id": "crate_c",
+            "type": "box",
+            "color": "brown",
+            "x": 1.3,
+            "y": -0.7,
+            "r": 0.42,
+            "fragile": false
+          }
+        ],
+        "goal": {
+          "verb": "push",
+          "target": "green_can",
+          "dest": "coaster_far",
+          "tol": 0.5
+        },
+        "constraints": [
+          "no_topple",
+          "stay_on_table"
+        ],
+        "seed": 20261021
+      }
+    },
+    {
+      "id": "t4_fragile_corridor",
+      "nl": "在易碎品走廊里推黄杯到杯垫，两边都是玻璃瓶，一个都不能倒",
+      "title": "易碎走廊",
+      "keywords": [
+        "走廊",
+        "易碎",
+        "玻璃瓶",
+        "黄",
+        "窄"
+      ],
+      "spec": {
+        "table": {
+          "w": 10,
+          "h": 6
+        },
+        "objects": [
+          {
+            "id": "coaster_end",
+            "type": "coaster",
+            "color": "gray",
+            "x": 3.8,
+            "y": 0,
+            "r": 0.6,
+            "fragile": false
+          },
+          {
+            "id": "yellow_cup",
+            "type": "cup",
+            "color": "yellow",
+            "x": -3.6,
+            "y": 0,
+            "r": 0.35,
+            "fragile": false
+          },
+          {
+            "id": "bottle_n1",
+            "type": "bottle",
+            "color": "white",
+            "x": -1.6,
+            "y": 0.68,
+            "r": 0.28,
+            "fragile": true
+          },
+          {
+            "id": "bottle_n2",
+            "type": "bottle",
+            "color": "white",
+            "x": -0.2,
+            "y": -0.68,
+            "r": 0.28,
+            "fragile": true
+          },
+          {
+            "id": "bottle_n3",
+            "type": "bottle",
+            "color": "white",
+            "x": 1.4,
+            "y": 0.68,
+            "r": 0.28,
+            "fragile": true
+          }
+        ],
+        "goal": {
+          "verb": "push",
+          "target": "yellow_cup",
+          "dest": "coaster_end",
+          "tol": 0.5
+        },
+        "constraints": [
+          "no_topple",
+          "stay_on_table"
+        ],
+        "seed": 20261022
+      }
+    },
+    {
+      "id": "t5_slippery_plate",
+      "nl": "桌面打了蜡很滑，把白碟推到停机坪上别滑飞",
+      "title": "打滑桌面",
+      "keywords": [
+        "打滑",
+        "滑",
+        "蜡",
+        "白碟",
+        "白"
+      ],
+      "spec": {
+        "table": {
+          "w": 10,
+          "h": 6
+        },
+        "objects": [
+          {
+            "id": "pad_dock",
+            "type": "pad",
+            "color": "gray",
+            "x": 3.2,
+            "y": -0.8,
+            "r": 0.7,
+            "fragile": false
+          },
+          {
+            "id": "white_plate",
+            "type": "can",
+            "color": "white",
+            "x": -3.2,
+            "y": 0.8,
+            "r": 0.4,
+            "fragile": false
+          },
+          {
+            "id": "crate_d",
+            "type": "box",
+            "color": "brown",
+            "x": 0.2,
+            "y": 1.6,
+            "r": 0.42,
+            "fragile": false
+          }
+        ],
+        "goal": {
+          "verb": "push",
+          "target": "white_plate",
+          "dest": "pad_dock",
+          "tol": 0.5
+        },
+        "constraints": [
+          "stay_on_table"
+        ],
+        "seed": 20261023,
+        "slipLevel": 1
+      }
+    },
+    {
+      "id": "t6_long_haul",
+      "nl": "把紫罐从桌子这头一路推到最那头的杯垫，路很长",
+      "title": "长途直推",
+      "keywords": [
+        "紫",
+        "罐",
+        "长途",
+        "长",
+        "那头"
+      ],
+      "spec": {
+        "table": {
+          "w": 12,
+          "h": 6
+        },
+        "objects": [
+          {
+            "id": "coaster_goal",
+            "type": "coaster",
+            "color": "gray",
+            "x": 4.6,
+            "y": 0,
+            "r": 0.6,
+            "fragile": false
+          },
+          {
+            "id": "purple_can",
+            "type": "can",
+            "color": "purple",
+            "x": -4.6,
+            "y": 0,
+            "r": 0.3,
+            "fragile": false
+          },
+          {
+            "id": "crate_e",
+            "type": "box",
+            "color": "brown",
+            "x": 0.4,
+            "y": 1.9,
+            "r": 0.42,
+            "fragile": false
+          }
+        ],
+        "goal": {
+          "verb": "push",
+          "target": "purple_can",
+          "dest": "coaster_goal",
+          "tol": 0.55
+        },
+        "constraints": [
+          "stay_on_table"
+        ],
+        "seed": 20261024
+      }
+    },
+    {
+      "id": "t7_crowded_desk",
+      "nl": "桌面上杂物很多，在拥挤的桌面里把红罐推到杯垫，别碰倒易碎瓶",
+      "title": "拥挤桌面",
+      "keywords": [
+        "拥挤",
+        "杂物",
+        "红罐",
+        "多",
+        "红"
+      ],
+      "spec": {
+        "table": {
+          "w": 10,
+          "h": 6
+        },
+        "objects": [
+          {
+            "id": "coaster_c",
+            "type": "coaster",
+            "color": "gray",
+            "x": 3,
+            "y": 0.4,
+            "r": 0.6,
+            "fragile": false
+          },
+          {
+            "id": "red_can",
+            "type": "can",
+            "color": "red",
+            "x": -3,
+            "y": -0.4,
+            "r": 0.3,
+            "fragile": false
+          },
+          {
+            "id": "box_j1",
+            "type": "box",
+            "color": "brown",
+            "x": -1.4,
+            "y": 1.1,
+            "r": 0.4,
+            "fragile": false
+          },
+          {
+            "id": "box_j2",
+            "type": "box",
+            "color": "brown",
+            "x": 0.4,
+            "y": -1.5,
+            "r": 0.4,
+            "fragile": false
+          },
+          {
+            "id": "box_j3",
+            "type": "box",
+            "color": "brown",
+            "x": 1.8,
+            "y": 1.6,
+            "r": 0.4,
+            "fragile": false
+          },
+          {
+            "id": "bottle_j",
+            "type": "bottle",
+            "color": "green",
+            "x": 0.2,
+            "y": 0.9,
+            "r": 0.28,
+            "fragile": true
+          }
+        ],
+        "goal": {
+          "verb": "push",
+          "target": "red_can",
+          "dest": "coaster_c",
+          "tol": 0.5
+        },
+        "constraints": [
+          "no_topple",
+          "stay_on_table"
+        ],
+        "seed": 20261025
+      }
+    }
+  ]
+};
+const POLICIES = {
+  "note": "3 个内置确定性策略机器人：同一套动力学状态机下的三组参数 {v, detour, probe}，离线在线同跑同一套，没有任何策略走模型。v=速度(桌面单位/秒)，detour=避障绕行强度(0=直冲)，probe=近物试探减速(0/1，接近物体时限速 0.4 倍，冲击低于 0.5 碰倒阈值)。",
+  "policies": [
+    {
+      "id": "rusher",
+      "name": "直冲型",
+      "style": "beeline",
+      "flavor": "目标方向一条直线，路上碍事的直接撞开——冲击拉满，玻璃瓶不会让路，它先倒。",
+      "params": {
+        "v": 1,
+        "detour": 0,
+        "probe": 0
+      }
+    },
+    {
+      "id": "detour",
+      "name": "绕行型",
+      "style": "detour",
+      "flavor": "见障即绕：路径前扫 fragile 与杂物，插垂直绕行点再进接近位——慢一点，但瓶子都活着。",
+      "params": {
+        "v": 0.78,
+        "detour": 1,
+        "probe": 0
+      }
+    },
+    {
+      "id": "prober",
+      "name": "试探型",
+      "style": "probe",
+      "flavor": "接近任何物体先减速试探，用低于碰倒阈值的冲击推杆——几乎不碰倒东西，代价是慢，预算紧会超时。",
+      "params": {
+        "v": 0.75,
+        "detour": 0.5,
+        "probe": 1
+      }
+    }
+  ]
+};
+const VARIANTS = {
+  "note": "离线导演算子表：预算分拨规则 + 四算子价目 + 失败复测优先级。在线时模型在同名算子内选型并给自然语言理由，扣分与落地走本表——预算是硬约束。",
+  "budget": {
+    "initial_points": 100,
+    "max_rounds": 4
+  },
+  "ops": [
+    {
+      "name": "shift",
+      "label": "换位",
+      "cost": 10,
+      "apply": "shift_objects",
+      "desc": "非目的地物体整体随机挪位（种子派生、确定性），测布局泛化"
+    },
+    {
+      "name": "distract",
+      "label": "加干扰物",
+      "cost": 15,
+      "apply": "add_distractor",
+      "desc": "在目标→目的地的路径走廊里新放一只木箱，测动态避障"
+    },
+    {
+      "name": "tighten",
+      "label": "收紧容差",
+      "cost": 8,
+      "apply": "tolerance_x0.6",
+      "desc": "到位半径 ×0.6（下限 0.15），测推杆精度"
+    },
+    {
+      "name": "slip",
+      "label": "打滑",
+      "cost": 12,
+      "apply": "slip+1",
+      "desc": "接触面打滑角噪声上调一级（上限 L2），测低摩擦鲁棒"
+    }
+  ],
+  "priority": {
+    "on_fail": [
+      "tighten",
+      "slip",
+      "shift",
+      "distract"
+    ],
+    "on_pass": [
+      "shift",
+      "distract",
+      "slip",
+      "tighten"
+    ]
+  }
+};
+
+/* 【独立部署】kernel 与 vendor 已随项目自带，相对路径引用，任意静态服务器可跑 */
+const VENDOR_BASE = "./vendor/";
+const KERNEL = "./engine/kernel.js";
+const SIM = "./app/sim.js";
+
+/* DeepSeek 思考档适配层（先例同款）：V4 系默认 high 档推理吃掉 max_tokens 预算出现空正文，
+   出题/派生要延迟不要深度——游戏层拦 fetch 注入 thinking:disabled；vendored kernel 保持零漂移 */
+{
+  const _fetch = window.fetch.bind(window);
+  window.fetch = async (u, o) => {
+    if (typeof u === "string" && u.includes("api.deepseek.com") && o && o.body) {
+      try {
+        const b = JSON.parse(o.body);
+        if (b.model && b.thinking === undefined) b.thinking = { type: "disabled" };
+        o = { ...o, body: JSON.stringify(b) };
+      } catch (e) { /* 非 JSON 体原样放行 */ }
+    }
+    return _fetch(u, o);
+  };
+}
+
+/* ============ L7 provider 装配（与引擎 café demo 同一机制） ============ */
+let provider = null, providerReady = false, KERNEL_MOD = null, SIM_MOD = null;
+const savedCfg = JSON.parse(localStorage.getItem("aicafe.llm.v1") || "null");
+async function boot() {
+  let mod, sim;
+  try {
+    mod = await import(KERNEL);
+    sim = await import(SIM);
+  } catch (e) {
+    document.getElementById("fallback").style.display = "flex";
+    return;
+  }
+  KERNEL_MOD = mod; SIM_MOD = sim;
+  if (savedCfg && savedCfg.key && savedCfg.kind !== "rule") {
+    provider = mod.createProvider(savedCfg);
+    providerReady = !!(provider && provider.ready);
+  }
+  if (providerReady) {
+    document.getElementById("prov-name").textContent =
+      (savedCfg.model || "llm") + "（引擎 L7 · AI 已植入）";
+    document.getElementById("dot").classList.add("live");
+  }
+  await start();
+}
+
+/* ============ 全局状态 ============ */
+const S = {
+  task: null, spec: null,
+  rounds: [],          /* [{idx, ops, cost, reason, label, runIds:[], summary}] */
+  runs: [],            /* [{id, roundIdx, policyId, variantLabel, spec, policy, seed, frames, hashes, outcome, total}] */
+  budget: VARIANTS.budget.initial_points,
+  lastResults: null,
+  world: null, sched: null, mem: null, director: null,
+  play: { run: null, frame: 0, playing: false, speed: 6 },
+  busy: false,
+};
+const $ = (id) => document.getElementById(id);
+const esc = (s) => (s || "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const COLOR_HEX = { red: 0xd85a4e, blue: 0x4e8fe0, green: 0x4ec06a, yellow: 0xd8c44e,
+  white: 0xdde3ec, gray: 0x77808f, brown: 0x8a6a4a, purple: 0x9a6ee0 };
+const OBJ_H = { cup: 0.66, can: 0.5, bottle: 0.9, box: 0.62, coaster: 0.06, pad: 0.05 };
+function badgeOf(o) {
+  if (o.status === "pass") return '<span class="badge pass">✓ 到位</span>';
+  if (/超时/.test(o.reason)) return '<span class="badge timeout">⏱ 超时</span>';
+  return '<span class="badge fail">✗ ' + esc(o.reason.slice(0, 12)) + "</span>";
+}
+
+/* ============ 场景（Three.js） ============ */
+let THREE, controls, objGroup, robotMesh, robotMixer, robotAnims, destRing, targetRing, playMarker;
+async function buildScene() {
+  THREE = await import("three");
+  const { OrbitControls } = await import(VENDOR_BASE + "OrbitControls.js");
+  const { GLTFLoader } = await import(VENDOR_BASE + "GLTFLoader.js");
+  const sceneEl = $("scene");
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(sceneEl.clientWidth, sceneEl.clientHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  sceneEl.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0d1017);
+  scene.fog = new THREE.Fog(0x0d1017, 24, 60);
+  const camera = new THREE.PerspectiveCamera(50, sceneEl.clientWidth / sceneEl.clientHeight, 0.1, 200);
+  camera.position.set(0, 10.5, 10.5);
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.target.set(0, 0.2, 0);
+  controls.enableDamping = true; controls.maxPolarAngle = Math.PI / 2.1;
+  controls.minDistance = 5; controls.maxDistance = 30;
+  scene.add(new THREE.HemisphereLight(0x8fb5ff, 0x1a2030, 1.05));
+  const sun = new THREE.DirectionalLight(0xffe9c4, 1.5);
+  sun.position.set(6, 12, 5); scene.add(sun);
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(30, 48).rotateX(-Math.PI / 2),
+    new THREE.MeshStandardMaterial({ color: 0x141a28, roughness: 0.96 }));
+  floor.position.y = -1.2; scene.add(floor);
+  const table = new THREE.Mesh(new THREE.BoxGeometry(1, 0.26, 1),
+    new THREE.MeshStandardMaterial({ color: 0x2a3648, roughness: 0.85 }));
+  table.name = "table"; table.scale.set(1, 1, 1); scene.add(table);
+  objGroup = new THREE.Group(); scene.add(objGroup);
+  destRing = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.62, 40).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ color: 0xe8b24e, transparent: true, opacity: 0.85, side: THREE.DoubleSide }));
+  destRing.position.y = 0.14; scene.add(destRing);
+  targetRing = new THREE.Mesh(new THREE.RingGeometry(0.46, 0.52, 40).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ color: 0x7eb8ff, transparent: true, opacity: 0.7, side: THREE.DoubleSide }));
+  targetRing.position.y = 0.14; scene.add(targetRing);
+  playMarker = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 12),
+    new THREE.MeshBasicMaterial({ color: 0x57d98d }));
+  playMarker.position.y = 0.16; playMarker.visible = false; scene.add(playMarker);
+  const gltf = await new GLTFLoader().loadAsync(VENDOR_BASE + "RobotExpressive.glb");
+  robotMesh = gltf.scene;
+  robotMesh.scale.setScalar(0.5);
+  robotMesh.traverse((o) => { if (o.isMesh) o.castShadow = false; });
+  scene.add(robotMesh);
+  robotMixer = new THREE.AnimationMixer(robotMesh);
+  robotAnims = gltf.animations;
+  const idle = robotAnims.find((a) => /idle/i.test(a.name)) || robotAnims[0];
+  if (idle) robotMixer.clipAction(idle).play();
+  window.addEventListener("resize", () => {
+    camera.aspect = sceneEl.clientWidth / sceneEl.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(sceneEl.clientWidth, sceneEl.clientHeight);
+  });
+  const clock = new THREE.Clock();
+  (function animate() {
+    requestAnimationFrame(animate);
+    const dt = clock.getDelta();
+    if (S.play.playing && S.play.run) {
+      S.play.frame = Math.min(S.play.run.total - 1, S.play.frame + S.play.speed);
+      if (S.play.frame >= S.play.run.total - 1) { S.play.playing = false; $("pb-play").textContent = "▶ 播放"; }
+      poseFromFrame(); syncPlaybar();
+    }
+    if (robotMixer) robotMixer.update(dt);
+    controls.update();
+    renderer.render(scene, camera);
+  })();
+}
+function clearObjects() { while (objGroup && objGroup.children.length) objGroup.remove(objGroup.children[0]); }
+function buildObjects(spec) {
+  clearObjects();
+  const tb = objGroup.parent.getObjectByName("table");
+  if (tb) tb.scale.set(spec.table.w, 1, spec.table.h);
+  for (const o of spec.objects) {
+    const col = COLOR_HEX[o.color] ?? 0x888888;
+    let m;
+    if (o.type === "box") {
+      m = new THREE.Mesh(new THREE.BoxGeometry(o.r * 2, OBJ_H.box, o.r * 2),
+        new THREE.MeshStandardMaterial({ color: col, roughness: 0.8 }));
+    } else {
+      const h = OBJ_H[o.type] || 0.6;
+      m = new THREE.Mesh(new THREE.CylinderGeometry(o.type === "bottle" ? o.r * 0.72 : o.r, o.r, h, 20),
+        new THREE.MeshStandardMaterial({ color: col, roughness: o.type === "coaster" || o.type === "pad" ? 0.95 : 0.55 }));
+      m.userData.h = h;
+    }
+    m.userData.spec = o;
+    objGroup.add(m);
+  }
+  const dp = spec.objects.find((o) => o.id === spec.goal.dest);
+  const tp = spec.objects.find((o) => o.id === spec.goal.target);
+  if (dp) { destRing.position.set(dp.x, 0.14, dp.y); destRing.scale.setScalar(dp.r / 0.56); destRing.visible = true; }
+  if (tp) { targetRing.position.set(tp.x, 0.14, tp.y); targetRing.scale.setScalar(tp.r / 0.49); targetRing.visible = true; }
+  poseFromSpec(spec);
+}
+function poseObjects(spec, frame) {
+  objGroup.children.forEach((m, i) => {
+    const rec = frame ? frame.objs[i] : null;
+    const sd = spec.objects[i];
+    const h = m.userData.h || OBJ_H[sd.type] || 0.5;
+    const x = rec ? rec[0] : sd.x, z = rec ? rec[1] : sd.y;
+    const top = rec ? rec[2] : false;
+    m.position.set(x, top ? (m.geometry.type === "BoxGeometry" ? OBJ_H.box / 2 : sd.r) : h / 2, z);
+    m.rotation.set(0, 0, 0);
+    if (top) {
+      if (m.geometry.type === "BoxGeometry") { m.rotation.z = Math.PI / 2; m.position.y = sd.r; }
+      else { m.rotation.x = Math.PI / 2; m.position.y = sd.r * 0.72; }
+    }
+  });
+}
+function poseFromSpec(spec) {
+  poseObjects(spec, null);
+  const st = SIM_MOD.robotStart(spec.table);
+  robotMesh.position.set(st.x, 0, st.z);
+  playMarker.visible = false;
+}
+function poseFromFrame() {
+  const run = S.play.run; if (!run) return;
+  const f = run.frames[S.play.frame];
+  if (!f) return;
+  poseObjects(run.spec, f);
+  robotMesh.position.set(f.rx, 0, f.rz);
+  robotMesh.rotation.y = Math.PI / 2 - f.dir; /* glb 朝 +z：航向角 dir 的朝向修正 */
+  playMarker.visible = true;
+  playMarker.position.set(f.rx, 0.16, f.rz);
+  destRing.visible = targetRing.visible = false;
+}
+
+/* ============ 引擎装配：MemoryStore + Scheduler + DirectorSystem（仅在线挂载） ============ */
+function wireEngine() {
+  S.mem = new KERNEL_MOD.MemoryStore("game." + GAME.id + ".mem.v1");
+  S.world = { turn: 0, day: 1, story: { day: 1, beats: [] }, dialogue: [] };
+  S.sched = new KERNEL_MOD.Scheduler();
+  S.sched.add({
+    name: "变体派生", async tick(w) {
+      const roundIdx = S.rounds.length + 1;
+      /* 第 1 轮=基础轮：任务卡原样、免费、3 策略全量（设计：初始积分只为扰动变体付费） */
+      if (roundIdx === 1) {
+        w.pending = { roundIdx, ops: [], cost: 0, reason: "基础轮：任务卡原样跑测（免费）", label: "基础轮",
+          spec: JSON.parse(JSON.stringify(S.spec)), log: [], seed: S.spec.seed };
+        return;
+      }
+      let ops = null, cost = 0, reason = "", label = "";
+      if (providerReady) {
+        try {
+          const last = S.lastResults;
+          const memLines = directorMemoryLines(2);
+          const out = await provider.complete([
+            { role: "system", content: "你是具身智能评测的 AI 导演。为下一轮评测从算子表中选择 1 个扰动算子。严格只输出 JSON：{\"ops\":[\"shift|distract|tighten|slip 之一\"],\"reason\":\"≤28字理由\"}" },
+            { role: "user", content: "任务：" + (S.task?.title || S.task?.nl || "") + "\n上一轮结果：" + (last ? last.filter((r) => r.outcome.status === "pass").length + "/3 通过，最弱 " + (roundSummaryOf(last).worst || "?") + "（" + (roundSummaryOf(last).reason || "") + "）" : "基础轮") + "\n记忆短板：\n" + (memLines || "（暂无）") + "\n剩余预算：" + S.budget + " 分（tighten=8 slip=12 shift=10 distract=15）" },
+          ], { json: true, temp: 0.4, max: 120 });
+          const j = extractJSON(out);
+          if (j && Array.isArray(j.ops)) {
+            const valid = j.ops.filter((o) => SIM_MOD.OP_NAMES.includes(o));
+            const opDef = valid.map((n) => VARIANTS.ops.find((x) => x.name === n)).find(Boolean);
+            if (opDef && opDef.cost <= S.budget) {
+              ops = [opDef.name]; cost = opDef.cost;
+              reason = "AI 导演：" + String(j.reason || opDef.label).slice(0, 40);
+              label = opDef.label;
+            }
+          }
+        } catch (e) { /* 降级离线算子表 */ }
+      }
+      if (!ops) {
+        const d = SIM_MOD.deriveRoundOffline({ roundIdx, lastResults: S.lastResults, budgetLeft: S.budget, variantsCfg: VARIANTS, task: S.task, memNudge: memoryNudgeOp() });
+        if (!d.ok) { w.deriveStop = d.reason; return; }
+        ops = d.ops; cost = d.cost; reason = d.reason; label = d.label;
+      }
+      const applied = SIM_MOD.applyOps(S.spec, ops, SIM_MOD.mulberry32(SIM_MOD.runSeed(S.spec.seed, roundIdx)));
+      w.pending = { roundIdx, ops, cost, reason, label, spec: applied.spec, log: applied.log,
+        seed: SIM_MOD.runSeed(S.spec.seed, roundIdx) };
+    },
+  });
+  S.sched.add({
+    name: "确定性模拟", async tick(w) {
+      if (!w.pending) return;
+      const p = w.pending;
+      const runIds = [];
+      for (const pol of POLICIES.policies) {
+        const r = SIM_MOD.runSim(p.spec, pol, p.seed);
+        const id = "R" + (S.runs.length + 1);
+        S.runs.push({ id, roundIdx: p.roundIdx, policyId: pol.id, variantLabel: p.roundIdx === 1 ? "基础轮" : p.label,
+          spec: p.spec, policy: pol, seed: p.seed, frames: r.frames, hashes: r.hashes, outcome: r.outcome, total: r.total });
+        runIds.push(id);
+      }
+      S.budget -= p.cost;
+      const results = S.runs.slice(-3);
+      S.lastResults = results;
+      S.rounds.push({ idx: p.roundIdx, ops: p.ops, cost: p.cost, reason: p.reason, label: p.label, runIds,
+        summary: SIM_MOD.roundSummary(results) });
+      w.lastRuns = results;
+      w.pending = null;
+    },
+  });
+  S.sched.add({
+    name: "记忆沉淀", async tick(w) {
+      if (!w.lastRuns) return;
+      const round = S.rounds[S.rounds.length - 1];
+      for (const r of w.lastRuns) {
+        S.mem.record(r.policyId, { turn: S.world.turn, day: 1, about: S.task.id,
+          text: "【" + (r.outcome.status === "pass" ? "成功" : "失败") + "】#" + r.id + "@" + r.outcome.frame +
+            " " + (r.roundIdx === 1 ? "基础轮" : round.label) + ":" + r.outcome.reason,
+          imp: r.outcome.status === "fail" ? 4 : 2 });
+      }
+      const sum = SIM_MOD.roundSummary(w.lastRuns);
+      S.mem.record("导演", { turn: S.world.turn, day: 1, about: S.task.id,
+        text: "第" + round.idx + "轮" + (round.roundIdx === 1 ? "基础轮" : round.label) + ":" + sum.pass + "/3 通过" +
+          (sum.pass < 3 ? "，最弱 " + (sum.worst || "?") : "，全员到位"),
+        imp: 3 });
+      w.lastRuns = null;
+    },
+  });
+  /* 引擎 DirectorSystem（kernel.js:247）：仅在线挂载为节拍器；其离线 RULE_BEATS 是咖啡馆语料
+     （kernel.js:235-242），不用于具身变体——离线变体走 app 层算子表（先例同款诚实绕行）。
+     节拍进独立 MemoryStore，不污染策略轨迹线。 */
+  if (providerReady) {
+    S.director = new KERNEL_MOD.DirectorSystem(provider, new KERNEL_MOD.MemoryStore("game." + GAME.id + ".director.v1"), { interval: 1 });
+  }
+}
+function roundSummaryOf(results) {
+  const pass = results.filter((r) => r.outcome.status === "pass").length;
+  const worstR = results.find((r) => r.outcome.status === "fail");
+  return { pass, total: results.length, worst: worstR ? worstR.policyId : null, reason: worstR ? worstR.outcome.reason.slice(0, 18) : "" };
+}
+function extractJSON(s) { const m = (s || "").match(/\{[\s\S]*\}/); try { return m ? JSON.parse(m[0]) : null; } catch { return null; } }
+/* 导演读记忆：召回失败片段 → 失败类型映射定向算子（碰倒→slip 逼低摩擦复测；超时→tighten 逼快） */
+function memoryNudgeOp() {
+  const sum = S.lastResults && roundSummaryOf(S.lastResults);
+  if (!sum || !sum.worst) return null;
+  const eps = S.mem.retrieve(sum.worst, S.task.id, "失败 碰倒 超时 掉桌", S.world.turn, 3);
+  if (!eps.length) return null;
+  const allFail = eps.every((e) => e.text.includes("失败"));
+  if (!allFail) return null;
+  if (eps.some((e) => e.text.includes("碰倒"))) return "slip";
+  if (eps.some((e) => e.text.includes("超时"))) return "tighten";
+  return null;
+}
+function directorMemoryLines(k) {
+  const out = [];
+  for (const a of S.mem.agents()) {
+    if (a === "导演") continue;
+    for (const e of S.mem.retrieve(a, S.task.id, "失败 碰倒 超时", S.world.turn, 1)) out.push(a + ":" + e.text.slice(0, 30));
+  }
+  return out.slice(0, k).join("\n");
+}
+
+/* ============ 评测编排 ============ */
+async function evalRound() {
+  if (S.busy || !S.spec) return false;
+  const minCost = Math.min(...VARIANTS.ops.map((o) => o.cost));
+  if (S.budget < minCost || S.rounds.length >= VARIANTS.budget.max_rounds) return false;
+  S.busy = true; renderDirector("⏳ 变体派生→跑测→记忆沉淀 ……");
+  S.world.deriveStop = null;
+  if (S.director) { try { await S.director.tick(S.world); } catch (e) { /* 节拍静默 */ } }
+  await S.sched.tick(S.world);
+  S.busy = false;
+  renderAll();
+  return true;
+}
+async function evalAll() {
+  if (S.busy) return;
+  for (let i = 0; i < VARIANTS.budget.max_rounds + 1; i++) {
+    const more = await evalRound();
+    if (!more) break;
+  }
+}
+function loadRun(id, frameIdx) {
+  const run = S.runs.find((r) => r.id === id); if (!run) return;
+  S.play.run = run; S.play.frame = Math.min(frameIdx ?? 0, run.total - 1); S.play.playing = false;
+  buildObjects(run.spec);
+  $("playbar").classList.add("on");
+  $("pb-run").textContent = run.id + "·" + policyName(run.policyId) + "·" + run.variantLabel;
+  $("pb-slider").max = run.total - 1;
+  switchTab("runs");
+  poseFromFrame(); syncPlaybar(); renderRuns();
+  const o = run.outcome;
+  $("pb-hash").innerHTML = (o.status === "pass" ? '<span class="verify-ok">✓ ' : '<span class="verify-bad">✗ ') +
+    esc(o.reason) + "</span> @" + o.frame;
+}
+function policyName(id) { return (POLICIES.policies.find((p) => p.id === id) || {}).name || id; }
+function syncPlaybar() {
+  const run = S.play.run; if (!run) return;
+  $("pb-slider").value = S.play.frame;
+  $("pb-frame").textContent = S.play.frame + "/" + (run.total - 1);
+  $("pb-hash").textContent = "帧哈希 " + (run.hashes[S.play.frame] || "—");
+  drawStrip();
+}
+function verifyCurrent() {
+  const run = S.play.run; if (!run) return;
+  const v = SIM_MOD.verifyReplay(run);
+  const el = $("hud-verify");
+  if (v.ok) {
+    el.innerHTML = '<span class="verify-ok">帧校验 一手不差 ✓</span>';
+    $("pb-hash").innerHTML = '<span class="verify-ok">🔁 复演一手不差 ✓ ' + v.match + "/" + v.total +
+      " 帧哈希全同</span>（重放 " + v.ms + "ms，轨迹 " + JSON.stringify(run.frames).length + " 字节逐字节一致）";
+  } else {
+    el.innerHTML = '<span class="verify-bad">帧校验 复现破损 ✗</span>';
+    $("pb-hash").innerHTML = '<span class="verify-bad">✗ 首个不一致帧 #' + v.firstBad + "</span>（" + v.match + "/" + v.total + "）";
+  }
+}
+
+/* ============ 轨迹小地图（点击跳帧） ============ */
+function drawStrip() {
+  const cv = $("strip"); if (!cv) return;
+  const run = S.play.run;
+  const ctx = cv.getContext("2d");
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  if (!run) return;
+  const spec = run.spec;
+  const sx = (cv.width - 24) / spec.table.w, sz = (cv.height - 24) / spec.table.h;
+  const sc = Math.min(sx, sz);
+  const X = (x) => cv.width / 2 + x * sc, Z = (z) => cv.height / 2 + z * sc;
+  ctx.strokeStyle = "#1e2536"; ctx.strokeRect(X(-spec.table.w / 2), Z(-spec.table.h / 2), spec.table.w * sc, spec.table.h * sc);
+  ctx.strokeStyle = "#2d5b9e"; ctx.beginPath();
+  for (let i = 0; i < run.frames.length; i += 8) {
+    const f = run.frames[i];
+    i === 0 ? ctx.moveTo(X(f.rx), Z(f.rz)) : ctx.lineTo(X(f.rx), Z(f.rz));
+  }
+  ctx.stroke();
+  const dp = spec.objects.find((o) => o.id === spec.goal.dest);
+  if (dp) { ctx.strokeStyle = "#e8b24e"; ctx.beginPath(); ctx.arc(X(dp.x), Z(dp.y), dp.r * sc, 0, 7); ctx.stroke(); }
+  const f = run.frames[S.play.frame];
+  if (f) { ctx.fillStyle = "#57d98d"; ctx.beginPath(); ctx.arc(X(f.rx), Z(f.rz), 4, 0, 7); ctx.fill(); }
+  cv.onclick = (e) => {
+    const rect = cv.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (cv.width / rect.width), mz = (e.clientY - rect.top) * (cv.height / rect.height);
+    let best = 0, bd = Infinity;
+    for (let i = 0; i < run.frames.length; i += 4) {
+      const fr = run.frames[i];
+      const d = Math.hypot(X(fr.rx) - mx, Z(fr.rz) - mz);
+      if (d < bd) { bd = d; best = i; }
+    }
+    S.play.frame = best; poseFromFrame(); syncPlaybar();
+  };
+}
+
+/* ============ 出题 ============ */
+function setTask(task, notes) {
+  S.task = task; S.spec = JSON.parse(JSON.stringify(task.spec));
+  S.rounds = []; S.runs = []; S.budget = VARIANTS.budget.initial_points;
+  S.lastResults = null; S.play = { run: null, frame: 0, playing: false, speed: 6 };
+  $("playbar").classList.remove("on");
+  localStorage.setItem("game." + GAME.id + ".task", JSON.stringify(task.id || task.title || ""));
+  buildObjects(S.spec);
+  $("hud-verify").textContent = "帧校验待复演";
+  renderAll();
+  if (notes && notes.length) $("dir-status").innerHTML = notes.map((n) => "· " + esc(n)).join("<br>");
+}
+async function deriveFromNL() {
+  const nl = $("nl").value.trim(); if (!nl) return;
+  if (!providerReady) {
+    const m = SIM_MOD.matchTaskOffline(nl, TASKS.tasks);
+    if (m) { setTask(m.task, ["〔离线匹配〕命中关键词「" + m.hit.join("、") + "」→ 任务库卡片「" + m.task.title + "」（评分 " + m.score + "）"]); }
+    else setTask(TASKS.tasks[0], ["〔离线匹配〕未命中任务库句式 → 落到预置任务「" + TASKS.tasks[0].title + "」。联网后 AI 出题可解析任意句。"]);
+    return;
+  }
+  $("dir-status").innerHTML = '<span class="thinking">🤖 L7 正在解析场景卡……</span>';
+  try {
+    const fewshot = TASKS.tasks.slice(0, 2).map((t) => JSON.stringify({ table: t.spec.table, objects: t.spec.objects, goal: t.spec.goal, constraints: t.spec.constraints, title: t.title })).join("\n");
+    const out = await provider.complete([
+      { role: "system", content: "你是具身智能评测的出题引擎：把一句自然语言桌面操作任务解析为场景卡 JSON。严格只输出 JSON：" +
+        '{"table":{"w":10,"h":6},"objects":[{"id":"red_cup","type":"cup|bottle|box|can|coaster|pad 之一","color":"red|blue|green|yellow|white|gray|brown|purple 之一","x":-2.5,"y":0,"r":0.35,"fragile":false}],"goal":{"verb":"push","target":"目标物id","dest":"目的地id","tol":0.5},"constraints":["no_topple","stay_on_table"],"title":"≤12字任务名","note":"≤30字出题说明"}' +
+        "\n规则：桌面为 x∈[-5,5]、y∈[-3,3]；至少一个可推目标物和一个 coaster/pad 目的地；fragile 物体 ≤2 个；物体间距≥1.2；至少 1 个约束物才有评测意义。\n任务库示例（few-shot）：\n" + fewshot },
+      { role: "user", content: "任务：「" + nl + "」" },
+    ], { json: true, temp: 0.3, max: 420 });
+    const j = extractJSON(out);
+    if (!j) throw new Error("模型未返回 JSON");
+    const n = SIM_MOD.normalizeCard(j);
+    if (!n.ok) throw new Error(n.reason);
+    n.card.title = n.card.title || nl.slice(0, 12);
+    setTask(n.card, ["〔AI 出题〕场景卡已生成" + (n.note ? "：" + n.note : "")].concat(n.notes || []).concat([j.note ? "出题说明：" + j.note : ""]).filter(Boolean));
+  } catch (e) {
+    const m = SIM_MOD.matchTaskOffline(nl, TASKS.tasks);
+    const fallbackNote = "〔AI 出题失败：" + String(e.message || e).slice(0, 60) + " → 已降级任务库匹配〕";
+    if (m) setTask(m.task, [fallbackNote, "命中「" + m.hit.join("、") + "」→ " + m.task.title]);
+    else setTask(TASKS.tasks[0], [fallbackNote, "未命中句式 → 落到预置任务"]);
+  }
+}
+
+/* ============ 记忆检索 ============ */
+function memSearch(q) {
+  const now = S.world.turn;
+  const out = [];
+  for (const a of S.mem.agents()) {
+    for (const e of S.mem.retrieve(a, q, q, now, 4)) out.push({ agent: a, e });
+  }
+  const seen = new Set();
+  return out.filter((x) => { const k = x.agent + "|" + x.e.text; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 8);
+}
+function renderMemory(q) {
+  const res = memSearch(q);
+  $("mem-stat").textContent = "长期记忆 " + S.mem.lenTotal() + " 条 / " + S.mem.agents().length + " 条线（每线引擎上限 60 条，kernel.js:25）——检索为引擎 MemoryStore.retrieve 真实调用";
+  $("mem-view").innerHTML = res.length ? res.map((r) => {
+    const m = r.e.text.match(/#(R\d+)@(\d+)/);
+    const jump = m && S.runs.some((x) => x.id === m[1])
+      ? '<button class="go" data-run="' + m[1] + '" data-f="' + m[2] + '">▶ 跳到 ' + m[1] + " 第" + m[2] + "帧</button>" : "";
+    return '<div class="memrow"><span class="who">' + esc(policyName(r.agent)) + "</span>：" + esc(r.e.text) + jump + "</div>";
+  }).join("") : '<div class="hint">（无召回——先去「导演」页跑几轮评测，成功/失败片段会按策略线沉淀到这里）</div>';
+  $("mem-view").querySelectorAll(".go").forEach((b) => {
+    b.onclick = () => { loadRun(b.dataset.run, +b.dataset.f); };
+  });
+}
+
+/* ============ 渲染 ============ */
+function renderAll() { renderHUD(); renderTaskChips(); renderCard(); renderDirector(); renderRounds(); renderRuns(); renderCodex(); renderMemory($("mem-q").value.trim() || "失败"); drawStrip(); }
+function renderHUD() {
+  $("tagline").textContent = GAME.tagline.slice(0, 26) + "…";
+  $("hud-task").textContent = S.task ? S.task.title : "—";
+  $("hud-seed").textContent = S.spec ? S.spec.seed : "—";
+  $("hud-budget").textContent = S.budget;
+  $("budget-big").textContent = S.budget;
+  const pass = S.runs.filter((r) => r.outcome.status === "pass").length;
+  $("hud-pass").textContent = pass + "/" + S.runs.length;
+  $("hud-mem").textContent = S.mem ? S.mem.lenTotal() : 0;
+}
+function renderTaskChips() {
+  $("task-chips").innerHTML = TASKS.tasks.map((t, i) =>
+    '<button data-i="' + i + '" class="' + (S.task && S.task.id === t.id ? "sel" : "") + '">' + esc(t.title) + "</button>").join("");
+  $("task-chips").querySelectorAll("button").forEach((b) => {
+    b.onclick = () => setTask(TASKS.tasks[+b.dataset.i]);
+  });
+}
+function renderCard() {
+  const el = $("card-view");
+  if (!S.spec) { el.innerHTML = ""; return; }
+  const s = S.spec, g = s.goal;
+  const tp = s.objects.find((o) => o.id === g.target), dp = s.objects.find((o) => o.id === g.dest);
+  el.innerHTML =
+    '<div class="card"><b class="tt">场景卡 · ' + esc(S.task.title || "") + '</b>' +
+    '<div class="dim">种子 ' + s.seed + " · 桌面 " + s.table.w + "×" + s.table.h + " · 容差 " + g.tol +
+    (s.slipLevel ? " · 打滑 L" + s.slipLevel : "") + "</div>" +
+    s.objects.map((o) => '<div class="objline"><span class="objdot" style="background:#' +
+      (COLOR_HEX[o.color] ?? 0x888888).toString(16).padStart(6, "0") + '"></span>' + esc(o.id) +
+      ' <span class="dim">' + o.type + " (" + o.x + ", " + o.y + ") r=" + o.r + "</span>" +
+      (o.fragile ? '<span class="frag">易碎</span>' : "") +
+      (o.id === g.target ? ' <span style="color:#7eb8ff">◈目标</span>' : "") +
+      (o.id === g.dest ? ' <span style="color:#e8b24e">◉目的地</span>' : "") + "</div>").join("") +
+    '<div class="dim" style="margin-top:4px">目标：' + (g.verb === "push" ? "推" : g.verb) + " " + esc(tp ? tp.id : g.target) +
+      " → " + esc(dp ? dp.id : g.dest) + "（距 " + (tp && dp ? Math.hypot(tp.x - dp.x, tp.y - dp.y).toFixed(1) : "?") + "）· 约束 " + s.constraints.map(esc).join(" / ") + "</div>" +
+    '<div class="row" style="margin:8px 0 0"><button class="act dim3" id="btn-reseed" style="padding:5px 10px;font-size:12px">🎲 换种子重摆</button></div></div>';
+  $("btn-reseed").onclick = () => {
+    S.spec.seed = (SIM_MOD.fnv1a(S.spec.seed + ":" + Date.now()) ^ 0x9e37) >>> 0;
+    S.rounds = []; S.runs = []; S.budget = VARIANTS.budget.initial_points; S.lastResults = null;
+    S.play = { run: null, frame: 0, playing: false, speed: 6 };
+    $("playbar").classList.remove("on");
+    buildObjects(S.spec); renderAll();
+  };
+}
+function renderDirector(statusText) {
+  $("budget-rule").textContent = "初始 " + VARIANTS.budget.initial_points + " 分 · 基础轮免费 · 算子价目 " +
+    VARIANTS.ops.map((o) => o.label + " " + o.cost).join(" / ") + " · 最多 " + VARIANTS.budget.max_rounds + " 轮";
+  if (statusText) $("dir-status").innerHTML = '<span class="thinking">' + statusText + "</span>";
+  else if (!S.rounds.length) $("dir-status").innerHTML = S.world && S.world.deriveStop
+    ? "（" + esc(S.world.deriveStop) + "）" : "点「一键评测」：基础轮 3 策略免费跑 → 导演按预算逐轮派生扰动变体（失败轮走复测优先级）。";
+  else $("dir-status").textContent = "";
+  const beats = (S.world && S.world.story.beats) || [];
+  $("beat-view").innerHTML = beats.length
+    ? beats.slice(-2).map((b) => '<div class="beatline">🎬 引擎导演节拍：' + esc(b) + "</div>").join("")
+    : (providerReady ? "" : '<div class="hint">引擎 DirectorSystem 节拍通道仅在线挂载（其离线 RULE_BEATS 为咖啡馆语料，不用于具身变体——离线派生走 app 层算子表）。</div>');
+}
+function renderRounds() {
+  $("rounds-view").innerHTML = S.rounds.map((r) => {
+    const runs = r.runIds.map((id) => S.runs.find((x) => x.id === id));
+    return '<div class="card roundcard"><b class="tt">第 ' + r.idx + " 轮 · " + (r.idx === 1 ? "基础轮" : esc(r.label)) +
+      "</b> <span class=\"dim\">−" + r.cost + " 分</span><br>" +
+      '<span class="dim">' + esc(r.reason) + "</span><br>" +
+      runs.map((run) => '<a href="javascript:void(0)" data-run="' + run.id + '" style="color:#7eb8ff;text-decoration:none;margin-right:8px">' +
+        esc(policyName(run.policyId)) + " " + badgeOf(run.outcome) + "</a>").join("") + "</div>";
+  }).join("");
+  $("rounds-view").querySelectorAll("a[data-run]").forEach((a) => { a.onclick = () => loadRun(a.dataset.run, 0); });
+}
+function renderRuns() {
+  const el = $("runs-table");
+  if (!S.runs.length) { el.innerHTML = '<tr><td class="hint">尚无跑测——先去「导演」页评测。</td></tr>'; $("run-detail").innerHTML = ""; return; }
+  el.innerHTML = "<tr><th>跑测</th><th>轮次</th><th>策略</th><th>结果</th><th>帧</th></tr>" +
+    S.runs.slice().reverse().map((r) =>
+      '<tr class="runrow ' + (S.play.run && S.play.run.id === r.id ? "sel" : "") + '" data-run="' + r.id + '"><td>' + r.id +
+      "</td><td>" + r.roundIdx + (r.roundIdx === 1 ? "（基础）" : "·" + esc(r.variantLabel)) + "</td><td>" + esc(policyName(r.policyId)) +
+      "</td><td>" + badgeOf(r.outcome) + '</td><td class="dim">' + r.total + "</td></tr>").join("");
+  el.querySelectorAll(".runrow").forEach((tr) => { tr.onclick = () => loadRun(tr.dataset.run, 0); });
+}
+const doneSteps = new Set();
+function renderCodex() {
+  const el = $("page-codex");
+  let html = "<h4 style='color:#9fc3ff;font-size:13px;margin-bottom:8px'>核心循环（点条勾进度）</h4>";
+  GAME.core_loop.forEach((s, i) => {
+    html += '<div class="loop-step ' + (doneSteps.has(i) ? "done" : "") + '" data-i="' + i + '">' +
+      "<span>" + (doneSteps.has(i) ? "✅" : "▫️") + "</span>" + esc(s) + "</div>";
+  });
+  html += "<h4 style='color:#9fc3ff;font-size:13px;margin:10px 0 8px'>机制系统</h4>";
+  GAME.mechanics.forEach((m) => { html += '<div class="mech"><b>' + esc(m.name) + "</b><div>" + esc(m.detail) + "</div></div>"; });
+  html += "<h4 style='color:#9fc3ff;font-size:13px;margin:10px 0 8px'>经济循环</h4><table class='grid'><tr><th>资源</th><th>来源</th><th>去向</th></tr>";
+  GAME.economy.forEach((r) => { html += "<tr><td>" + esc(r.name) + "</td><td>" + esc(r.source) + "</td><td>" + esc(r.sink) + "</td></tr>"; });
+  html += "</table><h4 style='color:#9fc3ff;font-size:13px;margin:10px 0 8px'>难度曲线</h4><div class='mech'><div>" + esc(GAME.difficulty) + "</div></div>";
+  html += "<h4 style='color:#9fc3ff;font-size:13px;margin:10px 0 8px'>引擎钩子与诚实边界</h4>";
+  (GAME.track.hooks.engine || []).forEach((h) => { html += '<div class="mech"><div>🔗 ' + esc(h) + "</div></div>"; });
+  (GAME.track.hooks.honesty || []).forEach((h) => { html += '<div class="mech"><div>⚠️ ' + esc(h) + "</div></div>"; });
+  el.innerHTML = html;
+  el.querySelectorAll(".loop-step").forEach((d) => {
+    d.onclick = () => { const i = +d.dataset.i; doneSteps.has(i) ? doneSteps.delete(i) : doneSteps.add(i); renderCodex(); };
+  });
+}
+
+/* ============ 事件接线 ============ */
+function switchTab(t) {
+  document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.t === t));
+  document.querySelectorAll(".tab-page").forEach((p) => p.classList.remove("on"));
+  $("page-" + t).classList.add("on");
+}
+function wireUI() {
+  document.querySelectorAll("#tabs button").forEach((b) => { b.onclick = () => switchTab(b.dataset.t); });
+  $("btn-nl-off").onclick = deriveFromNL;
+  $("btn-nl-ai").onclick = deriveFromNL;
+  $("nl").addEventListener("keydown", (e) => { if (e.key === "Enter") deriveFromNL(); });
+  if (!providerReady) { $("btn-nl-ai").disabled = true; $("btn-nl-ai").title = "离线模式——切在线见 provider.json / README"; }
+  $("btn-runall").onclick = evalAll;
+  $("btn-round").onclick = () => evalRound();
+  $("pb-play").onclick = () => { if (!S.play.run) return; S.play.playing = !S.play.playing;
+    $("pb-play").textContent = S.play.playing ? "⏸ 暂停" : "▶ 播放";
+    if (S.play.playing && S.play.frame >= S.play.run.total - 1) { S.play.frame = 0; } };
+  $("pb-slider").oninput = (e) => { S.play.frame = +e.target.value; S.play.playing = false; $("pb-play").textContent = "▶ 播放"; poseFromFrame(); syncPlaybar(); };
+  $("pb-verify").onclick = verifyCurrent;
+  $("btn-mem-go").onclick = () => renderMemory($("mem-q").value.trim());
+  $("mem-q").addEventListener("keydown", (e) => { if (e.key === "Enter") renderMemory($("mem-q").value.trim()); });
+  $("mem-chips").innerHTML = ["碰倒瓶子的失败", "超时", "绕行型", "导演"].map((q) => "<button>" + q + "</button>").join("");
+  $("mem-chips").querySelectorAll("button").forEach((b) => { b.onclick = () => { $("mem-q").value = b.textContent; renderMemory(b.textContent); }; });
+  $("btn-export").onclick = () => {
+    const blob = new Blob([S.mem.export()], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = "embodied-dataset-" + GAME.id + ".json"; a.click();
+    URL.revokeObjectURL(a.href);
+  };
+  $("btn-mem-clear").onclick = () => { S.mem.clear(); renderAll(); };
+}
+
+/* ============ 启动 ============ */
+async function start() {
+  await buildScene();
+  wireEngine();
+  wireUI();
+  const savedId = JSON.parse(localStorage.getItem("game." + GAME.id + ".task") || "null");
+  const t0 = TASKS.tasks.find((t) => t.id === savedId) || TASKS.tasks[0];
+  setTask(t0);
+  renderMemory("失败");
+  drawStrip();
+}
+boot();
+</script>
+</body>
+</html>

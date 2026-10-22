@@ -1,0 +1,15 @@
+{
+  "track": "孪生",
+  "title": "平行街20号：政策反事实沙盘",
+  "gameplay_id": "policy-twin",
+  "pitch": "同一批 20 家店、同一份 14 日命运脚本，只换你的一条政策——确定性回放账本让 LLM 社会仿真第一次能输出「首个分岔日」级可归因政策差异报告，这是 Concordia/AgentSociety 做不到、而 Compliance Digital Twin 路线证明有真实需求的能力。",
+  "engine_hooks": [
+    "createProvider(cfg)+PROVIDER_PRESETS（kernel.js:277-290）：L7 八厂商接入；无 Key 或选 rule 时返回 null 自动降级——离线模式与「角色预算耗尽」共用同一条降级管线",
+    "HttpChatProvider.complete(messages,{json:true}) 与 provider.stats.calls/tokens（kernel.js:65-96）：政策解析与角色决策的结构化输出通道；stats 即预算面板数据源",
+    "MemoryStore（kernel.js:13-53）：每角色情节记忆，决策时 retrieve() 召回教训，export() 产出归因报告「记忆分叉」段；每条运行臂独立 persistKey 隔离对照",
+    "CognitionSystem/DirectorSystem 的 {say,action,mood,remember,to} JSON 契约与降级模式（kernel.js:136-267）扩展为决策契约与两模式导演；应用层确定性经营核自建（先例应用层直调 provider 的既定模式）",
+    "Scheduler（kernel.js:270-274）：顺序泵送「导演注入→角色决策→确定性核结算」，每个 world.turn 落一条事件账"
+  ],
+  "offline_first": true,
+  "date": "2026-10-19"
+}

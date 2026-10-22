@@ -1,0 +1,18 @@
+{
+  "version": "events-v1",
+  "premise": "平行街20号是一条有 20 家店（2 旗舰 5 大 6 中 7 小）的商街。同一个种子、同一份 14 日外生事件脚本砸在每条运行臂上——唯一变量是开局那条经营政策。促销、断供、舆情、天气、监管全部按脚本逐日注入；确定性经营核逐日结算并落事件账本，两条臂并排重放即可定位政策造成的第一处分岔。本文件是对照实验的可控变量，也是本赛道的核心资产：改这里等于改写两条臂共同的命运。",
+  "events": [
+    { "day": 2, "type": "promo", "scope": ["s01", "s03", "s05", "s08"], "magnitude": 0.6, "text": "平台大促开闸，参与店客流暴涨、毛利被压" },
+    { "day": 3, "type": "supply_cut", "scope": ["s01", "s02", "s03", "s04", "s05", "s06", "s07"], "magnitude": 0.5, "text": "中央仓干线故障，旗舰与大店断供三日" },
+    { "day": 5, "type": "pr_crisis", "scope": ["s08", "s09", "s10"], "magnitude": 0.7, "text": "中店街区被曝服务态度问题，差评冲上同城热榜" },
+    { "day": 6, "type": "weather", "scope": ["s14", "s15", "s16", "s17", "s18", "s19", "s20"], "magnitude": 0.5, "text": "连日冻雨，社区小店客流锐减" },
+    { "day": 7, "type": "regulation", "scope": ["all"], "magnitude": 0.3, "text": "街区消防例行检查，全街产生小额整改成本" },
+    { "day": 8, "type": "promo", "scope": ["s14", "s15", "s16", "s17", "s18", "s19", "s20"], "magnitude": 0.4, "text": "社区团购节开锣，小店让利换量" },
+    { "day": 9, "type": "supply_cut", "scope": ["all"], "magnitude": 0.65, "text": "供应商罢运，全线供货腰斩三日" },
+    { "day": 10, "type": "pr_crisis", "scope": ["s01", "s02"], "magnitude": 0.5, "text": "旗舰店卫生投诉视频发酵" },
+    { "day": 11, "type": "weather", "scope": ["s03", "s04", "s05", "s06", "s07", "s08", "s09", "s10", "s11", "s12", "s13"], "magnitude": 0.6, "text": "寒潮封路，中大店客流受阻" },
+    { "day": 12, "type": "promo", "scope": ["s05", "s06", "s07"], "magnitude": 0.5, "text": "大店周年庆冲刺，促销加码" },
+    { "day": 13, "type": "supply_cut", "scope": ["s08", "s09", "s10", "s11", "s12", "s13"], "magnitude": 0.4, "text": "区域仓盘点，中店街区断供两日" },
+    { "day": 14, "type": "pr_crisis", "scope": ["all"], "magnitude": 0.3, "text": "媒体盘点街区投诉率，全街口碑承压" }
+  ]
+}
