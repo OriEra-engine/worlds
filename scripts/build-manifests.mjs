@@ -51,6 +51,10 @@ for (const slug of readdirSync(ROOT, { withFileTypes: true }).filter((d) => d.is
   // 2) MANIFEST.json
   const files = walk(dir);
   const bytes = files.reduce((a, f) => a + f.bytes, 0);
+  // 设计源档(非 MANIFEST 的 *.json):与 index.html 内联数据字节同步的
+  // 设计记录,运行时零加载(2026-10-29 维护评审逐文件实测)——按评审
+  // issue #2 项 3 的拍板原地保留,在 provenance 里登记,不做运行时体量。
+  const snaps = readdirSync(dir).filter((n) => n.endsWith(".json") && n !== "MANIFEST.json");
   const manifest = {
     slug,
     title: m.title,
@@ -63,8 +67,14 @@ for (const slug of readdirSync(ROOT, { withFileTypes: true }).filter((d) => d.is
     files: files.length,
     bytes,
   };
+  if (snaps.length) {
+    manifest.provenance = {
+      designSnapshots: snaps.sort(),
+      note: "设计源档,与 index.html 内联数据字节同步;运行时零加载,原地保留",
+    };
+  }
   writeFileSync(join(dir, "MANIFEST.json"), JSON.stringify(manifest, null, 2) + "\n");
-  console.log(`OK   ${slug}: ${files.length} files, ${(bytes / 1024).toFixed(0)} KB`);
+  console.log(`OK   ${slug}: ${files.length} files, ${(bytes / 1024).toFixed(0)} KB` + (snaps.length ? `, ${snaps.length} snapshots` : ""));
   ok++;
 }
 console.log(`\n${ok} manifests written, ${skipped} skipped`);
