@@ -1,0 +1,242 @@
+[
+  {
+    "slug": "head-seven",
+    "title": {
+      "zh": "言出法随：头七断案",
+      "en": "Word Is Law: The Seventh Night"
+    },
+    "tagline": {
+      "zh": "自然语言立法 × 七日断案社交推理",
+      "en": "Legislate in plain language, solve the case in seven days"
+    },
+    "description": {
+      "zh": "你是头七之夜的判官：用一句话立法，言灵们必须服从法统；七日之内，从谎言与记忆的缝隙里断出真相。法典查重、言灵对话、世界反馈全部由大模型实时演算，你的每一句立法都会真实改写世界规则。",
+      "en": "You are the judge of the seventh night: legislate in a single sentence and the spirits must obey; within seven days, tease the truth out of lies and memories. Statute dedup, spirit dialogue and world feedback are all computed live by the language model."
+    },
+    "engineVersion": "OriEra Engine · kernel v2"
+  },
+  {
+    "slug": "word-spirit",
+    "title": {
+      "zh": "言灵世界",
+      "en": "Word Spirit Realm"
+    },
+    "tagline": {
+      "zh": "打一行字，让世界听懂",
+      "en": "Type a line; the world obeys"
+    },
+    "description": {
+      "zh": "OriEra 引擎首个公开 demo：用自然语言向世界下达指令，观察实体如何听懂合并、否定与分拨。内置自动演奏谱面（?demo=1），无 Key 也能看完整演出。",
+      "en": "The engine's first public demo: issue commands in natural language and watch entities understand merging, negation and dispatch. A self-playing score (?demo=1) runs the full show without any key."
+    },
+    "engineVersion": "OriEra Engine · kernel v1"
+  },
+  {
+    "slug": "ai-cafe",
+    "title": {
+      "zh": "隅角咖啡馆",
+      "en": "Corner Café"
+    },
+    "tagline": {
+      "zh": "三个 NPC 记得你说过的每一句话",
+      "en": "Three NPCs who remember every word you say"
+    },
+    "description": {
+      "zh": "检索式长期记忆 + 导演系统的旗舰样例：与阿哲、小满、雨枝闲聊，你的插话会推动剧情节拍，咖啡馆后墙的挂画随故事热替换。Key 存在你自己的浏览器里，对话记录永不离开本机。",
+      "en": "The flagship sample for retrievable long-term memory plus a director system: chat with three regulars, your interjections push the story beats, and the wall art hot-swaps as the plot moves. Your key stays in your own browser; conversations never leave the machine."
+    },
+    "engineVersion": "OriEra Engine · kernel v1"
+  },
+  {
+    "slug": "genai-gallery",
+    "title": {
+      "zh": "生成式画廊",
+      "en": "Generative Gallery"
+    },
+    "tagline": {
+      "zh": "一句话装帧整个展厅",
+      "en": "Dress the whole hall with one sentence"
+    },
+    "description": {
+      "zh": "生成式表达内生的示范作：输入一个主题，穹顶、三张海报与展台贴图全部实时生成并热替换；关掉生成器，程序化确定性贴图照样兜底，展厅永不挂黑。",
+      "en": "The showpiece of generative expression built into the engine: type a theme and the dome, three posters and plinth textures are generated and hot-swapped live. Switch the generator off and deterministic procedural textures take over — the hall never goes dark."
+    },
+    "engineVersion": "OriEra Engine · kernel v1"
+  },
+  {
+    "slug": "memory-atlas",
+    "title": {
+      "zh": "记忆星图",
+      "en": "Memory Atlas"
+    },
+    "tagline": {
+      "zh": "把一段关系画成星座",
+      "en": "Draw a relationship as constellations"
+    },
+    "description": {
+      "zh": "社区首个外部贡献 demo（@airbate，PR #53）：咖啡馆里被记住的话画成一片星图，每颗星是一句被记下的句子。完全离线。",
+      "en": "The first community-contributed demo (@airbate, PR #53): remembered lines from the café become a field of stars, one star per sentence. Fully offline."
+    },
+    "engineVersion": "OriEra Engine · kernel v1"
+  },
+  {
+    "slug": "hello-triangle",
+    "title": {
+      "zh": "你好，三角形",
+      "en": "Hello Triangle"
+    },
+    "tagline": {
+      "zh": "十一层架构的最小切片",
+      "en": "The smallest slice of the eleven layers"
+    },
+    "description": {
+      "zh": "引擎最小可跑样例：一个三角形、一条命令流。单文件、零依赖、完全离线——适合作为阅读源码前的第一站。",
+      "en": "The minimal runnable sample: one triangle, one command stream. A single self-contained file, zero dependencies, fully offline — the right first stop before reading the source."
+    },
+    "engineVersion": "OriEra Engine · kernel v1"
+  },
+  {
+    "slug": "webgpu-particles",
+    "title": {
+      "zh": "粒子星云",
+      "en": "Particle Nebula"
+    },
+    "tagline": {
+      "zh": "十万粒子的 WebGPU 压测场",
+      "en": "A WebGPU stress field of a hundred thousand particles"
+    },
+    "description": {
+      "zh": "L1 位图与 L5 质量调速的视觉压测：十万级粒子在 WebGPU 计算管线里随命令流起舞。需要支持 WebGPU 的浏览器（Chrome / Edge 113+），完全离线。",
+      "en": "A visual stress test of the L1 bitmap and L5 quality governor: a hundred thousand particles dance through a WebGPU compute pipeline under command flow. Needs a WebGPU-capable browser (Chrome / Edge 113+). Fully offline."
+    },
+    "engineVersion": "OriEra Engine · kernel v1"
+  },
+  {
+    "slug": "full-arch",
+    "title": {
+      "zh": "全架构漫游",
+      "en": "Full Architecture Tour"
+    },
+    "tagline": {
+      "zh": "一页看尽十一层",
+      "en": "All eleven layers on one page"
+    },
+    "description": {
+      "zh": "从 L1 位图到 L9 认知系统的全层联演：调度、物理、生成、记忆在同一帧预算下协同运行。自动循环讲解，完全离线。",
+      "en": "Every layer from the L1 bitmap to the L9 cognition stack cooperating inside one frame budget: scheduling, physics, generation and memory in concert. Runs a narrated loop, fully offline."
+    },
+    "engineVersion": "OriEra Engine · kernel v1"
+  },
+  {
+    "slug": "companion-cafe",
+    "title": {
+      "zh": "证忆咖啡馆",
+      "en": "Café of Witnessed Memories"
+    },
+    "tagline": {
+      "zh": "她忘了账本，没忘你",
+      "en": "She forgot the ledger, not you"
+    },
+    "description": {
+      "zh": "陪伴赛道样板间：把 60 条记忆上限变成玩法——记忆满了就要「结账」遗忘，而哪些被记住、哪些被放下，构成了这个故事全部的温柔与锋利。",
+      "en": "The companion-track sample room: a 60-memory capacity turned into gameplay — when memory fills up, something must be checked out and forgotten. What is kept and what is let go is where the story's tenderness and teeth both live."
+    },
+    "engineVersion": "OriEra Engine · kernel v2"
+  },
+  {
+    "slug": "twin-street",
+    "title": {
+      "zh": "平行街20号",
+      "en": "20 Parallel Street"
+    },
+    "tagline": {
+      "zh": "同一条街，两种规则",
+      "en": "One street, two sets of rules"
+    },
+    "description": {
+      "zh": "数字孪生赛道样板间：政策反事实推演——同一条街在两种政策下各自演化，首分岔日的逐帧归因让「如果当初」变成可检验的实验。",
+      "en": "The digital-twin sample room: policy counterfactuals — the same street evolves under two policies, and frame-level attribution of the first divergence day turns \"what if\" into a checkable experiment."
+    },
+    "engineVersion": "OriEra Engine · kernel v2"
+  },
+  {
+    "slug": "blackbox-stage",
+    "title": {
+      "zh": "黑匣片场",
+      "en": "Blackbox Stage"
+    },
+    "tagline": {
+      "zh": "一令一镜，帧帧有底片",
+      "en": "One command, one shot — every frame keeps its negative"
+    },
+    "description": {
+      "zh": "AIGC 赛道样板间：口头调度生成镜头，每个 checkpoint 都可回放 diff——生成的每一帧都留有可审计的底片。",
+      "en": "The AIGC sample room: direct shots by voice, replay any checkpoint as a diff — every generated frame keeps an auditable negative."
+    },
+    "engineVersion": "OriEra Engine · kernel v2"
+  },
+  {
+    "slug": "rerun-stage",
+    "title": {
+      "zh": "具身复演台",
+      "en": "Embodied Rerun Stage"
+    },
+    "tagline": {
+      "zh": "1068/1068 帧哈希全同",
+      "en": "1068/1068 frames, hashes identical"
+    },
+    "description": {
+      "zh": "具身智能赛道样板间：任务库出题 → 具身执行 → 逐帧复演校验。预算真实扣账、易碎约束真实判定、state_hash 复演一手不差——确定性的活证据。",
+      "en": "The embodied-AI sample room: draw a task from the library, let the agent run it, then rerun it frame by frame. Budgets really deduct, fragile constraints really bite, and the state_hash replay matches to the frame — determinism as living proof."
+    },
+    "engineVersion": "OriEra Engine · kernel v2"
+  },
+  {
+    "slug": "tutor-room",
+    "title": {
+      "zh": "可回放辅导舱",
+      "en": "Replayable Tutoring Pod"
+    },
+    "tagline": {
+      "zh": "每一帧教学决策都可审计",
+      "en": "Every teaching decision is auditable"
+    },
+    "description": {
+      "zh": "教育赛道样板间：BKT 掌握概率实时可见，辅导决策逐帧留痕、可回放审计——给家长看得懂的透明，给学生带得走的掌握度。",
+      "en": "The education sample room: BKT mastery probabilities visible in real time, every tutoring decision logged and replayable — transparency parents can read, mastery students can take home."
+    },
+    "engineVersion": "OriEra Engine · kernel v2"
+  },
+  {
+    "slug": "action-cut",
+    "title": {
+      "zh": "言出开机",
+      "en": "Speak, Action"
+    },
+    "tagline": {
+      "zh": "对世界说「开机」",
+      "en": "Say \"action\" to the world"
+    },
+    "description": {
+      "zh": "影视预演赛道样板间：口头调度生成镜头与分镜卡；无 Key 或生成不可用时诚实降级为确定性分镜卡——预演永远开得了机。",
+      "en": "The film-previz sample room: direct shots verbally and generate boards; when no key is present it degrades honestly to deterministic boards — previz that always rolls."
+    },
+    "engineVersion": "OriEra Engine · kernel v2"
+  },
+  {
+    "slug": "lab-zero",
+    "title": {
+      "zh": "零号实验室",
+      "en": "Lab Zero"
+    },
+    "tagline": {
+      "zh": "面对复现危机的实验台",
+      "en": "A bench built for the replication crisis"
+    },
+    "description": {
+      "zh": "科学仿真赛道样板间：每一次模型调用全留痕，实验流程可复演、可检验——给仿真一个对得上号的实验记录本。",
+      "en": "The scientific-simulation sample room: every model call is fully logged, every experiment replayable and checkable — a lab notebook that actually reconciles."
+    },
+    "engineVersion": "OriEra Engine · kernel v2"
+  }
+]

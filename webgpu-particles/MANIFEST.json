@@ -1,0 +1,18 @@
+{
+  "slug": "webgpu-particles",
+  "title": {
+    "zh": "粒子星云",
+    "en": "Particle Nebula"
+  },
+  "tagline": {
+    "zh": "十万粒子的 WebGPU 压测场",
+    "en": "A WebGPU stress field of a hundred thousand particles"
+  },
+  "engineVersion": "OriEra Engine · kernel v1",
+  "entry": "index.html",
+  "builtAt": "2026-10-29",
+  "sourceCommit": "8073c82",
+  "generator": "scripts/build-manifests.mjs v1",
+  "files": 2,
+  "bytes": 7765
+}

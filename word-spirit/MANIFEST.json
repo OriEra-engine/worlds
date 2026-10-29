@@ -1,0 +1,18 @@
+{
+  "slug": "word-spirit",
+  "title": {
+    "zh": "言灵世界",
+    "en": "Word Spirit Realm"
+  },
+  "tagline": {
+    "zh": "打一行字，让世界听懂",
+    "en": "Type a line; the world obeys"
+  },
+  "engineVersion": "OriEra Engine · kernel v1",
+  "entry": "index.html",
+  "builtAt": "2026-10-29",
+  "sourceCommit": "8073c82",
+  "generator": "scripts/build-manifests.mjs v1",
+  "files": 2,
+  "bytes": 22005
+}

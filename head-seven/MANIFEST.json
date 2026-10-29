@@ -1,0 +1,18 @@
+{
+  "slug": "head-seven",
+  "title": {
+    "zh": "言出法随：头七断案",
+    "en": "Word Is Law: The Seventh Night"
+  },
+  "tagline": {
+    "zh": "自然语言立法 × 七日断案社交推理",
+    "en": "Legislate in plain language, solve the case in seven days"
+  },
+  "engineVersion": "OriEra Engine · kernel v2",
+  "entry": "index.html",
+  "builtAt": "2026-10-29",
+  "sourceCommit": "8073c82",
+  "generator": "scripts/build-manifests.mjs v1",
+  "files": 12,
+  "bytes": 2005342
+}

@@ -1,0 +1,18 @@
+{
+  "slug": "hello-triangle",
+  "title": {
+    "zh": "你好，三角形",
+    "en": "Hello Triangle"
+  },
+  "tagline": {
+    "zh": "十一层架构的最小切片",
+    "en": "The smallest slice of the eleven layers"
+  },
+  "engineVersion": "OriEra Engine · kernel v1",
+  "entry": "index.html",
+  "builtAt": "2026-10-29",
+  "sourceCommit": "8073c82",
+  "generator": "scripts/build-manifests.mjs v1",
+  "files": 2,
+  "bytes": 8186
+}

@@ -1,0 +1,18 @@
+{
+  "slug": "ai-cafe",
+  "title": {
+    "zh": "隅角咖啡馆",
+    "en": "Corner Café"
+  },
+  "tagline": {
+    "zh": "三个 NPC 记得你说过的每一句话",
+    "en": "Three NPCs who remember every word you say"
+  },
+  "engineVersion": "OriEra Engine · kernel v1",
+  "entry": "index.html",
+  "builtAt": "2026-10-29",
+  "sourceCommit": "8073c82",
+  "generator": "scripts/build-manifests.mjs v1",
+  "files": 9,
+  "bytes": 2061412
+}

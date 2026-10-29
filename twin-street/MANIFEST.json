@@ -1,0 +1,18 @@
+{
+  "slug": "twin-street",
+  "title": {
+    "zh": "平行街20号",
+    "en": "20 Parallel Street"
+  },
+  "tagline": {
+    "zh": "同一条街，两种规则",
+    "en": "One street, two sets of rules"
+  },
+  "engineVersion": "OriEra Engine · kernel v2",
+  "entry": "index.html",
+  "builtAt": "2026-10-29",
+  "sourceCommit": "8073c82",
+  "generator": "scripts/build-manifests.mjs v1",
+  "files": 13,
+  "bytes": 2036452
+}

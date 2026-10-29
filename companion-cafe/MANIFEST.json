@@ -1,0 +1,18 @@
+{
+  "slug": "companion-cafe",
+  "title": {
+    "zh": "证忆咖啡馆",
+    "en": "Café of Witnessed Memories"
+  },
+  "tagline": {
+    "zh": "她忘了账本，没忘你",
+    "en": "She forgot the ledger, not you"
+  },
+  "engineVersion": "OriEra Engine · kernel v2",
+  "entry": "index.html",
+  "builtAt": "2026-10-29",
+  "sourceCommit": "8073c82",
+  "generator": "scripts/build-manifests.mjs v1",
+  "files": 13,
+  "bytes": 2020678
+}
