@@ -61,7 +61,57 @@ export class MemoryStore {
   lenTotal() { return Object.values(this.mem).reduce((a, v) => a + v.length, 0); }
   clear() { this.mem = {}; if (typeof localStorage !== "undefined") localStorage.removeItem(this.persistKey); }
   export() { return JSON.stringify(this.mem, null, 2); }
-  _save() { if (typeof localStorage !== "undefined") localStorage.setItem(this.persistKey, JSON.stringify(this.mem)); }
+  _save() {
+    if (typeof localStorage === "undefined") return;
+    // 配额溢出(QuotaExceededError)曾把异常一路抛穿 setInterval 泵,
+    // 整个咖啡馆停摆——持久化失败只降级,内存态照常运转(评审 P2)。
+    try { localStorage.setItem(this.persistKey, JSON.stringify(this.mem)); }
+    catch { /* 配额满:丢持久化不致命 */ }
+  }
+}
+
+/* ---------- L9 · GoalLog：目标追踪（#104 批③，goal.rs 对镜） ----------
+ * success_when 用 story 的 `var op 整数` 语法（>= <= > < == !=）；
+ * 完成/受挫各一次性记账；受挫可选写入 MemoryStore（world 视角
+ * importance 4——NPC 会「记住」世界没做成什么，情绪闭环同 Rust）。
+ * ---------------------------------------------------------------- */
+export class GoalLog {
+  constructor(persistKey = "oriera.goals.v1") {
+    this.goals = []; this.completed = []; this.frustrated = [];
+    this.persistKey = persistKey;
+    try {
+      const saved = JSON.parse(localStorage.getItem(persistKey) || "null");
+      if (saved) { this.goals = saved.goals || []; this.completed = saved.completed || []; this.frustrated = saved.frustrated || []; }
+    } catch { /* 损坏的存档当作空白 */ }
+  }
+  _save() { if (typeof localStorage !== "undefined") localStorage.setItem(this.persistKey, JSON.stringify({ goals: this.goals, completed: this.completed, frustrated: this.frustrated })); }
+  add(goal) { this.goals.push(goal); this._save(); }
+  isCompleted(id) { return this.completed.some(([g]) => g === id); }
+  _eval(vars, expr) {
+    const m = /^\s*([A-Za-z0-9_]+)\s*(>=|<=|>|<|==|!=)\s*(-?\d+)\s*$/.exec(String(expr));
+    if (!m) return false;
+    const a = Number(vars?.[m[1]]);
+    if (Number.isNaN(a)) return false;
+    const b = Number(m[3]);
+    return { ">=": a >= b, "<=": a <= b, ">": a > b, "<": a < b, "==": a === b, "!=": a !== b }[m[2]];
+  }
+  /** 评估所有未完结目标，返回本次新完成的 id 列表。vars 为普通对象
+   *  （数值/可数值化）；mem 传 MemoryStore 时受挫写 world 记忆。 */
+  evaluate(vars, turn, mem) {
+    const newlyDone = [];
+    for (const g of this.goals) {
+      if (this.isCompleted(g.id) || this.frustrated.some(([gid]) => gid === g.id)) continue;
+      if (this._eval(vars, g.success_when)) {
+        this.completed.push([g.id, turn]); newlyDone.push(g.id); this._save();
+        continue;
+      }
+      if (g.deadline_turn != null && turn > g.deadline_turn) {
+        this.frustrated.push([g.id, turn]); this._save();
+        if (mem) mem.record("world", { turn, day: 0, about: "world", text: `目标受挫：${g.description}`, imp: 4 });
+      }
+    }
+    return newlyDone;
+  }
 }
 
 /* ---------- L7 · ModelProvider：创作者自选大模型 ----------
@@ -184,6 +234,112 @@ export class HttpChatProvider {
       }
     }
   }
+  /** #105：SSE 流式——文本增量按到达序经 opts.onChunk(text) 逐拍回调
+   * （UI 打字机渲染钩子），返回完整增量数组。usage 终帧记账与 complete
+   * 同源（total=in+out；谎报厂商缓存按 prompt 钳制）。流式不做传输层
+   * 自动重试（增量已交付，重放会重复）——失败按 breaker 记账后原样抛。 */
+  async completeStream(messages, opts = {}) {
+    if (!this.ready) throw new Error("no key");
+    const bk = this.breaker;
+    if (bk.state === "open") {
+      if (Date.now() < bk.openUntil) {
+        throw new Error("breaker open — failing fast (provider cooling down)");
+      }
+      bk.state = "half-open";
+    }
+    this.stats.calls++;
+    const anthropic = this.cfg.kind === "anthropic";
+    const url = ((this.cfg.base || "") + (anthropic ? "/messages" : "/chat/completions"));
+    const headers = { "Content-Type": "application/json" };
+    if (anthropic) {
+      headers["x-api-key"] = this.cfg.key;
+      headers["anthropic-version"] = "2023-06-01";
+      headers["anthropic-dangerous-direct-browser-access"] = "true";
+    } else headers["Authorization"] = "Bearer " + this.cfg.key;
+    const body = anthropic
+      ? JSON.stringify({ model: this.cfg.model, max_tokens: opts.max ?? 260, stream: true,
+          system: messages.filter(m => m.role === "system").map(m => m.content).join("\n"),
+          messages: messages.filter(m => m.role !== "system").map(m => ({ role: m.role, content: m.content })) })
+      : JSON.stringify({ model: this.cfg.model, messages,
+          temperature: opts.temp ?? 0.85, max_tokens: opts.max ?? 260,
+          stream: true, stream_options: { include_usage: true },
+          ...(opts.seed !== undefined ? { seed: opts.seed } : {}),
+          ...(opts.thinking ? { thinking: opts.thinking } : {}) });
+    let r;
+    try {
+      r = await fetch(url, { method: "POST", headers, body, signal: AbortSignal.timeout(opts.timeout ?? 60000) });
+    } catch (e) {
+      this.countStreamFailure_(e); throw e;
+    }
+    if (!r.ok) {
+      let errText = "";
+      try { errText = await r.text(); } catch { /* 错误体不可读就只报状态码 */ }
+      const err = new Error("HTTP " + r.status + (errText ? "： " + errText.slice(0, 120) : ""));
+      this.countStreamFailure_(err); throw err;
+    }
+    const chunks = [];
+    const reader = r.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "", usage = null;
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let nl;
+        while ((nl = buf.indexOf("\n")) >= 0) {
+          const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
+          if (!line.startsWith("data:")) continue;
+          const payload = line.slice(5).trim();
+          if (payload === "[DONE]") continue;
+          let v; try { v = JSON.parse(payload); } catch { continue; }
+          if (anthropic) {
+            if (v.type === "content_block_delta" && v.delta && v.delta.text) {
+              chunks.push(v.delta.text); if (opts.onChunk) opts.onChunk(v.delta.text);
+            } else if (v.type === "message_start") {
+              const u = (v.message && v.message.usage) || {};
+              usage = { in: u.input_tokens ?? 0, out: 0, cached: u.cache_read_input_tokens ?? 0 };
+            } else if (v.type === "message_delta" && v.usage) {
+              usage = { in: (usage && usage.in) || 0, out: v.usage.output_tokens ?? 0, cached: (usage && usage.cached) || 0 };
+            }
+          } else {
+            const t = v.choices && v.choices[0] && v.choices[0].delta && v.choices[0].delta.content;
+            if (t) { chunks.push(t); if (opts.onChunk) opts.onChunk(t); }
+            if (v.usage) {
+              const pin = v.usage.prompt_tokens ?? 0;
+              usage = { in: pin, out: v.usage.completion_tokens ?? 0,
+                cached: Math.min(v.usage.prompt_cache_hit_tokens ?? 0, pin) };
+            }
+          }
+        }
+      }
+    } catch (e) {
+      this.countStreamFailure_(e); throw e;
+    }
+    if (!chunks.length) {
+      const err = new Error("stream carried no text deltas (200 but empty SSE body)");
+      this.countStreamFailure_(err); throw err;
+    }
+    if (usage) {
+      this.stats.tokens = (this.stats.tokens || 0) + ((usage.in + usage.out) || 0);
+      this.stats.cached = (this.stats.cached || 0) + (usage.cached || 0);
+    }
+    bk.state = "closed"; bk.consecutiveFailures = 0; bk.openUntil = 0; bk.successes++;
+    return chunks;
+  }
+  /** B7 对镜：流式失败一次记账（与 complete 的调用级口径一致）。 */
+  countStreamFailure_(err) {
+    this.stats.errors++;
+    const bk = this.breaker;
+    bk.failures++;
+    if (HttpChatProvider.tripsBreaker(err)) {
+      bk.consecutiveFailures++;
+      if (bk.consecutiveFailures >= this.breakerThreshold || bk.state === "half-open") {
+        bk.state = "open";
+        bk.openUntil = Date.now() + this.breakerCooldownMs;
+      }
+    }
+  }
 }
 /** 兼容旧名 */
 export class ZhipuProvider {
@@ -221,6 +377,9 @@ export class ZhipuProvider {
 /** B4（与 Rust fit_budget 逐条对镜）：易变 user 消息的确定性裁剪——
  * 头部必保，最旧对话先删，再删最旧记忆；同输入同裁剪，回放可比。 */
 export const fitBudget = (user, budget) => {
+  // Rust 侧剥除同款:粘贴的 \r\n 会留下 \r,破坏两端
+  // 字节稳定的缓存前缀契约(评审 P3)。
+  user = String(user).replace(/\r/g, "");
   // 与 Rust chars() 对镜：按 Unicode 码点计/裁（[...l] 展开），emoji
   // 不再一个算两个，硬裁也不会切碎代理对（评审 P1-2）。
   const count = lines => lines.reduce((a, l) => a + [...l].length + 1, 0);
@@ -300,7 +459,10 @@ ${guest ? "（客人刚说完，请回应客人）" : `（请对${partner.name}�
         const j = extractJSON(out) || {};
         let say = String(j.say || "……").slice(0, 140);
         // 模型常把称呼拼进台词开头，去掉一次重复
-        say = say.replace(new RegExp("^" + (j.to || partner.name) + "[，,、:\s]*"), "");
+        // 模型可控文本先进元字符转义——曾让含 (/[ 等字符的称呼直接
+        // SyntaxError,已付费的成功回复被整个丢弃退回规则库(评审 P2)
+        const toName = String(j.to || partner.name).replace(/[\.*+?^${}()|[\\]]/g, "\\$&");
+        say = say.replace(new RegExp("^" + toName + "[，,、:\s]*"), "");
         res = {
           say,
           action: ACTIONS.includes(j.action) ? j.action : "idle",
@@ -445,6 +607,7 @@ export class CommandQueue {
     const tail = this.queue[this.queue.length - 1];
     if (tail && cmd.kind === "spawn" && tail.kind === "spawn") { tail.n += cmd.n; this.coalesced++; return; }
     if (tail && cmd.kind === "count" && tail.kind === "count") { this.coalesced++; return; }
+    if (tail && cmd.kind === "gravity" && tail.kind === "gravity") { tail.g = cmd.g; this.coalesced++; return; }
     this.queue.push(cmd);
   }
   get pending() { return this.queue.length; }
@@ -483,6 +646,7 @@ export const PROVIDER_PRESETS = {
   openrouter:  { label: "OpenRouter",     base: "https://openrouter.ai/api/v1",          model: "openrouter/auto" },
   anthropic:   { label: "Anthropic",      base: "https://api.anthropic.com/v1",          model: "claude-3-5-haiku-latest",
                  caps: { contextWindow: 200000, tools: true, imageInput: true, promptCache: true } },
+  doubao:      { label: "豆包 · 火山方舟", base: "https://ark.cn-beijing.volces.com/api/v3",  model: "doubao-seed-1.6" },
   ollama:      { label: "Ollama 本地",     base: "http://127.0.0.1:11434/v1",             model: "qwen3:8b", local: true,
                  caps: { structuredOutput: true, tools: true } },
   vllm:        { label: "vLLM 本地",       base: "http://127.0.0.1:8000/v1",              model: "Qwen/Qwen3-8B", local: true,
