@@ -1,0 +1,18 @@
+{
+  "slug": "full-arch",
+  "title": {
+    "zh": "全架构漫游",
+    "en": "Full Architecture Tour"
+  },
+  "tagline": {
+    "zh": "一页看尽十一层",
+    "en": "All eleven layers on one page"
+  },
+  "engineVersion": "OriEra Engine · kernel v1",
+  "entry": "index.html",
+  "builtAt": "2026-10-29",
+  "sourceCommit": "8073c82",
+  "generator": "scripts/build-manifests.mjs v1",
+  "files": 2,
+  "bytes": 10239
+}

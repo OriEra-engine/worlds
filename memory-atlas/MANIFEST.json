@@ -1,0 +1,18 @@
+{
+  "slug": "memory-atlas",
+  "title": {
+    "zh": "记忆星图",
+    "en": "Memory Atlas"
+  },
+  "tagline": {
+    "zh": "把一段关系画成星座",
+    "en": "Draw a relationship as constellations"
+  },
+  "engineVersion": "OriEra Engine · kernel v1",
+  "entry": "index.html",
+  "builtAt": "2026-10-29",
+  "sourceCommit": "8073c82",
+  "generator": "scripts/build-manifests.mjs v1",
+  "files": 2,
+  "bytes": 15094
+}

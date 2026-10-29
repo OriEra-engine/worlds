@@ -1,0 +1,18 @@
+{
+  "slug": "action-cut",
+  "title": {
+    "zh": "言出开机",
+    "en": "Speak, Action"
+  },
+  "tagline": {
+    "zh": "对世界说「开机」",
+    "en": "Say \"action\" to the world"
+  },
+  "engineVersion": "OriEra Engine · kernel v2",
+  "entry": "index.html",
+  "builtAt": "2026-10-29",
+  "sourceCommit": "8073c82",
+  "generator": "scripts/build-manifests.mjs v1",
+  "files": 14,
+  "bytes": 2039730
+}

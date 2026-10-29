@@ -1,0 +1,18 @@
+{
+  "slug": "tutor-room",
+  "title": {
+    "zh": "可回放辅导舱",
+    "en": "Replayable Tutoring Pod"
+  },
+  "tagline": {
+    "zh": "每一帧教学决策都可审计",
+    "en": "Every teaching decision is auditable"
+  },
+  "engineVersion": "OriEra Engine · kernel v2",
+  "entry": "index.html",
+  "builtAt": "2026-10-29",
+  "sourceCommit": "8073c82",
+  "generator": "scripts/build-manifests.mjs v1",
+  "files": 13,
+  "bytes": 2008611
+}

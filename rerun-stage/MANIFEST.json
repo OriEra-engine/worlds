@@ -1,0 +1,18 @@
+{
+  "slug": "rerun-stage",
+  "title": {
+    "zh": "具身复演台",
+    "en": "Embodied Rerun Stage"
+  },
+  "tagline": {
+    "zh": "1068/1068 帧哈希全同",
+    "en": "1068/1068 frames, hashes identical"
+  },
+  "engineVersion": "OriEra Engine · kernel v2",
+  "entry": "index.html",
+  "builtAt": "2026-10-29",
+  "sourceCommit": "8073c82",
+  "generator": "scripts/build-manifests.mjs v1",
+  "files": 14,
+  "bytes": 2030766
+}

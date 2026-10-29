@@ -1,0 +1,18 @@
+{
+  "slug": "blackbox-stage",
+  "title": {
+    "zh": "黑匣片场",
+    "en": "Blackbox Stage"
+  },
+  "tagline": {
+    "zh": "一令一镜，帧帧有底片",
+    "en": "One command, one shot — every frame keeps its negative"
+  },
+  "engineVersion": "OriEra Engine · kernel v2",
+  "entry": "index.html",
+  "builtAt": "2026-10-29",
+  "sourceCommit": "8073c82",
+  "generator": "scripts/build-manifests.mjs v1",
+  "files": 14,
+  "bytes": 2031931
+}

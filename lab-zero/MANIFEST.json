@@ -1,0 +1,18 @@
+{
+  "slug": "lab-zero",
+  "title": {
+    "zh": "零号实验室",
+    "en": "Lab Zero"
+  },
+  "tagline": {
+    "zh": "面对复现危机的实验台",
+    "en": "A bench built for the replication crisis"
+  },
+  "engineVersion": "OriEra Engine · kernel v2",
+  "entry": "index.html",
+  "builtAt": "2026-10-29",
+  "sourceCommit": "8073c82",
+  "generator": "scripts/build-manifests.mjs v1",
+  "files": 13,
+  "bytes": 2056696
+}
