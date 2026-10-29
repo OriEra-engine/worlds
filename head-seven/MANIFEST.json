@@ -11,8 +11,17 @@
   "engineVersion": "OriEra Engine · kernel v2",
   "entry": "index.html",
   "builtAt": "2026-10-29",
-  "sourceCommit": "8073c82",
+  "sourceCommit": "a2c636a3f5c8",
   "generator": "scripts/build-manifests.mjs v1",
   "files": 12,
-  "bytes": 2005342
+  "bytes": 2006316,
+  "provenance": {
+    "designSnapshots": [
+      "agents.json",
+      "game.json",
+      "provider.json",
+      "story.json"
+    ],
+    "note": "设计源档,与 index.html 内联数据字节同步;运行时零加载,原地保留"
+  }
 }

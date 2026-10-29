@@ -11,8 +11,8 @@
   "engineVersion": "OriEra Engine · kernel v1",
   "entry": "index.html",
   "builtAt": "2026-10-29",
-  "sourceCommit": "8073c82",
+  "sourceCommit": "a2c636a3f5c8",
   "generator": "scripts/build-manifests.mjs v1",
   "files": 2,
-  "bytes": 7765
+  "bytes": 7778
 }
