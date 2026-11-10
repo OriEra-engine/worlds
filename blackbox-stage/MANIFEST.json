@@ -9,12 +9,23 @@
     "en": "One command, one shot — every frame keeps its negative"
   },
   "engineVersion": "OriEra Engine · kernel v2",
+  "license": {
+    "spdx": "CC-BY-NC-SA-4.0",
+    "allowDerivative": true,
+    "allowCommercial": false,
+    "note": "内嵌 three.js(MIT)及其示例资产,各自保留原许可,声明见作品目录"
+  },
+  "origin": {
+    "kind": "original",
+    "author": "北京潜元无限智能科技(OriEra)",
+    "authorConfirmed": true
+  },
   "entry": "index.html",
-  "builtAt": "2026-10-29",
-  "sourceCommit": "a2c636a3f5c8",
-  "generator": "scripts/build-manifests.mjs v1",
+  "builtAt": "2026-11-10",
+  "sourceCommit": "762702d22abd",
+  "generator": "scripts/build-manifests.mjs v2",
   "files": 14,
-  "bytes": 2033108,
+  "bytes": 2033685,
   "provenance": {
     "designSnapshots": [
       "agents.json",
