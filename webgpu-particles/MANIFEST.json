@@ -9,10 +9,20 @@
     "en": "A WebGPU stress field of a hundred thousand particles"
   },
   "engineVersion": "OriEra Engine · kernel v1",
+  "license": {
+    "spdx": "CC-BY-NC-SA-4.0",
+    "allowDerivative": true,
+    "allowCommercial": false
+  },
+  "origin": {
+    "kind": "original",
+    "author": "北京潜元无限智能科技(OriEra)",
+    "authorConfirmed": true
+  },
   "entry": "index.html",
-  "builtAt": "2026-10-29",
-  "sourceCommit": "a2c636a3f5c8",
-  "generator": "scripts/build-manifests.mjs v1",
+  "builtAt": "2026-11-10",
+  "sourceCommit": "762702d22abd",
+  "generator": "scripts/build-manifests.mjs v2",
   "files": 2,
-  "bytes": 7778
+  "bytes": 8001
 }

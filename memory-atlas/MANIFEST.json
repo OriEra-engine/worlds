@@ -9,10 +9,21 @@
     "en": "Draw a relationship as constellations"
   },
   "engineVersion": "OriEra Engine · kernel v1",
+  "license": {
+    "spdx": "Apache-2.0",
+    "allowDerivative": true,
+    "allowCommercial": true
+  },
+  "origin": {
+    "kind": "original",
+    "author": "@airbate",
+    "authorConfirmed": false,
+    "note": "社区首个外部贡献(引擎 PR #53);按引擎仓 Apache-2.0 + DCO 先行发布,待作者明确确认"
+  },
   "entry": "index.html",
-  "builtAt": "2026-10-29",
-  "sourceCommit": "a2c636a3f5c8",
-  "generator": "scripts/build-manifests.mjs v1",
+  "builtAt": "2026-11-10",
+  "sourceCommit": "762702d22abd",
+  "generator": "scripts/build-manifests.mjs v2",
   "files": 2,
-  "bytes": 15107
+  "bytes": 15415
 }
